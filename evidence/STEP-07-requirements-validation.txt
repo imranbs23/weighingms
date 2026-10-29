@@ -1,0 +1,75 @@
+--- Required sections ---
+OK    # Functional Requirements
+OK    # Non-Functional Requirements
+OK    # Confirmed Requirements
+OK    # Assumptions
+OK    # Unresolved Questions
+OK    # Training-Only Dummy Behaviour
+OK    # Constraints
+OK    # Dependencies
+OK    # Acceptance Criteria Trace
+
+--- Functional requirements: 23 found ---
+OK    FR Batch queue retrieval and display                    desc:y ac:y pri:y trace:y
+OK    FR Batch selection by barcode or touch                  desc:y ac:y pri:y trace:y
+OK    FR Recipe retrieval and component list                  desc:y ac:y pri:y trace:y
+OK    FR Component identification and dyestuff identity verif desc:y ac:y pri:y trace:y
+OK    FR Dyestuff lot capture                                 desc:y ac:y pri:y trace:y
+OK    FR Container assignment and tare handling               desc:y ac:y pri:y trace:y
+OK    FR Automatic scale selection                            desc:y ac:y pri:y trace:y
+OK    FR Live weight stream and guided dispensing             desc:y ac:y pri:y trace:y
+OK    FR Tolerance zones and status signalling                desc:y ac:y pri:y trace:y
+OK    FR Confirmation gating                                  desc:y ac:y pri:y trace:y
+OK    FR Over-dose detection, overshoot and surplus calculati desc:y ac:y pri:y trace:y
+OK    FR Surplus compensation                                 desc:y ac:y pri:y trace:y
+OK    FR Non-compensable over-dose escalation                 desc:y ac:y pri:y trace:y
+OK    FR Component progression                                desc:y ac:y pri:y trace:y
+OK    FR Batch completion summary                             desc:y ac:y pri:y trace:y
+OK    FR OrgaTEX write-back                                   desc:y ac:y pri:y trace:y
+OK    FR Weighing ticket generation                           desc:y ac:y pri:y trace:y
+OK    FR Operator identification and traceability             desc:y ac:y pri:y trace:y
+OK    FR Peripheral status and failure handling               desc:y ac:y pri:y trace:y
+OK    FR Offline operation and deferred synchronisation       desc:y ac:y pri:y trace:y
+OK    FR Privileged actions and audit trail                   desc:y ac:y pri:y trace:y
+OK    FR Configuration and localisation                       desc:y ac:y pri:y trace:y
+OK    FR Operational reporting                                desc:y ac:y pri:y trace:y
+
+--- Workbook Step 7 area coverage ---
+OK    Batch queue                  -> FR-1
+OK    Batch selection              -> FR-2
+OK    Recipe loading               -> FR-3
+OK    Component identification     -> FR-4
+OK    Dyestuff lot                 -> FR-5
+OK    Container                    -> FR-6
+OK    Tare                         -> FR-6
+OK    Scale selection              -> FR-7
+OK    Live weight                  -> FR-8
+OK    Target quantity              -> FR-8
+OK    Remaining quantity           -> FR-8
+OK    Tolerance                    -> FR-9
+OK    Confirmation                 -> FR-10
+OK    Overshoot                    -> FR-11
+OK    Component progression        -> FR-14
+OK    Batch completion             -> FR-15
+OK    OrgaTEX write-back           -> FR-16
+OK    Ticket generation            -> FR-17
+OK    Operator traceability        -> FR-18
+OK    Scale/scanner/printer failure -> FR-19
+
+--- NFR rows with a target column: 18 ---
+
+--- Separation of categories ---
+OK    Confirmed requirements section
+OK    Assumptions section
+OK    Unresolved questions section
+OK    Training-only section
+
+--- Dummy APIs documented: 4/4 ---
+--- BRD assumption IDs present: 15/15 ---
+--- AC rows present: 14/14 ---
+
+ALL REQUIREMENT CHECKS PASSED
+
+=== Artifact ===
+-rw-r--r-- 1 BS01237 197121 40366 Oct 29 19:31 memory-bank/intents/001-assisted-dyestuff-weighing-station/requirements.md
+615 memory-bank/intents/001-assisted-dyestuff-weighing-station/requirements.md
