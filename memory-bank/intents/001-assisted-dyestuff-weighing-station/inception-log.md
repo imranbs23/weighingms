@@ -23,7 +23,7 @@ status: in-progress
 
 | Artifact | Status | File |
 |----------|--------|------|
-| Requirements | ✅ Approved (Checkpoint 1) | requirements.md |
+| Requirements | ✅ Approved (Checkpoint 2) | requirements.md |
 | System Context | ⬜ Pending | system-context.md |
 | Units | ⬜ Pending | units.md |
 | Stories | ⬜ Pending | units/{unit}/stories/*.md |
@@ -33,8 +33,12 @@ status: in-progress
 
 | Metric | Count |
 |--------|-------|
-| Functional Requirements | 0 (elaborated in Step 7) |
-| Non-Functional Requirements | 13 (summary; detailed in Step 7) |
+| Functional Requirements | 23 |
+| Non-Functional Requirements | 7 groups (18 metric rows) |
+| Confirmed Requirements | 14 |
+| Binding Assumptions | 10 |
+| Unresolved Questions | 12 |
+| Dummy APIs | 4 |
 | Units | 0 |
 | Stories | 0 |
 | Bolts Planned | 0 |
@@ -72,6 +76,46 @@ continuous 10 Hz scale stream is assumed, so the live readout and progress bar a
 built as drawn in the supplied prototype. The confirm-and-add fallback was
 considered and rejected for this build; it remains the documented contingency if
 A-05 is found invalid (BRD R-02).
+
+### Checkpoint 2 — Requirements Approved
+
+**Date**: 2026-10-29
+**Outcome**: APPROVED
+
+23 functional requirements and 7 non-functional requirement groups, each traced to
+the BRD requirement IDs or to the specific prototype behaviour it derives from.
+
+Verified automatically by `scripts/verify-requirements.cjs`:
+
+- All 20 workbook-mandated functional areas are covered
+- Every FR carries a description, binary acceptance criteria, a priority and a traceability line
+- All 14 BRD acceptance criteria (AC-01…AC-14) are accounted for
+- All 15 BRD assumption IDs are carried forward
+- All 4 Dummy APIs are documented as training contracts
+- Confirmed requirements, assumptions, unresolved questions and training-only behaviour are in separate sections
+
+### Revisions made during Step 7
+
+Three genuine specification gaps were found by the verifier and closed before
+approval:
+
+| Area | Gap | Fix |
+|---|---|---|
+| FR-3 | Recipe was retrieved but never stated to be **loaded into the weighing session** as the source of truth for what to weigh | Added an explicit acceptance criterion |
+| FR-11 | Over-dose behaviour described, but the prototype's own term "overshoot" was absent and the overshoot simulation was not required of the Dummy Scale | Renamed the FR to include overshoot; added the overshoot boundary and the simulation requirement |
+| FR-19 | Peripheral **status** was specified but **failure** behaviour was not | Added scale failure (block confirmation, ≤2 s), scanner failure (report, do not silently skip) and printer failure (queue ticket for reprint) |
+
+### Carried forward as not satisfiable in this build
+
+| Criterion | Why | Reference |
+|---|---|---|
+| AC-10 | Ticket content is a training artefact — the prototype states "Label content is invented" | Q-11, A-04 |
+| AC-11 | Requires a real operator achieving competence within one shift | A-14 |
+| AC-12 | Requires a paper-process baseline that does not exist yet | A-13, A-14 |
+
+Printer language and barcode symbology were deliberately **not** invented, so the
+Dummy Printer stays unambiguous in its inputs while leaving the physical choice
+to FCI.
 
 ## Scope Changes
 

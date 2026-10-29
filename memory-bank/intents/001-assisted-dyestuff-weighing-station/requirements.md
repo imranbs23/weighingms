@@ -1,15 +1,15 @@
 ---
 intent: 001-assisted-dyestuff-weighing-station
 phase: inception
-status: in-progress
+status: approved
 created: 2026-10-29T13:20:00Z
-updated: 2026-10-29T13:30:00Z
+updated: 2026-10-29T13:40:00Z
 ---
 
 # Requirements: Assisted Dyestuff Weighing Station
 
 > **Intent approved at Checkpoint 1 (2026-10-29).**
-> Detailed requirements below await Checkpoint 2 approval.
+> **Requirements approved at Checkpoint 2 (2026-10-29).**
 
 ## Intent Overview
 
@@ -609,7 +609,6 @@ a claim about the real OrgaTEX, scale, scanner or printer.
 
 ## Next Steps
 
-1. **Checkpoint 2** — validate and approve these Requirements
-2. **Step 8** — analyse the UI prototype as a functional prototype
-3. **Steps 9–10** — System Context, then Unit decomposition
-4. **Steps 11–12** — Stories, then Bolt plan
+1. **Step 8** — analyse the UI prototype as a functional prototype
+2. **Steps 9–10** — System Context, then Unit decomposition
+3. **Steps 11–12** — Stories, then Bolt plan
