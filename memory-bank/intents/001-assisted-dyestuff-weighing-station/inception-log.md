@@ -23,7 +23,7 @@ status: in-progress
 
 | Artifact | Status | File |
 |----------|--------|------|
-| Requirements | 🔶 Draft | requirements.md |
+| Requirements | ✅ Approved (Checkpoint 1) | requirements.md |
 | System Context | ⬜ Pending | system-context.md |
 | Units | ⬜ Pending | units.md |
 | Stories | ⬜ Pending | units/{unit}/stories/*.md |
@@ -56,6 +56,22 @@ status: in-progress
 | 2026-10-29 | Dummy Scale delivers weight over **Server-Sent Events at 10 Hz** | IR-10 requires a continuous stream; NFR-01 budgets 200 ms lag. SSE avoids spending latency budget on polling overhead | Pending |
 | 2026-10-29 | Dummy APIs treated as **training contracts behind the adapter boundary**, never as assumed real contracts | BRD IR-07 requires OrgaTEX interaction to be confined to one replaceable component; the BRD's own interface questions (A-01, A-02) are unresolved | Pending |
 | 2026-10-29 | Intent explicitly states that WeighingMS **does not replace OrgaTEX** | BRD C-01, C-02; the Product Brief's example correction at Checkpoint 1 reinforces this boundary | Pending |
+
+### Checkpoint 1 — Intent Approved
+
+**Date**: 2026-10-29
+**Outcome**: APPROVED
+
+All seven workbook criteria confirmed against the generated Intent: business problem,
+primary user, desired outcome, scope, UI/UX as a source, dummy integrations, and
+identified unknowns.
+
+All decisions recorded above are approved as written. The following carried
+assumption was explicitly reviewed and confirmed at Checkpoint 1: **A-05** — the
+continuous 10 Hz scale stream is assumed, so the live readout and progress bar are
+built as drawn in the supplied prototype. The confirm-and-add fallback was
+considered and rejected for this build; it remains the documented contingency if
+A-05 is found invalid (BRD R-02).
 
 ## Scope Changes
 
