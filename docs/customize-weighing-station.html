@@ -1,0 +1,870 @@
+<title>WeighingMS — Operator Terminal Mockup</title>
+
+<style>
+  /* ── Tokens ─────────────────────────────────────────────────────────
+     Page chrome follows the viewer's theme. The device screen does not:
+     it depicts a physical HMI panel, so it stays dark in both themes.  */
+  :root {
+    --page-bg:      #f2f3f5;
+    --page-panel:   #ffffff;
+    --page-ink:     #171c22;
+    --page-muted:   #5d6874;
+    --page-line:    #d8dde3;
+    --page-accent:  #2f6f7d;
+    --page-accent-soft: #e2eef0;
+    --pin:          #c2571f;
+    --pin-ink:      #ffffff;
+
+    /* Device panel — constant across themes */
+    --hmi-bezel:    #0a0d11;
+    --hmi-bg:       #12161c;
+    --hmi-panel:    #1a2029;
+    --hmi-panel-2:  #212936;
+    --hmi-line:     #2c3644;
+    --hmi-ink:      #e9eef4;
+    --hmi-muted:    #8998a9;
+    --hmi-dim:      #63717f;
+    --ok:           #2fbf6b;
+    --warn:         #f0a726;
+    --over:         #e8503a;
+    --steel:        #5b8cc4;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page-bg:     #0f1216;
+      --page-panel:  #171b21;
+      --page-ink:    #e6eaef;
+      --page-muted:  #97a2ae;
+      --page-line:   #262d36;
+      --page-accent: #6fb5c4;
+      --page-accent-soft: #1a2b30;
+      --pin:         #e07a3f;
+      --pin-ink:     #16110c;
+    }
+  }
+  :root[data-theme="light"] {
+    --page-bg:     #f2f3f5;
+    --page-panel:  #ffffff;
+    --page-ink:    #171c22;
+    --page-muted:  #5d6874;
+    --page-line:   #d8dde3;
+    --page-accent: #2f6f7d;
+    --page-accent-soft: #e2eef0;
+    --pin:         #c2571f;
+    --pin-ink:     #ffffff;
+  }
+  :root[data-theme="dark"] {
+    --page-bg:     #0f1216;
+    --page-panel:  #171b21;
+    --page-ink:    #e6eaef;
+    --page-muted:  #97a2ae;
+    --page-line:   #262d36;
+    --page-accent: #6fb5c4;
+    --page-accent-soft: #1a2b30;
+    --pin:         #e07a3f;
+    --pin-ink:     #16110c;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--page-bg);
+    color: var(--page-ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+
+  /* ── Page header ─────────────────────────────────────────────── */
+  .masthead { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--page-accent); font-weight: 650;
+  }
+  h1 {
+    margin: 0; font-size: clamp(24px, 3.4vw, 34px); line-height: 1.15;
+    letter-spacing: -.015em; text-wrap: balance; font-weight: 680;
+  }
+  .standfirst {
+    margin: 0; max-width: 66ch; color: var(--page-muted); font-size: 15.5px;
+  }
+  .draft-flag {
+    display: inline-flex; align-items: center; gap: 8px;
+    align-self: flex-start;
+    padding: 5px 11px; border-radius: 3px;
+    background: var(--page-accent-soft);
+    border: 1px solid color-mix(in srgb, var(--page-accent) 30%, transparent);
+    font-size: 12.5px; color: var(--page-ink);
+  }
+  .draft-flag b { font-weight: 650; }
+
+  /* ── Controls ────────────────────────────────────────────────── */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 12px; border: 1px solid var(--page-line);
+    background: var(--page-panel); border-radius: 4px;
+  }
+  .ctl-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--page-muted); font-weight: 650; margin-right: 2px;
+  }
+  .seg { display: flex; border: 1px solid var(--page-line); border-radius: 3px; overflow: hidden; }
+  .seg button {
+    appearance: none; border: 0; background: transparent; cursor: pointer;
+    font: inherit; font-size: 13px; padding: 7px 14px; color: var(--page-muted);
+    border-right: 1px solid var(--page-line);
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--page-accent); color: #fff; }
+  .btn {
+    appearance: none; cursor: pointer; font: inherit; font-size: 13px;
+    padding: 7px 14px; border-radius: 3px;
+    border: 1px solid var(--page-line); background: var(--page-panel);
+    color: var(--page-ink);
+  }
+  .btn:hover { border-color: var(--page-accent); }
+  .btn.primary { background: var(--page-accent); border-color: var(--page-accent); color: #fff; }
+  .spacer { flex: 1 1 auto; }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+  button:focus-visible, input:focus-visible, .comp:focus-visible {
+    outline: 2px solid var(--page-accent); outline-offset: 2px;
+  }
+
+  /* ── Device ──────────────────────────────────────────────────── */
+  .device {
+    background: var(--hmi-bezel);
+    border-radius: 10px;
+    padding: 16px 16px 30px;
+    box-shadow: 0 18px 40px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06);
+    position: relative;
+  }
+  .device::after {
+    content: "15\0022  INDUSTRIAL TOUCH TERMINAL";
+    position: absolute; bottom: 9px; left: 0; right: 0; text-align: center;
+    font-family: var(--mono); font-size: 9px; letter-spacing: .18em; color: #3d4753;
+  }
+  .screen {
+    background: var(--hmi-bg); color: var(--hmi-ink);
+    border-radius: 3px; overflow: hidden;
+    display: grid; grid-template-rows: auto 1fr auto;
+    min-height: 660px;
+    font-size: 15px;
+  }
+
+  /* Screen top bar */
+  .topbar {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 11px 18px; background: var(--hmi-panel);
+    border-bottom: 1px solid var(--hmi-line);
+  }
+  .brandmark { display: flex; align-items: baseline; gap: 9px; }
+  .brandmark .n { font-weight: 700; letter-spacing: .01em; font-size: 15px; }
+  .brandmark .s { font-family: var(--mono); font-size: 10.5px; color: var(--hmi-dim); letter-spacing: .1em; }
+  .topbar .spacer { flex: 1 1 auto; }
+  .crumb {
+    font-family: var(--mono); font-size: 12px; color: var(--hmi-muted);
+    display: flex; gap: 8px; align-items: center;
+  }
+  .crumb b { color: var(--hmi-ink); font-weight: 600; }
+  .op-chip {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px; color: var(--hmi-muted);
+    padding: 4px 10px; border: 1px solid var(--hmi-line); border-radius: 3px;
+  }
+  .op-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+
+  /* Screen body */
+  .view { display: none; }
+  .view.active { display: block; }
+  .stage { display: grid; grid-template-columns: 340px 1fr; min-height: 520px; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+
+  /* Recipe rail */
+  .rail { border-right: 1px solid var(--hmi-line); background: #151a22; display: flex; flex-direction: column; }
+  .rail-head {
+    padding: 13px 16px 11px; border-bottom: 1px solid var(--hmi-line);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .rail-head .t {
+    font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--hmi-dim); font-weight: 650;
+  }
+  .rail-head .v { font-family: var(--mono); font-size: 17px; font-weight: 600; }
+  .rail-head .m { font-size: 12px; color: var(--hmi-muted); }
+  .comps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .comp {
+    display: grid; grid-template-columns: 8px 1fr auto; gap: 11px; align-items: center;
+    padding: 11px 16px; border-bottom: 1px solid var(--hmi-line);
+    cursor: pointer; background: transparent; border-left: 3px solid transparent;
+    text-align: left; font: inherit; color: inherit; width: 100%;
+  }
+  .comp:hover { background: #1b222c; }
+  .comp[data-state="active"] { background: var(--hmi-panel-2); border-left-color: var(--warn); }
+  .comp[data-state="done"] { opacity: .62; }
+  .swatch { width: 8px; height: 30px; border-radius: 1px; }
+  .comp .nm { font-size: 13.5px; line-height: 1.3; }
+  .comp .sub { font-family: var(--mono); font-size: 10.5px; color: var(--hmi-dim); letter-spacing: .04em; }
+  .comp .qty { font-family: var(--mono); font-size: 13.5px; font-variant-numeric: tabular-nums; text-align: right; }
+  .comp .st { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-align: right; }
+  .comp[data-state="done"] .st { color: var(--ok); }
+  .comp[data-state="active"] .st { color: var(--warn); }
+  .comp[data-state="pending"] .st { color: var(--hmi-dim); }
+
+  /* Weighing stage */
+  .weigh { padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; }
+  .weigh-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .weigh-head .who { display: flex; flex-direction: column; gap: 4px; }
+  .weigh-head .nm { font-size: 21px; font-weight: 650; letter-spacing: -.01em; }
+  .weigh-head .meta { font-family: var(--mono); font-size: 11.5px; color: var(--hmi-muted); letter-spacing: .04em; }
+  .scale-badge {
+    margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+    padding: 8px 13px; border: 1px solid var(--steel); border-radius: 3px;
+    background: rgba(91,140,196,.09);
+  }
+  .scale-badge .k { font-size: 9.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--steel); font-weight: 650; }
+  .scale-badge .v { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+  .scale-badge .auto { font-size: 10px; color: var(--hmi-dim); }
+
+  .readout { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 1px; background: var(--hmi-line); border: 1px solid var(--hmi-line); border-radius: 3px; }
+  @media (max-width: 700px) { .readout { grid-template-columns: 1fr; } }
+  .cell { background: var(--hmi-panel); padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; }
+  .cell .k { font-size: 10px; letter-spacing: .13em; text-transform: uppercase; color: var(--hmi-dim); font-weight: 650; }
+  .cell .v {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 30px; font-weight: 600; letter-spacing: -.02em; line-height: 1;
+  }
+  .cell.live .v { font-size: 52px; }
+  .cell .u { font-size: 15px; color: var(--hmi-muted); font-weight: 400; }
+  .cell.live[data-zone="under"] .v { color: var(--hmi-ink); }
+  .cell.live[data-zone="near"]  .v { color: var(--warn); }
+  .cell.live[data-zone="ok"]    .v { color: var(--ok); }
+  .cell.live[data-zone="over"]  .v { color: var(--over); }
+
+  /* Progress bar */
+  .bar-block { display: flex; flex-direction: column; gap: 8px; }
+  .bar {
+    position: relative; height: 62px; background: var(--hmi-panel);
+    border: 1px solid var(--hmi-line); border-radius: 3px; overflow: hidden;
+  }
+  .fill { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--steel); transition: width .09s linear, background-color .18s ease; }
+  .bar[data-zone="near"] .fill { background: var(--warn); }
+  .bar[data-zone="ok"]   .fill { background: var(--ok); }
+  .bar[data-zone="over"] .fill { background: var(--over); }
+  .band {
+    position: absolute; top: 0; bottom: 0;
+    background: rgba(47,191,107,.16);
+    border-left: 1px solid rgba(47,191,107,.55);
+    border-right: 1px solid rgba(47,191,107,.55);
+  }
+  .target-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--hmi-ink); opacity: .85; }
+  .bar-caption { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--hmi-muted); }
+  .status-line {
+    font-family: var(--mono); font-size: 13px; letter-spacing: .05em;
+    padding: 9px 13px; border-radius: 3px; border: 1px solid var(--hmi-line);
+    background: var(--hmi-panel);
+  }
+  .status-line[data-zone="ok"]   { color: var(--ok);   border-color: rgba(47,191,107,.45); }
+  .status-line[data-zone="over"] { color: var(--over); border-color: rgba(232,80,58,.45); }
+  .status-line[data-zone="near"] { color: var(--warn); border-color: rgba(240,167,38,.45); }
+
+  /* Surplus panel */
+  .surplus {
+    display: none; border: 1px solid rgba(232,80,58,.45); border-radius: 3px;
+    background: rgba(232,80,58,.07); padding: 13px 15px; gap: 9px; flex-direction: column;
+  }
+  .surplus.on { display: flex; }
+  .surplus .h { font-size: 13px; font-weight: 650; color: var(--over); letter-spacing: .02em; }
+  .surplus table { border-collapse: collapse; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .surplus td { padding: 3px 16px 3px 0; color: var(--hmi-muted); }
+  .surplus td.n { color: var(--hmi-ink); }
+  .surplus .arrow { color: var(--warn); }
+
+  /* Action row */
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: auto; }
+  .key {
+    appearance: none; font: inherit; cursor: pointer;
+    min-height: 62px; min-width: 150px; padding: 0 26px;
+    border-radius: 3px; border: 1px solid var(--hmi-line);
+    background: var(--hmi-panel-2); color: var(--hmi-ink);
+    font-size: 16px; font-weight: 600; letter-spacing: .02em;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .key:hover:not(:disabled) { background: #2a3442; }
+  .key:disabled { opacity: .34; cursor: not-allowed; }
+  .key.ok { background: var(--ok); border-color: var(--ok); color: #07240f; }
+  .key.ok:hover:not(:disabled) { background: #35d178; }
+  .key.ghost { background: transparent; }
+  .key .fn { font-family: var(--mono); font-size: 10.5px; color: var(--hmi-dim); font-weight: 400; }
+  .key.ok .fn { color: rgba(7,36,15,.6); }
+
+  /* Status strip */
+  .strip {
+    display: flex; gap: 22px; flex-wrap: wrap; align-items: center;
+    padding: 10px 18px; background: var(--hmi-panel);
+    border-top: 1px solid var(--hmi-line);
+    font-family: var(--mono); font-size: 11px; color: var(--hmi-muted); letter-spacing: .04em;
+  }
+  .stat { display: flex; align-items: center; gap: 7px; }
+  .stat .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot.up { background: var(--ok); }
+  .dot.warnd { background: var(--warn); }
+  .strip .spacer { flex: 1 1 auto; }
+
+  /* Batch-select view */
+  .queue { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .scan-prompt {
+    display: flex; align-items: center; gap: 16px; padding: 20px 22px;
+    border: 1px dashed var(--hmi-line); border-radius: 3px; background: var(--hmi-panel);
+  }
+  .scan-prompt .big { font-size: 19px; font-weight: 600; }
+  .scan-prompt .sm { font-size: 13px; color: var(--hmi-muted); }
+  .beam { width: 46px; height: 46px; border: 2px solid var(--steel); border-radius: 3px; position: relative; flex: none; }
+  .beam::before { content: ""; position: absolute; left: 6px; right: 6px; top: 50%; height: 2px; background: var(--over); animation: scan 2.4s ease-in-out infinite; }
+  @keyframes scan { 0%,100% { transform: translateY(-13px); } 50% { transform: translateY(13px); } }
+  @media (prefers-reduced-motion: reduce) { .beam::before { animation: none; } .fill { transition: none; } }
+
+  table.q { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.q th {
+    text-align: left; font-size: 10px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--hmi-dim); font-weight: 650; padding: 0 12px 8px 0; border-bottom: 1px solid var(--hmi-line);
+  }
+  table.q td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--hmi-line); font-variant-numeric: tabular-nums; }
+  table.q td.mono { font-family: var(--mono); }
+  table.q tr.sel td { background: var(--hmi-panel-2); }
+  .tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .09em;
+    padding: 3px 8px; border-radius: 2px; border: 1px solid var(--hmi-line); color: var(--hmi-muted);
+  }
+  .tag.now { color: var(--warn); border-color: rgba(240,167,38,.5); }
+
+  /* Ticket view */
+  .done-stage { padding: 24px; display: grid; grid-template-columns: 1fr 320px; gap: 24px; }
+  @media (max-width: 820px) { .done-stage { grid-template-columns: 1fr; } }
+  .done-msg { display: flex; flex-direction: column; gap: 14px; }
+  .done-msg .h { font-size: 24px; font-weight: 650; color: var(--ok); }
+  .summary { border: 1px solid var(--hmi-line); border-radius: 3px; }
+  .summary div.r { display: flex; justify-content: space-between; gap: 20px; padding: 10px 14px; border-bottom: 1px solid var(--hmi-line); font-size: 13px; }
+  .summary div.r:last-child { border-bottom: 0; }
+  .summary .k { color: var(--hmi-muted); }
+  .summary .v { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .summary .v.good { color: var(--ok); }
+  .ticket {
+    background: #f6f4ef; color: #14171a; border-radius: 2px; padding: 18px 16px;
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.65;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  }
+  .ticket hr { border: 0; border-top: 1px dashed #9aa0a6; margin: 9px 0; }
+  .ticket .c { text-align: center; }
+  .ticket .bold { font-weight: 700; }
+  .barcode { display: flex; gap: 1.5px; height: 44px; align-items: stretch; margin: 8px 0 4px; }
+  .barcode i { display: block; background: #14171a; }
+
+  /* ── Question pins ───────────────────────────────────────────── */
+  .pin {
+    display: none; align-items: center; justify-content: center;
+    min-width: 21px; height: 21px; padding: 0 5px;
+    border-radius: 11px; background: var(--pin); color: var(--pin-ink);
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    vertical-align: middle; margin-left: 7px; cursor: help;
+    border: 1px solid rgba(255,255,255,.25);
+  }
+  body.pins .pin { display: inline-flex; }
+
+  /* ── Notes ───────────────────────────────────────────────────── */
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; }
+  .note {
+    border: 1px solid var(--page-line); background: var(--page-panel);
+    border-radius: 4px; padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .note h3 { margin: 0; font-size: 13px; letter-spacing: .07em; text-transform: uppercase; color: var(--page-accent); font-weight: 650; }
+  .note p { margin: 0; font-size: 14px; color: var(--page-muted); }
+  .note ol { margin: 0; padding-left: 20px; font-size: 14px; color: var(--page-muted); display: flex; flex-direction: column; gap: 6px; }
+  .note strong { color: var(--page-ink); font-weight: 620; }
+  .qlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .qlist li { display: grid; grid-template-columns: 34px 1fr; gap: 10px; font-size: 13.5px; color: var(--page-muted); }
+  .qnum {
+    display: inline-flex; align-items: center; justify-content: center; height: 20px;
+    border-radius: 10px; background: var(--pin); color: var(--pin-ink);
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+  }
+  footer.foot { border-top: 1px solid var(--page-line); padding-top: 18px; font-size: 13px; color: var(--page-muted); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--page-accent-soft); padding: 1px 5px; border-radius: 2px; }
+</style>
+
+<div class="wrap">
+
+  <!-- <header class="masthead">
+    <span class="eyebrow">WeighingMS · FCI · Mockup for discussion</span>
+    <h1>Assisted dyestuff weighing — operator terminal</h1>
+    <p class="standfirst">
+      A working mockup of the 15&quot; touchscreen at the weighing station. Nothing here is agreed: it is a
+      concrete proposal built to make FCI react, correct it, and answer the questions the brief could not.
+      Run a simulated weighing below — the progress behaviour is the part most worth arguing about.
+    </p>
+    <span class="draft-flag"><b>Not a specification.</b> Values, layout and terminology are our assumptions, drawn from a one-page description.</span>
+  </header> -->
+
+  <div class="controls">
+    <span class="ctl-label">Screen</span>
+    <div class="seg" role="group" aria-label="Screen">
+      <button type="button" data-view="queue"  aria-pressed="false">1 · Select batch</button>
+      <button type="button" data-view="weigh"  aria-pressed="true">2 · Weigh</button>
+      <button type="button" data-view="done"   aria-pressed="false">3 · Confirm &amp; print</button>
+    </div>
+    <span class="spacer"></span>
+    <button type="button" class="btn primary" id="sim-ok">▶ Simulate dispense</button>
+    <button type="button" class="btn" id="sim-over">▶ Simulate overshoot</button>
+    <button type="button" class="btn" id="sim-reset">Reset</button>
+    <label class="toggle"><input type="checkbox" id="pin-toggle" checked> Show question pins</label>
+  </div>
+
+  <!-- ══ DEVICE ══════════════════════════════════════════════════ -->
+  <div class="device">
+    <div class="screen">
+
+      <div class="topbar">
+        <span class="brandmark"><span class="n">WeighingMS</span><span class="s">STATION&nbsp;01</span></span>
+        <span class="crumb">BATCH <b>B-24187</b> · ORDER <b>SO-9931</b> · MACHINE <b>JET-04</b></span>
+        <span class="spacer"></span>
+        <span class="op-chip"><span class="dot"></span>Operator&nbsp;<b>R. Karim</b> · Shift A<span class="pin" title="§9.6 Q37 — do operators log in individually, and is per-operator traceability required?">37</span></span>
+      </div>
+
+      <!-- ── View 1: batch queue ──────────────────────────────── -->
+      <div class="view" id="v-queue">
+        <div class="queue">
+          <div class="scan-prompt">
+            <div class="beam" aria-hidden="true"></div>
+            <div>
+              <div class="big">Scan a batch card to begin</div>
+              <div class="sm">Or touch a row below. Queue received from OrgaTEX at 06:12.<span class="pin" title="§9.2 Q10 — what exactly can we read from OrgaTEX: batch queue, recipe, dyestuff master, tolerances, tare, lot data?">10</span></div>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="q">
+              <thead>
+                <tr><th>Batch</th><th>Order</th><th>Machine</th><th>Fabric / lot</th><th>Shade</th><th>Comp.</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                <tr class="sel">
+                  <td class="mono">B-24187</td><td class="mono">SO-9931</td><td class="mono">JET-04</td>
+                  <td>100% CTN knit · 480 kg</td><td>Teal 4C</td><td class="mono">5</td>
+                  <td><span class="tag now">WEIGHING</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">B-24188</td><td class="mono">SO-9931</td><td class="mono">JET-07</td>
+                  <td>100% CTN knit · 520 kg</td><td>Teal 4C</td><td class="mono">5</td>
+                  <td><span class="tag">QUEUED</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">B-24190</td><td class="mono">SO-9944</td><td class="mono">JET-02</td>
+                  <td>CVC fleece · 310 kg</td><td>Navy 12</td><td class="mono">7</td>
+                  <td><span class="tag">QUEUED</span></td>
+                </tr>
+                <tr>
+                  <td class="mono">B-24191</td><td class="mono">SO-9947</td><td class="mono">WINCH-01</td>
+                  <td>Viscose jersey · 190 kg</td><td>Rose 08</td><td class="mono">4</td>
+                  <td><span class="tag">QUEUED</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── View 2: weighing ─────────────────────────────────── -->
+      <div class="view active" id="v-weigh">
+        <div class="stage">
+
+          <aside class="rail">
+            <div class="rail-head">
+              <span class="t">Recipe · Teal 4C</span>
+              <span class="v">B-24187</span>
+              <span class="m"><span id="rail-done">2</span> of 5 components weighed</span>
+            </div>
+            <ul class="comps" id="comps"></ul>
+          </aside>
+
+          <section class="weigh">
+            <div class="weigh-head">
+              <div class="who">
+                <span class="nm" id="w-name">Remazol Yellow RGB</span>
+                <span class="meta" id="w-meta">DYE-4471 · LOT 2026-0387 · CONTAINER C-12 · TARE 214 g<span class="pin" title="§9.4 Q29 — does one container hold one component or a whole recipe, and how are containers identified? §9.4 Q28 — how are dyestuff lot numbers captured?">29</span></span>
+              </div>
+              <div class="scale-badge">
+                <span class="k">Scale selected</span>
+                <span class="v" id="w-scale">3 kg precision</span>
+                <span class="auto">automatic<span class="pin" title="§9.3 Q15 — make, model and protocol of each scale. The auto-selection threshold and the behaviour when a target sits near the boundary both need defining.">15</span></span>
+              </div>
+            </div>
+
+            <div class="readout">
+              <div class="cell live" id="cell-live" data-zone="under">
+                <span class="k">Weighed now<span class="pin" title="§9.3 Q16 — can we read weight CONTINUOUSLY from the indicator, or only a stabilised final value? If only stabilised, this live readout and the progress bar are not buildable as drawn.">16</span></span>
+                <span class="v"><span id="w-now">0.0</span> <span class="u" id="u1">g</span></span>
+              </div>
+              <div class="cell">
+                <span class="k">Still to weigh</span>
+                <span class="v"><span id="w-left">94.0</span> <span class="u" id="u2">g</span></span>
+              </div>
+              <div class="cell">
+                <span class="k">Target</span>
+                <span class="v"><span id="w-target">94.0</span> <span class="u" id="u3">g</span></span>
+              </div>
+            </div>
+
+            <div class="bar-block">
+              <div class="bar" id="bar" data-zone="under" role="progressbar" aria-label="Weighing progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="fill" id="fill"></div>
+                <div class="band" id="band"></div>
+                <div class="target-line" id="tline"></div>
+              </div>
+              <div class="bar-caption">
+                <span>0</span>
+                <span id="cap-band">TOLERANCE ±0.5 g&nbsp; (93.5 – 94.5)<span class="pin" title="§9.4 Q24 — how are tolerances defined: fixed percentage, per dyestuff, or per quantity band? Who sets them, and do they come from OrgaTEX?">24</span></span>
+                <span id="cap-max">125 g</span>
+              </div>
+              <div class="status-line" id="status" data-zone="under">DISPENSE — 94.0 g REMAINING</div>
+            </div>
+
+            <div class="surplus" id="surplus">
+              <span class="h">Surplus +2.4 g (+2.6%) — over tolerance</span>
+              <table>
+                <tr><td>Sodium Sulphate</td><td class="n">24.000 kg</td><td class="arrow">→</td><td class="n">24.624 kg</td></tr>
+                <tr><td>Soda Ash</td><td class="n">9.600 kg</td><td class="arrow">→</td><td class="n">9.850 kg</td></tr>
+              </table>
+              <span style="font-size:12px;color:var(--hmi-muted)">
+                Proposal: recalculate the remaining components to preserve the shade ratio.
+                <span class="pin" title="§9.4 Q25 — what does FCI actually mean by 'surplus compensation'? Recalculating remaining components as shown here, or simply displaying the excess? §9.4 Q26 — and what happens when an overdose CANNOT be compensated?">25</span>
+              </span>
+            </div>
+
+            <div class="actions">
+              <button type="button" class="key ok" id="btn-ok" disabled>OK · Confirm<span class="fn">F1</span></button>
+              <button type="button" class="key" id="btn-retare">Re-tare<span class="fn">F2</span></button>
+              <button type="button" class="key ghost" id="btn-quit">Quit<span class="fn">F4</span></button>
+              <button type="button" class="key ghost" id="btn-override" style="margin-left:auto">Supervisor override<span class="pin" title="§9.5 Q33 — who may override a tolerance failure, must it be logged, and does it need approval?">33</span></button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ── View 3: confirm & print ──────────────────────────── -->
+      <div class="view" id="v-done">
+        <div class="done-stage">
+          <div class="done-msg">
+            <span class="h">Batch B-24187 weighed</span>
+            <div class="summary">
+              <div class="r"><span class="k">Components weighed</span><span class="v">5 of 5</span></div>
+              <div class="r"><span class="k">All within tolerance</span><span class="v good">YES</span></div>
+              <div class="r"><span class="k">Total dispensed</span><span class="v">35.322 kg</span></div>
+              <div class="r"><span class="k">Elapsed</span><span class="v">6 min 41 s</span></div>
+              <div class="r"><span class="k">Operator</span><span class="v">R. Karim</span></div>
+              <div class="r"><span class="k">Written to OrgaTEX</span><span class="v good">CONFIRMED 07:48:22</span></div>
+            </div>
+            <p style="margin:0;font-size:13.5px;color:var(--hmi-muted)">
+              Actual consumption posted against the batch. Container released for transport to JET-04.
+              <span class="pin" title="§9.2 Q11 — what can we write back, and does OrgaTEX accept actual-consumption updates from an external system? §9.2 Q13 — and if OrgaTEX is unreachable at this moment, does weighing continue offline and sync later, or does the station stop?">11</span>
+            </p>
+            <div class="actions">
+              <button type="button" class="key ok">Print ticket<span class="fn">F1</span></button>
+              <button type="button" class="key">Next batch<span class="fn">F3</span></button>
+            </div>
+          </div>
+
+          <div>
+            <div class="ticket">
+              <div class="c bold">FCI DYEING — WEIGHING TICKET</div>
+              <hr>
+              BATCH&nbsp;&nbsp;&nbsp;B-24187<br>
+              ORDER&nbsp;&nbsp;&nbsp;SO-9931<br>
+              MACHINE&nbsp;JET-04<br>
+              SHADE&nbsp;&nbsp;&nbsp;Teal 4C<br>
+              DATE&nbsp;&nbsp;&nbsp;&nbsp;2026-08-04 07:48<br>
+              OPER.&nbsp;&nbsp;&nbsp;R. Karim
+              <hr>
+              <span class="bold">COMPONENT&nbsp;&nbsp;&nbsp;TGT&nbsp;&nbsp;&nbsp;&nbsp;ACT</span><br>
+              Blue RSPL&nbsp;&nbsp;&nbsp;1240.0&nbsp;1241.5 g<br>
+              Red RB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;386.0&nbsp;&nbsp;385.4 g<br>
+              Yellow RGB&nbsp;&nbsp;&nbsp;94.0&nbsp;&nbsp;&nbsp;94.2 g<br>
+              Na2SO4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;24.000&nbsp;23.980 kg<br>
+              Soda Ash&nbsp;&nbsp;&nbsp;&nbsp;9.600&nbsp;&nbsp;9.621 kg
+              <hr>
+              <div class="c">ALL WITHIN TOLERANCE</div>
+              <div class="barcode" id="barcode" aria-hidden="true"></div>
+              <div class="c">B-24187</div>
+            </div>
+            <p style="margin:10px 0 0;font-size:12px;color:var(--hmi-muted);font-family:var(--mono)">
+              Label content is invented.<span class="pin" title="§9.3 Q18 — which ticket printer, and what exactly is printed on the label? Fields, barcode symbology, size, printer language.">18</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="strip">
+        <span class="stat"><span class="dot up"></span>SCALE 3 kg · READY</span>
+        <span class="stat"><span class="dot up"></span>SCALE 32 kg · READY</span>
+        <span class="stat"><span class="dot up"></span>SCANNER</span>
+        <span class="stat"><span class="dot up"></span>PRINTER</span>
+        <span class="stat"><span class="dot warnd"></span>ORGATEX · LINKED 07:41<span class="pin" title="§9.2 Q6–Q13 — the entire integration. FCI procurement says OrgaTEX will provide data but is not certain. Until an interface is documented, everything upstream of this screen is unverified.">6</span></span>
+        <span class="spacer"></span>
+        <span class="stat">EN<span class="pin" title="§9.6 Q35 — what language must the interface be in? Everything here is drawn in English by default.">35</span></span>
+        <span class="stat" id="clock">07:47:03</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ NOTES ═══════════════════════════════════════════════════ -->
+  <div class="notes">
+    <div class="note">
+      <h3>How to run this in the meeting</h3>
+      <ol>
+        <li>Open on <strong>screen 2</strong> and hit <strong>Simulate dispense</strong>. Watch whether anyone reaches for the screen — that tells you the interaction reads correctly.</li>
+        <li>Hit <strong>Simulate overshoot</strong>. The surplus panel is deliberately a guess; let them correct it. This is the single most valuable moment in the demo.</li>
+        <li>Touch <strong>Sodium Sulphate</strong> in the recipe list. The scale switches to the 32 kg floor scale and the units change to kg — confirm that is what FCI expects.</li>
+      </ol>
+    </div>
+    <div class="note">
+      <h3>What this mockup is testing</h3>
+      <p>
+        Not the visual design. It exists to make three assumptions falsifiable: that weight can be read
+        <strong>continuously</strong>, that <strong>surplus compensation</strong> means recalculating the remainder,
+        and that one operator weighs <strong>one component at a time</strong> against a queue owned by OrgaTEX.
+        If any is wrong, the interaction changes shape — not just the pixels.
+      </p>
+    </div>
+    <div class="note">
+      <h3>Pinned questions on this screen</h3>
+      <ul class="qlist">
+        <li><span class="qnum">6</span><span>OrgaTEX interface — blocking</span></li>
+        <li><span class="qnum">15</span><span>Scale models, protocol, auto-selection threshold</span></li>
+        <li><span class="qnum">16</span><span>Continuous weight, or stabilised only</span></li>
+        <li><span class="qnum">24</span><span>How tolerances are defined and by whom</span></li>
+        <li><span class="qnum">25</span><span>What surplus compensation actually means</span></li>
+        <li><span class="qnum">29</span><span>Container identity and tare handling</span></li>
+        <li><span class="qnum">33</span><span>Tolerance override authority</span></li>
+        <li><span class="qnum">35</span><span>Interface language</span></li>
+        <li><span class="qnum">37</span><span>Operator login and traceability</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <!-- Mockup accompanying <code>brief.md</code> · WeighingMS for FCI · 4 August 2026 · numbers refer to §9 of the brief.
+    Hover a pin to read its question. -->
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var components = [
+    { id: "DYE-4471-B", name: "Remazol Brill. Blue RSPL", code: "DYE-1180", color: "#1f4fa8", target: 1240.0, unit: "g", tol: 6.0,   scale: "3 kg precision", max: 1600, state: "done", actual: 1241.5, lot: "2026-0341", cont: "C-09", tare: 214 },
+    { id: "DYE-2204-R", name: "Remazol Red RB",           code: "DYE-2204", color: "#b8253a", target: 386.0,  unit: "g", tol: 2.0,   scale: "3 kg precision", max: 520,  state: "done", actual: 385.4,  lot: "2026-0298", cont: "C-11", tare: 214 },
+    { id: "DYE-4471-Y", name: "Remazol Yellow RGB",       code: "DYE-4471", color: "#d9a520", target: 94.0,   unit: "g", tol: 0.5,   scale: "3 kg precision", max: 125,  state: "active", actual: null,  lot: "2026-0387", cont: "C-12", tare: 214 },
+    { id: "AUX-0101",   name: "Sodium Sulphate",          code: "AUX-0101", color: "#c9d2dc", target: 24.000, unit: "kg", tol: 0.120, scale: "32 kg floor",   max: 32,   state: "pending", actual: null, lot: "2026-0112", cont: "D-03", tare: 1.850 },
+    { id: "AUX-0107",   name: "Soda Ash",                 code: "AUX-0107", color: "#e4eaf0", target: 9.600,  unit: "kg", tol: 0.048, scale: "32 kg floor",   max: 14,   state: "pending", actual: null, lot: "2026-0155", cont: "D-05", tare: 1.850 }
+  ];
+
+  var activeIdx = 2;
+  var now = 0;
+  var timer = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function dp(unit) { return unit === "kg" ? 3 : 1; }
+  function fmt(v, unit) { return v.toFixed(dp(unit)); }
+
+  /* ── Recipe rail ─────────────────────────────────────────── */
+  function renderComps() {
+    var ul = $("comps");
+    ul.innerHTML = "";
+    components.forEach(function (c, i) {
+      var li = document.createElement("li");
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "comp";
+      b.setAttribute("data-state", c.state);
+      b.innerHTML =
+        '<span class="swatch" style="background:' + c.color + '"></span>' +
+        '<span><span class="nm">' + c.name + '</span><br><span class="sub">' + c.code + " · " + c.scale.split(" ")[0] + " " + c.scale.split(" ")[1] + '</span></span>' +
+        '<span><span class="qty">' + fmt(c.target, c.unit) + " " + c.unit + '</span><br><span class="st">' +
+          (c.state === "done" ? "✓ " + fmt(c.actual, c.unit) : c.state === "active" ? "WEIGHING" : "PENDING") +
+        '</span></span>';
+      b.addEventListener("click", function () { select(i); });
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+    $("rail-done").textContent = String(components.filter(function (c) { return c.state === "done"; }).length);
+  }
+
+  function select(i) {
+    if (components[i].state === "done") { return; }
+    components.forEach(function (c, j) { if (c.state === "active") { c.state = "pending"; } if (j === i) { c.state = "active"; } });
+    activeIdx = i;
+    reset();
+    renderComps();
+  }
+
+  /* ── Weighing panel ──────────────────────────────────────── */
+  function c() { return components[activeIdx]; }
+
+  function zone(v) {
+    var k = c();
+    if (v > k.target + k.tol) { return "over"; }
+    if (v >= k.target - k.tol) { return "ok"; }
+    if (v >= k.target * 0.9)   { return "near"; }
+    return "under";
+  }
+
+  function paint() {
+    var k = c(), z = zone(now), u = k.unit;
+
+    $("w-name").textContent = k.name;
+    $("w-meta").innerHTML = k.code + " · LOT " + k.lot + " · CONTAINER " + k.cont +
+      " · TARE " + fmt(k.tare, u) + " " + u +
+      '<span class="pin" title="§9.4 Q29 — does one container hold one component or a whole recipe, and how are containers identified? §9.4 Q28 — how are dyestuff lot numbers captured?">29</span>';
+    $("w-scale").textContent = k.scale;
+
+    $("w-now").textContent = fmt(now, u);
+    $("w-left").textContent = fmt(Math.max(0, k.target - now), u);
+    $("w-target").textContent = fmt(k.target, u);
+    $("u1").textContent = $("u2").textContent = $("u3").textContent = u;
+
+    var pct = Math.min(100, (now / k.max) * 100);
+    $("fill").style.width = pct + "%";
+    $("bar").setAttribute("data-zone", z);
+    $("bar").setAttribute("aria-valuenow", String(Math.round(pct)));
+    $("cell-live").setAttribute("data-zone", z);
+
+    var lo = ((k.target - k.tol) / k.max) * 100;
+    var hi = ((k.target + k.tol) / k.max) * 100;
+    $("band").style.left = lo + "%";
+    $("band").style.width = Math.max(0.6, hi - lo) + "%";
+    $("tline").style.left = ((k.target / k.max) * 100) + "%";
+
+    $("cap-band").innerHTML = "TOLERANCE ±" + fmt(k.tol, u) + " " + u +
+      "&nbsp; (" + fmt(k.target - k.tol, u) + " – " + fmt(k.target + k.tol, u) + ")" +
+      '<span class="pin" title="§9.4 Q24 — how are tolerances defined: fixed percentage, per dyestuff, or per quantity band? Who sets them, and do they come from OrgaTEX?">24</span>';
+    $("cap-max").textContent = fmt(k.max, u) + " " + u;
+
+    var s = $("status");
+    s.setAttribute("data-zone", z);
+    if (z === "over") {
+      s.textContent = "OVER TOLERANCE — SURPLUS +" + fmt(now - k.target, u) + " " + u;
+    } else if (z === "ok") {
+      s.textContent = "WITHIN TOLERANCE — PRESS OK TO CONFIRM";
+    } else {
+      s.textContent = "DISPENSE — " + fmt(Math.max(0, k.target - now), u) + " " + u + " REMAINING";
+    }
+
+    $("surplus").classList.toggle("on", z === "over");
+    $("btn-ok").disabled = (z !== "ok");
+  }
+
+  /* ── Simulation ──────────────────────────────────────────── */
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+  function reset() { stop(); now = 0; paint(); }
+
+  function run(landing) {
+    stop();
+    now = 0;
+    var k = c();
+    if (reduced) { now = landing; paint(); return; }
+    timer = setInterval(function () {
+      var remaining = landing - now;
+      if (remaining <= 0.0001) { now = landing; paint(); stop(); return; }
+      /* fast at first, easing off as the target approaches — how a person actually pours */
+      var step = Math.max(k.target * 0.004, remaining * 0.055);
+      now = Math.min(landing, now + step);
+      paint();
+    }, 34);
+  }
+
+  $("sim-ok").addEventListener("click", function () {
+    var k = c();
+    run(k.target + k.tol * 0.4);
+  });
+  $("sim-over").addEventListener("click", function () {
+    var k = c();
+    run(k.target + k.tol * 4.8);
+  });
+  $("sim-reset").addEventListener("click", reset);
+  $("btn-retare").addEventListener("click", reset);
+  $("btn-quit").addEventListener("click", reset);
+
+  $("btn-ok").addEventListener("click", function () {
+    var k = c();
+    k.actual = now;
+    k.state = "done";
+    var next = components.findIndex(function (x) { return x.state === "pending"; });
+    renderComps();
+    if (next === -1) { showView("done"); return; }
+    select(next);
+  });
+
+  $("btn-override").addEventListener("click", function () {
+    $("status").textContent = "OVERRIDE REQUESTED — AWAITING SUPERVISOR";
+  });
+
+  /* ── Views ───────────────────────────────────────────────── */
+  function showView(name) {
+    ["queue", "weigh", "done"].forEach(function (v) {
+      $("v-" + v).classList.toggle("active", v === name);
+    });
+    document.querySelectorAll(".seg button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === name));
+    });
+  }
+  document.querySelectorAll(".seg button").forEach(function (b) {
+    b.addEventListener("click", function () { showView(b.getAttribute("data-view")); });
+  });
+
+  /* ── Pins ────────────────────────────────────────────────── */
+  var pt = $("pin-toggle");
+  function syncPins() { document.body.classList.toggle("pins", pt.checked); }
+  pt.addEventListener("change", syncPins);
+  syncPins();
+
+  /* ── Chrome ──────────────────────────────────────────────── */
+  var bc = $("barcode");
+  var seed = 7;
+  for (var i = 0; i < 52; i++) {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    var el = document.createElement("i");
+    el.style.width = (1 + (seed % 3)) + "px";
+    if (i % 2) { el.style.background = "transparent"; }
+    bc.appendChild(el);
+  }
+
+  var t = 0;
+  setInterval(function () {
+    t++;
+    var base = 7 * 3600 + 47 * 60 + 3 + t;
+    var h = Math.floor(base / 3600) % 24, m = Math.floor(base / 60) % 60, s = base % 60;
+    $("clock").textContent =
+      String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  }, 1000);
+
+  renderComps();
+  paint();
+})();
+</script>
