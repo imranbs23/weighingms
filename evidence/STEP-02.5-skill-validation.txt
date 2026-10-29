@@ -1,0 +1,10 @@
+OK    specsmd-construction-agent  fields=3/3  upstreamLines=36  missing=0  FAITHFUL
+OK    specsmd-inception-agent     fields=3/3  upstreamLines=55  missing=0  FAITHFUL
+OK    specsmd-master-agent        fields=3/3  upstreamLines=31  missing=0  FAITHFUL
+OK    specsmd-operations-agent    fields=3/3  upstreamLines=47  missing=0  FAITHFUL
+
+ALL SKILLS VALID
+.puku-cli/skills/specsmd-construction-agent/SKILL.md
+.puku-cli/skills/specsmd-inception-agent/SKILL.md
+.puku-cli/skills/specsmd-master-agent/SKILL.md
+.puku-cli/skills/specsmd-operations-agent/SKILL.md
