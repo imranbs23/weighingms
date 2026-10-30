@@ -1,0 +1,16 @@
+{
+  "name": "weighingms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WeighingMS — assisted dyestuff weighing station (FCI)",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "scripts": {
+    "evidence:step08": "node scripts/step08-ui-analysis.cjs",
+    "verify:requirements": "node scripts/verify-requirements.cjs",
+    "verify:skills": "node scripts/validate-skills.cjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.0"
+  }
+}

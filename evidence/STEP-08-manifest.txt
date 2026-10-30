@@ -1,0 +1,12 @@
+STEP-08 UI/UX ANALYSIS EVIDENCE
+Generated: 2026-10-30T03:09:57.941Z
+Source prototype: docs/customize-weighing-station.html
+Analysis document: memory-bank/intents/001-assisted-dyestuff-weighing-station/ui-analysis.md
+Generator: scripts/step08-ui-analysis.cjs (Playwright 1.62.0)
+
+ai-analysis.png  243.6 KB  1500x1557px
+component-inventory.png  206.5 KB  1500x1413px
+screen-inventory.png  170.8 KB  1500x934px
+state-model.png  156.5 KB  1500x1432px
+
+Required by workbook Step 8: screen-inventory.png, component-inventory.png, state-model.png, ai-analysis.png
