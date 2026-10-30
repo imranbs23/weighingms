@@ -4,8 +4,8 @@
 
 - **Total stories**: 38
 - **Generated**: 38
-- **Completed**: 0
-- **Last updated**: 2026-10-30T11:46:57Z
+- **Completed**: 2
+- **Last updated**: 2026-10-30T14:34:05Z
 
 > This file is **generated** by `scripts/build-story-index.cjs` from the
 > story files on disk. Edit the story files, not this one.
@@ -75,8 +75,8 @@
 
 #### `008-operator-identity` — Operator Identity
 
-- [x] **001-sign-in-at-terminal** (008): Sign in at terminal - Must - ✅ GENERATED
-- [x] **002-authorise-privileged-action-as-supervisor** (008): Authorise privileged action as supervisor - Must - ✅ GENERATED
+- [x] **001-sign-in-at-terminal** (008): Sign in at terminal - Must - ✅ COMPLETED
+- [x] **002-authorise-privileged-action-as-supervisor** (008): Authorise privileged action as supervisor - Must - ✅ COMPLETED
 
 ---
 
@@ -99,6 +99,6 @@
 ## Stories by Status
 
 - **Planned**: 0
-- **Generated**: 38
+- **Generated**: 36
 - **In Progress**: 0
-- **Completed**: 0
+- **Completed**: 2

@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-10-30T12:10:00Z
-total_decisions: 2
+last_updated: 2026-10-30T20:15:00Z
+total_decisions: 7
 ---
 
 # Decision Index
@@ -30,6 +30,46 @@ Use this to find relevant prior decisions when working on related features.
 - **Read when**: {Agent guidance - domain keywords and scenarios when this ADR is relevant}
 
 -->
+
+### ADR-007: Record the operator an authorisation was issued for
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 002-008-operator-identity (008-operator-identity)
+- **Path**: `bolts/002-008-operator-identity/adr-007-record-the-operator-the-authorisation-was-issued-for.md`
+- **Summary**: ADR-003 requires a consume request to carry the live session of "the operator the authorisation was issued **for**", but the entity never recorded who it was for — so only the weaker "distinct from the supervisor" check could be applied, and an authorisation raised for operator A could be applied by operator B. Record `requestedOperatorId` on the authorisation and check it on both the consume and the read path.
+- **Read when**: Implementing or changing the authorisation consume or read path; deciding how an authorisation is bound to an operator; working on credential scope, blast radius, or revocation; reviewing the weighing override flow's data model; adding a `RefusalReason` value and wondering why it is unreachable.
+
+### ADR-006: Consumption is a separate append-only record, not a flag on the authorisation
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 002-008-operator-identity (008-operator-identity)
+- **Path**: `bolts/002-008-operator-identity/adr-006-consumption-as-a-separate-append-only-record.md`
+- **Summary**: A `consumed_at` column on the authorisation would mutate a record that BRD DR-02 requires to be immutable, and a boolean flag records even less. Record consumption as a separate append-only `authorisation_consumptions` row whose `UNIQUE` constraint on `authorisation_id` makes the single-use rule atomic under concurrency.
+- **Read when**: Implementing or changing the authorisation consume path; deciding how single-use is enforced; working on append-only records, immutability, or retention; designing tables in the identity unit; reviewing the weighing override flow's data model.
+
+### ADR-005: Store the authorisation reason in clear text
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 002-008-operator-identity (008-operator-identity)
+- **Path**: `bolts/002-008-operator-identity/adr-005-store-authorisation-reason-in-clear-text.md`
+- **Summary**: Every credential in this product is stored hashed, so storing the supervisor's reason in clear text looks like an inconsistency — but the reason is not a secret, it authorises nothing, and it must be readable by an auditor years later. Store it as given; hashing it would permanently destroy the audit record and encryption would add a key to protect non-secret data.
+- **Read when**: Deciding how to store free-text justification or audit content; working on the audit trail's data model; reviewing encryption, hashing, or "no plaintext at rest" policies; handling the authorisation reason anywhere in the system.
+
+### ADR-004: One uniform response for every authorisation refusal
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 002-008-operator-identity (008-operator-identity)
+- **Path**: `bolts/002-008-operator-identity/adr-004-uniform-authorisation-refusal-response.md`
+- **Summary**: There are twelve ways to refuse a privileged action, and a precise error is a map of the defences — a `SELF_AUTHORISATION` refusal confirms the credential was accepted. Return one status and one body (`403 AUTHORISATION_REFUSED`) for every refusal, and route the named reason to the audit trail instead.
+- **Read when**: Designing or changing any authorisation endpoint's error responses; adding a new refusal reason; working on supervisor prompts or the escalation UI; reviewing information disclosure in the identity unit.
+
+### ADR-003: The authorisation id is not a bearer credential
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 002-008-operator-identity (008-operator-identity)
+- **Path**: `bolts/002-008-operator-identity/adr-003-authorisation-id-is-not-a-bearer-credential.md`
+- **Summary**: An authorisation id must be presented at the point of use, and the question is whether it alone authorises the action or must accompany the operator's live session. Require both: the id says which approval applies, the session says who is applying it, so a leaked id authorises nothing.
+- **Read when**: Implementing the authorisation consume path; designing the API between the weighing station and the identity unit; working on credential scope, blast radius, or revocation; reviewing how privileged actions are authorised.
 
 ### ADR-002: Store session tokens as a digest, not in plaintext
 - **Status**: accepted

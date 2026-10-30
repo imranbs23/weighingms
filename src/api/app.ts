@@ -7,6 +7,9 @@
 import express, { type Express } from 'express';
 import { createIdentityRouter } from '../008-operator-identity/presentation/controllers/identity-controller.js';
 import {
+  createAuthorisationRouter,
+} from '../008-operator-identity/presentation/controllers/authorisation-controller.js';
+import {
   resolveCurrentOperator,
 } from '../008-operator-identity/presentation/middleware/resolve-current-operator.js';
 import { requireOperator } from '../008-operator-identity/presentation/middleware/require-operator.js';
@@ -56,6 +59,12 @@ export function createApp(options: AppOptions): Express {
 
   // ── Identity ──
   app.use('/api/identity', createIdentityRouter(identity));
+
+  // ── Authorisation ──
+  // The supervisor-authorisation endpoints. They live under the same
+  // base path because they are the same bounded context: the identity
+  // unit's public surface.
+  app.use('/api/identity', createAuthorisationRouter(identity));
 
   // A route that REQUIRES a signed-in operator — this is the shape other
   // units' protected endpoints will use.

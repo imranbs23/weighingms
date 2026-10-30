@@ -89,6 +89,15 @@ for (const unit of UNITS) {
   }
 }
 
+// ── Count by implementation state ─────────────────────────────────────────
+//
+// The counters below are read from the story files rather than hardcoded,
+// because a hardcoded zero is a lie the moment the first story ships. A
+// progress dashboard that always reads zero is worse than no dashboard.
+const completed = rows.filter((r) => r.status === 'complete').length;
+const inProgress = rows.filter((r) => r.status === 'in-progress').length;
+const planned = rows.filter((r) => r.status === 'planned').length;
+
 // ── Emit ─────────────────────────────────────────────────────────────────
 const out = [];
 out.push('# Global Story Index');
@@ -97,7 +106,7 @@ out.push('## Overview');
 out.push('');
 out.push(`- **Total stories**: ${rows.length}`);
 out.push(`- **Generated**: ${generated}`);
-out.push('- **Completed**: 0');
+out.push(`- **Completed**: ${completed}`);
 out.push(`- **Last updated**: ${new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')}`);
 out.push('');
 out.push('> This file is **generated** by `scripts/build-story-index.cjs` from the');
@@ -154,10 +163,10 @@ out.push('---');
 out.push('');
 out.push('## Stories by Status');
 out.push('');
-out.push(`- **Planned**: 0`);
-out.push(`- **Generated**: ${generated}`);
-out.push('- **In Progress**: 0');
-out.push('- **Completed**: 0');
+out.push(`- **Planned**: ${planned}`);
+out.push(`- **Generated**: ${generated - completed}`);
+out.push(`- **In Progress**: ${inProgress}`);
+out.push(`- **Completed**: ${completed}`);
 out.push('');
 
 fs.writeFileSync(INDEX_PATH, out.join('\n'), 'utf8');

@@ -53,6 +53,21 @@ Credentials are hashed with **Argon2id**, using Node's built-in `crypto.argon2Sy
 
 Rationale: BRD NFR-12 requires "Privileged actions require authentication; credentials never shared between roles", and FR-35 requires supervisor authentication for privileged actions with all privileged actions written to the audit trail (FR-36). FCI's own directory is an open question in the Product Brief (A-09 — "WeighingMS, or FCI directory"), so the local directory is a self-contained implementation that satisfies the role separation without assuming an SSO contract that does not exist. Credentials are never shared: each operator has their own badge ID, and supervisor actions record the authorising identity. The specific KDF and the token storage form are recorded in ADR-001 and ADR-002 — the stack's earlier wording ("a memory-hard KDF") was a gap that those ADRs closed.
 
+### Privileged action authorisation
+
+Signing in is **not** authorisation. A privileged action — tolerance override, manual scale reselection, calibration bypass, or the non-compensable over-dose confirmation — requires a **separate, fresh** supervisor authentication performed *at the point of the action*, with a recorded reason.
+
+The shape of that authorisation, and the reasoning behind each part:
+
+- **Fresh credential, never an existing session.** The only path to an authorisation runs through a credential verification; there is no method anywhere that creates one from a session id. "A supervisor is signed in elsewhere" is structurally irrelevant, not merely refused. The supervisor's credential verification reuses the same Argon2id path and the same constant-work guarantee as sign-in (ADR-001) — there is no second credential-check path in the product.
+- **A different person.** The authoriser must be a *different identity* from the operator the action is for. The check compares operator ids, never role labels, so a person holding both roles still cannot self-authorise.
+- **A mandatory reason.** The reason cannot be empty, whitespace-only or punctuation-only. It is stored in **clear text**, because it must be readable by an auditor five years later — it is a record, not a credential (ADR-005).
+- **Scoped, expiring and single-use.** One action and one subject; a short validity window; spent on first use. Consumption is a separate append-only record whose `UNIQUE` constraint makes single-use atomic under concurrency (ADR-006).
+- **The authorisation id is not a bearer credential.** It must be presented together with the requesting operator's live session, so a leaked id authorises nothing (ADR-003).
+- **One uniform refusal response.** Every refusal returns `403 { "error": "AUTHORISATION_REFUSED" }`, including a wrong supervisor credential, because a precise error is a map of the defences and a distinguishable status is an enumeration oracle over supervisor identities. The named reason goes to the audit trail, not to the caller (ADR-004).
+
+Rationale: this is the only part of the product where a defect is a compliance breach rather than a usability bug, so the checks live behind **one** interface and are exhausted exhaustively by tests rather than re-implemented at each call site. The unit's data is append-only and retained ≥ 5 years on the same terms as the audit entries it justifies — a retention policy that kept the justification and deleted the authorisation would be worthless.
+
 ## Infrastructure & Deployment
 
 Single Node.js process for the API service (Express), serving the Dummy APIs and the persisted weighing records from a local SQLite database. The React SPA is served as a static build by the same Express process in production mode, and by Vite's dev server in development mode. Runs on Windows/Linux/macOS with no container orchestration, no cloud dependency and no external services — the entire product is self-contained and demonstrable offline.
@@ -61,7 +76,9 @@ Rationale: The real external systems are unavailable in this environment (Workbo
 
 ### Database
 
-SQLite via `better-sqlite3`, with fixed-precision decimal columns stored as TEXT to preserve exact decimal semantics (no IEEE-754 rounding on disk). Migrations are applied at startup. Records are append-only: DR-02 requires confirmed records to be immutable, with corrections written as new records referencing the original.
+SQLite via Node's **built-in `node:sqlite`** module, with fixed-precision decimal columns stored as TEXT to preserve exact decimal semantics (no IEEE-754 rounding on disk). Migrations are applied at startup and recorded in a `schema_migrations` table so a restart does not re-apply them. Records are append-only: DR-02 requires confirmed records to be immutable, with corrections written as new records referencing the original.
+
+**Deviation from the originally approved stack, recorded 2026-10-30.** This section originally named `better-sqlite3`. It cannot be installed in the target environment: it requires node-gyp and a Visual Studio C++ build toolchain that is not present, and the product's promise is that it is "self-contained and demonstrable offline" on the customer's Windows machines without the user first installing a compiler. Node 26 ships `node:sqlite` as a built-in, so the same product requirement is met with no build step and no native dependency — the same argument that was made for using Node's built-in Argon2id instead of the `argon2` npm package (see ADR-001). The driver differs from `better-sqlite3` in three ways the adapters handle explicitly: **booleans cannot be bound** (converted to 0/1), **`undefined` cannot be bound** (NULL is passed explicitly), and **rows are returned as null-prototype objects**. These were established by probing the driver, not by reading documentation.
 
 ### API shape
 
@@ -87,8 +104,12 @@ Rationale: The specs.md framework and the workbook's prescribed commands (`npx s
 - **Unit / integration**: Vitest, with Supertest for API endpoint tests
 - **End-to-end**: Playwright (Chromium), covering the complete workflow from batch selection through ticket generation
 - **Decimal correctness**: explicit unit tests on tolerance boundary values (93.4 / 93.5 / 94.0 / 94.5 / 94.6 g) using the decimal library, to prove fixed-point behaviour at the boundaries
+- **Coverage**: v8 provider, with a **80% threshold** on statements, branches, functions and lines
+- **File-level parallelism: disabled** (`fileParallelism: false` in `vitest.config.ts`)
 
 Rationale: The workbook (Step 29) explicitly requires a Playwright suite and an end-to-end video. Vitest shares Vite's transform pipeline with the app, so no second build tool is introduced. Boundary-value unit tests are mandatory because the BRD's tolerance acceptance criteria (AC-04) hinge on exact inclusive/exclusive comparison at the band edges, which is precisely where a float implementation would silently fail.
+
+The parallelism decision was made on 2026-10-30, in the identity unit's test stage. Vitest 5's parallel worker pool failed once on this Windows host with an internal error raised in the reporter for every test file at once, before any project code ran. It did not reproduce across 17 consecutive runs, including 8 cold-cache starts. Because a suite whose value is its trustworthiness must not have an intermittent green run, file-level parallelism is disabled rather than left to chance. The whole suite runs in about two seconds, so the cost is negligible. Revisit when Vitest 5.x is upgraded past this behaviour.
 
 ## Decision Relationships
 
@@ -97,6 +118,34 @@ Rationale: The workbook (Step 29) explicitly requires a Playwright suite and an 
 - **SSE + Zustand** implement NFR-01 together: server push removes polling overhead from the latency budget, and selector-based subscriptions keep a 10 Hz stream from re-rendering the whole screen.
 - **SQLite append-only + immutable records** implement DR-01/DR-02 together: the 5-year retention requirement and the immutability requirement are both satisfied by writing new correction records rather than mutating confirmed ones.
 - **Separate API port + CORS** mirrors the eventual production topology, so the training build does not need rework when the real OrgaTEX interface is connected.
+
+## Repository Conventions
+
+### Line endings: LF is REQUIRED in the memory bank
+
+Every file under `memory-bank/` must use **LF** line endings, including its YAML frontmatter.
+
+Rationale: the specs.md framework scripts read frontmatter with `/^---\n([\s\S]+?)\n---/`, which matches LF only. A CRLF file does not match, so `extractFrontmatter` returns null and the script reports *"Invalid ... frontmatter, skipping"* and continues. The message is misleading — the frontmatter is valid YAML — and the consequence is silent: a unit brief's `status` is never updated to `complete`, and the intent's status never advances, so the memory bank goes on claiming that finished work is unfinished. This was found on 2026-10-30, when 13 files (all 8 unit briefs, the requirements file, and 4 others) were CRLF and every future bolt completion would have reported success while updating nothing.
+
+Two guards, because either alone is insufficient:
+
+- **`.gitattributes`** pins `memory-bank/**` to `eol=lf`. This host has `core.autocrlf=true`, so normalising the working tree alone would be undone by the next checkout — on this host and on every other host with that default. The attribute makes the normalisation survive a clone anywhere.
+- **`scripts/normalise-line-endings.cjs`** converts any CRLF file to LF and then re-verifies it by parsing its frontmatter with the framework's exact regex and YAML loader, exiting non-zero on any failure. It is idempotent and safe to re-run.
+
+**When writing any new memory-bank file, use LF.** Editors that default to CRLF on Windows will silently reintroduce this.
+
+### Timestamps in frontmatter: unquoted
+
+Frontmatter timestamps are written **unquoted**:
+
+```yaml
+created: 2026-10-30T09:00:00Z     # correct
+created: 2026-10-30T09:00:00Z   # rejected by verify-frontmatter.cjs
+```
+
+Rationale: the specs.md framework scripts rewrite frontmatter with `js-yaml`'s `dump`, which **quotes** a string that looks like a date. Every bolt completion therefore reintroduces the quoted form, and the next verifier run reports a problem in a file nobody edited by hand. `scripts/unquote-timestamps.cjs` restores the convention after a framework rewrite; it is idempotent and safe to re-run.
+
+**After any framework script that writes frontmatter, run `npm run normalise:timestamps` and `npm run normalise:line-endings`.**
 
 ## Open Items Carried Forward
 

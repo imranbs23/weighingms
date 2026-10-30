@@ -87,6 +87,68 @@ const MIGRATIONS: readonly { id: string; sql: string }[] = [
         ON identity_sessions (expires_at);
     `,
   },
+  {
+    id: '005-create-supervisor-authorisations',
+    sql: `
+      CREATE TABLE IF NOT EXISTS supervisor_authorisations (
+        id             TEXT PRIMARY KEY,
+        session_id     TEXT NOT NULL,
+        supervisor_id  TEXT NOT NULL,
+        -- The operator the exception was raised FOR. NULL when the
+        -- privileged action was attempted with no signed-in operator: the
+        -- attempt is still audited, but such an authorisation can never be
+        -- applied. ADR-003 requires the consuming session to belong to
+        -- THIS operator, so the field must be stored.
+        requested_operator_id TEXT,
+        action         TEXT NOT NULL CHECK (action IN (
+                         'CONFIRM_COMPONENT',
+                         'TOLERANCE_OVERRIDE',
+                         'MANUAL_SCALE_RESELECTION',
+                         'CALIBRATION_BYPASS'
+                       )),
+        subject        TEXT NOT NULL,
+        -- The reason is stored in CLEAR TEXT by decision (ADR-005). It is a
+        -- record, not a credential: it authorises nothing, and it must be
+        -- readable by an auditor years later. Do NOT hash this column.
+        reason         TEXT NOT NULL,
+        authorised_at  TEXT NOT NULL,
+        expires_at     TEXT NOT NULL,
+        FOREIGN KEY (supervisor_id) REFERENCES operators(id),
+        FOREIGN KEY (requested_operator_id) REFERENCES operators(id)
+      );
+    `,
+  },
+  {
+    id: '006-create-authorisation-consumptions',
+    sql: `
+      -- Consumption is a SEPARATE append-only record, not a flag on the
+      -- authorisation (ADR-006). The authorisation is never updated.
+      --
+      -- The UNIQUE constraint on authorisation_id IS the single-use rule:
+      -- it makes a double-spend impossible even under concurrency, where
+      -- the service's existence check is racy.
+      CREATE TABLE IF NOT EXISTS authorisation_consumptions (
+        id               TEXT PRIMARY KEY,
+        authorisation_id TEXT NOT NULL UNIQUE,
+        action           TEXT NOT NULL,
+        subject          TEXT NOT NULL,
+        consumed_at      TEXT NOT NULL,
+        operator_id      TEXT NOT NULL,
+        FOREIGN KEY (authorisation_id) REFERENCES supervisor_authorisations(id)
+      );
+    `,
+  },
+  {
+    id: '007-index-authorisations',
+    sql: `
+      CREATE INDEX IF NOT EXISTS idx_supervisor_authorisations_subject
+        ON supervisor_authorisations (subject);
+      CREATE INDEX IF NOT EXISTS idx_supervisor_authorisations_expires
+        ON supervisor_authorisations (expires_at);
+      -- No index on authorisation_consumptions.authorisation_id: the UNIQUE
+      -- constraint already creates one. A second would be a duplicate.
+    `,
+  },
 ];
 
 /**

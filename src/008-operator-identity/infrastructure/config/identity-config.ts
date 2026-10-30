@@ -24,9 +24,21 @@ export interface IdentityConfig {
 
   /** Argon2id number of passes. */
   readonly argon2Passes: number;
+
+  /**
+   * Authorisation lifetime in milliseconds.
+   *
+   * Default: 15 minutes — long enough for a supervisor to be called and
+   * authenticate, short enough that a stale authorisation is not
+   * meaningfully useful. This is a DEFAULT, not a decision: the story fixes
+   * THAT an authorisation expires but not HOW LONG it lives, so the value
+   * must be settable per deployment without a rebuild (FR-22, NFR-14).
+   */
+  readonly authorisationLifetimeMs: number;
 }
 
 export const DEFAULT_SESSION_LIFETIME_MS = 8 * 60 * 60 * 1000;
+export const DEFAULT_AUTHORISATION_LIFETIME_MS = 15 * 60 * 1000;
 
 export function loadIdentityConfig(
   env: NodeJS.ProcessEnv = process.env,
@@ -46,6 +58,10 @@ export function loadIdentityConfig(
     sessionLifetimeMs,
     argon2Memory: readInt(env['WEIGHINGMS_ARGON2_MEMORY'], 19456),
     argon2Passes: readInt(env['WEIGHINGMS_ARGON2_PASSES'], 2),
+    authorisationLifetimeMs: readInt(
+      env['WEIGHINGMS_AUTHORISATION_LIFETIME_MS'],
+      DEFAULT_AUTHORISATION_LIFETIME_MS,
+    ),
   };
 }
 

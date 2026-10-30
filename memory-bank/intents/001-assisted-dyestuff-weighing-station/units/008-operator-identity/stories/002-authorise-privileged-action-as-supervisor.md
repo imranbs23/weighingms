@@ -2,11 +2,11 @@
 id: 002-authorise-privileged-action-as-supervisor
 unit: 008-operator-identity
 intent: 001-assisted-dyestuff-weighing-station
-status: draft
+status: complete
 priority: must
 created: 2026-10-30T05:00:00Z
-assigned_bolt: null
-implemented: false
+assigned_bolt: 002-008-operator-identity
+implemented: true
 ---
 
 # Story: 002-authorise-privileged-action-as-supervisor
