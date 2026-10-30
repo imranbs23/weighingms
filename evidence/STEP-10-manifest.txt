@@ -1,0 +1,77 @@
+STEP 10 — UNIT DECOMPOSITION — EVIDENCE MANIFEST
+=================================================
+Generated: 2026-10-30
+Generator: scripts/step10-units.cjs (Playwright 1.62.0 / Chromium)
+Rendered with the prototype's own design tokens, so the Step 8, Step 9 and
+Step 10 artefacts read as one family.
+
+SUBMITTED ARTEFACTS
+-------------------
+evidence/STEP-10-units.png        1500 x 1851
+  The unit register. Eight unit cards — purpose, responsibility, why it is
+  a separate unit, FR badges, story count, bolt type — followed by the
+  exhaustive 23-row FR coverage table, the coverage arithmetic, the two
+  capabilities deliberately not created, and the three judgement calls
+  flagged for Checkpoint 3.
+
+evidence/STEP-10-unit-map.png     1500 x 1270
+  The dependency map (SVG), the execution order table, and the independence
+  validation table.
+    - Solid arrows  = dependency
+    - Dashed amber  = the narrow 001 <-> 002 recipe-load cycle
+    - Dashed grey   = the frontend consuming every unit
+
+SUPPORTING DOCUMENTS (memory bank)
+-----------------------------------
+memory-bank/intents/001-assisted-dyestuff-weighing-station/units.md
+memory-bank/intents/001-assisted-dyestuff-weighing-station/units/001-batch-management/unit-brief.md
+memory-bank/intents/001-assisted-dyestuff-weighing-station/units/002-recipe-material-management/unit-brief.md
+memory-bank/intents/001-assisted-dyestuff-weighing-station/units/003-weighing-station/unit-brief.md
+memory-bank/intents/001-assisted-dyestuff-weighing-station/units/004-scale-integration/unit-brief.md
+memory-bank/intents/001-assisted-dyestuff-weighing-station/units/005-orgatex-integration/unit-brief.md
+memory-bank/intents/001-assisted-dyestuff-weighing-station/units/006-ticket-printing/unit-brief.md
+memory-bank/intents/001-assisted-dyestuff-weighing-station/units/007-weighingms-ui/unit-brief.md
+memory-bank/intents/001-assisted-dyestuff-weighing-station/units/008-operator-identity/unit-brief.md
+
+DECOMPOSITION AT A GLANCE
+-------------------------
+Units                  8   (7 backend capability + 1 frontend)
+Stories               37 planned
+Functional reqs       23   22 one-to-one, 1 (FR-19) split explicitly
+Orphaned FRs           0
+Silently shared FRs    0
+Leaf units             3   (004 scale, 005 MES, 008 identity)
+Core unit              003 weighing-station — 11 FRs, the session state machine
+
+CHECKPOINT 3 CRITERIA — WHERE THE ANSWER LIVES
+-----------------------------------------------
+(a) Does every requirement belong to a Unit?
+    Yes. Exhaustive 23-row mapping in units.md and on STEP-10-units.png.
+(b) Are Units capability-oriented?
+    Yes. Rules applied: own failure mode, own change rate, own external
+    contract. Two capabilities were deliberately NOT made units, with the
+    reasoning recorded.
+(c) Are dependencies understandable?
+    Yes. Three leaf units; one narrow 001<->002 cycle, documented and
+    resolved by a single cross-unit call owned by 002.
+(d) Is the Weighing Station treated as more than a screen?
+    Yes, and it is demonstrated rather than asserted. Unit 003 carries 11 of
+    23 FRs plus the whole state machine; unit 007 carries none. The session
+    API is provable without a UI.
+(e) Are integrations separated appropriately?
+    Yes. Units 004 and 005 are the two external seams, each a leaf, each
+    owning its contract's uncertainty in isolation. The scanner and printer
+    were folded into 002 and 006 because neither has logic of its own.
+
+THREE JUDGEMENT CALLS FLAGGED FOR THE REVIEWER
+-----------------------------------------------
+1. Unit 003 carries 11 FRs and is large. Splitting the session from the
+   tolerance engine was considered and rejected (see units.md), but a
+   reviewer preferring smaller units may want to revisit it.
+2. Unit 008 has no FR of its own. Created because NFR-12 (supervisor
+   authentication) and Q-08 (identity source) both point at one boundary. A
+   reviewer preferring strict FR-per-unit discipline may prefer to fold it
+   into unit 003.
+3. Ticket and audit trail share unit 006. Grouped because both are
+   supporting capabilities with a different owner and change rate. They are
+   separable without difficulty — they share no state.

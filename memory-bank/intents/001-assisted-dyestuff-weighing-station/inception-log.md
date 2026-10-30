@@ -26,7 +26,7 @@ status: in-progress
 | Requirements | ✅ Approved (Checkpoint 2) | requirements.md |
 | UI Analysis | ✅ Complete (Step 8) | ui-analysis.md |
 | System Context | ✅ Complete (Step 9) | system-context.md |
-| Units | ⬜ Pending | units.md |
+| Units | ✅ Complete (Step 10) — pending Checkpoint 3 | units.md |
 | Stories | ⬜ Pending | units/{unit}/stories/*.md |
 | Bolt Plan | ⬜ Pending | memory-bank/bolts/bolt-*.md |
 
@@ -40,15 +40,22 @@ status: in-progress
 | Binding Assumptions | 10 |
 | Unresolved Questions | 12 |
 | Dummy APIs | 4 |
-| Units | 0 |
-| Stories | 0 |
-| Bolts Planned | 0 |
+| Units | 8 |
+| Stories | 0 (37 planned) |
+| Bolts Planned | 0 (26 suggested) |
 
 ## Units Breakdown
 
 | Unit | Stories | Bolts | Priority |
 |------|---------|-------|----------|
-| *To be determined in Step 10* | | | |
+| `001-batch-management` | 3 | 2 | S |
+| `002-recipe-material-management` | 4 | 3 | M |
+| `003-weighing-station` | 9 | 4 | L |
+| `004-scale-integration` | 4 | 3 | M |
+| `005-orgatex-integration` | 5 | 3 | M |
+| `006-ticket-printing` | 5 | 4 | M |
+| `007-weighingms-ui` | 5 | 5 | L |
+| `008-operator-identity` | 2 | 2 | S |
 
 ## Decision Log
 
@@ -227,6 +234,65 @@ than designed around.
 undocumented (OrgaTEX A-01/A-02, the scale protocol A-05, the ticket content
 Q-11). The document specifies boundaries and directions of data flow, never
 contract shapes.
+
+### Step 10 — Unit Decomposition
+
+**Date**: 2026-10-30
+**Outcome**: COMPLETE
+
+**Artefacts**:
+- `memory-bank/intents/001-assisted-dyestuff-weighing-station/units.md` — the unit
+  register, the requirement mapping, the dependency graph, the independence
+  validation and the execution order.
+- Eight unit briefs under `units/{unit}/unit-brief.md`.
+- `evidence/STEP-10-units.png` — the unit register.
+- `evidence/STEP-10-unit-map.png` — the dependency map, execution order and
+  independence validation.
+
+**The decomposition.** WeighingMS decomposes into **eight units** — seven
+backend capability units and one frontend unit — carrying **37 stories**
+across **23 functional requirements**.
+
+| # | Unit | FRs | Stories |
+|---|------|-----|---------|
+| 001 | `batch-management` | FR-1, FR-2 | 3 |
+| 002 | `recipe-material-management` | FR-3…FR-6 | 4 |
+| 003 | `weighing-station` | FR-7…FR-15, FR-18 | 9 |
+| 004 | `scale-integration` | FR-19 (scale half) | 4 |
+| 005 | `orgatex-integration` | FR-16, FR-19 (MES half), FR-20 | 5 |
+| 006 | `ticket-printing` | FR-17, FR-21, FR-22, FR-23 | 5 |
+| 007 | `weighingms-ui` (frontend) | — | 5 |
+| 008 | `operator-identity` | — | 2 |
+
+**The three rules applied.** Units are capabilities, not screens and not
+layers. A unit is separated when it has its own failure mode, its own change
+rate, or its own external contract. Every FR lands in exactly one unit.
+
+**FR-19 is split, explicitly.** It is the one requirement covering two
+peripherals with two different failure modes. Its scale half sits in unit
+004, its OrgaTEX half in unit 005, its scanner half in unit 002 and its
+printer half in unit 006. The requirement is not counted twice.
+
+**Two capabilities were deliberately not created.** The *tolerance / zone
+engine* was rejected as a unit because it is a pure value computation with no
+state, no persistence, no external contract and no independent failure mode —
+and because extracting it would put a network hop between the scale and the
+confirm button, against NFR-01's ≤ 200 ms budget. It is a `ToleranceZone`
+value object inside unit 003 with its own boundary suite. The *session state*
+was rejected because the rule **is** the state transition; splitting them
+would create a shared mutable object across a network boundary — the classic
+way to lose the DR-02 immutability guarantee.
+
+**"More than a screen" is demonstrated, not asserted.** Unit 003 owns eleven
+of the twenty-three FRs and the entire session state machine. Unit 007 owns
+**none**. The session API is provable without a UI, and the test suite drives
+it directly. If the Weighing Station were a screen, unit 003 would not exist
+and unit 007 would carry FR-7 through FR-15.
+
+**Three judgement calls are flagged for Checkpoint 3** rather than presented
+as settled: unit 003's size, unit 008's lack of an FR of its own, and the
+grouping of the ticket with the audit trail. The reasoning for each is in
+`units.md` §Notes for Checkpoint 3.
 
 ## Scope Changes
 
