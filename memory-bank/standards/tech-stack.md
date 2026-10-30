@@ -49,7 +49,9 @@ Rationale: IR-10 requires "a continuous weight stream from each scale indicator 
 
 Local operator and supervisor directory: badge ID plus PIN, stored in the WeighingMS database. Two roles — `OPERATOR` and `SUPERVISOR` — with the supervisor role required for tolerance override, manual scale reselection and calibration bypass (FR-35).
 
-Rationale: BRD NFR-12 requires "Privileged actions require authentication; credentials never shared between roles", and FR-35 requires supervisor authentication for privileged actions with all privileged actions written to the audit trail (FR-36). FCI's own directory is an open question in the Product Brief (A-09 — "WeighingMS, or FCI directory"), so the local directory is a self-contained implementation that satisfies the role separation without assuming an SSO contract that does not exist. Credentials are never shared: each operator has their own badge ID, and supervisor actions record the authorising identity.
+Credentials are hashed with **Argon2id**, using Node's built-in `crypto.argon2Sync` — no npm package and no native build step. Parameters: 19 MiB memory, 2 passes, parallelism 1, 32-byte tag, per-credential random salt. Session tokens are stored as a **SHA-256 digest**, never in plaintext.
+
+Rationale: BRD NFR-12 requires "Privileged actions require authentication; credentials never shared between roles", and FR-35 requires supervisor authentication for privileged actions with all privileged actions written to the audit trail (FR-36). FCI's own directory is an open question in the Product Brief (A-09 — "WeighingMS, or FCI directory"), so the local directory is a self-contained implementation that satisfies the role separation without assuming an SSO contract that does not exist. Credentials are never shared: each operator has their own badge ID, and supervisor actions record the authorising identity. The specific KDF and the token storage form are recorded in ADR-001 and ADR-002 — the stack's earlier wording ("a memory-hard KDF") was a gap that those ADRs closed.
 
 ## Infrastructure & Deployment
 

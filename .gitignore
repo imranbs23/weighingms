@@ -1,33 +1,10 @@
-# Dependencies
 node_modules/
-
-# Build output
 dist/
-build/
-*.tsbuildinfo
-
-# Local data (SQLite databases created at runtime)
-*.db
-*.sqlite
-*.sqlite3
 data/
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Logs
-*.log
-npm-debug.log*
-
-# OS / editor noise
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Playwright
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+coverage/
 test-results/
 playwright-report/
-.playwright/
+.vite/

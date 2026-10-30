@@ -109,6 +109,21 @@ for (const f of stories) {
     if (/BRD\s+BRD|BRD FR FR/.test(line)) {
       problems.push(`${rel}:${i + 1}  doubled prefix`);
     }
+    // A misspelled prefix followed by a correct one, with a SPACE between
+    // them: "FRD BRD FR-34". The hyphenated check above only sees "FRD-nn",
+    // so it cannot catch this form — and this exact typo survived a full
+    // verification run. The misspelled token is caught here regardless of
+    // what follows it.
+    const reMisspelled = /\b([A-Z]{2,6})\b(?=\s+(?:BRD\s+)?[A-Z]{1,6}\s+[A-Z]{1,6}-\d)/g;
+    let m3;
+    while ((m3 = reMisspelled.exec(line)) !== null) {
+      if (!KNOWN_PREFIXES.has(m3[1])) {
+        problems.push(
+          `${rel}:${i + 1}  unknown reference prefix "${m3[1]}"` +
+            ` — did you mean ${SUGGESTIONS[m3[1]] || 'BRD'}?`
+        );
+      }
+    }
     if (line.includes('POKU_PROTECTED')) {
       problems.push(`${rel}:${i + 1}  sentinel leakage`);
     }

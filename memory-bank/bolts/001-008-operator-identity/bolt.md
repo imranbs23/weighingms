@@ -3,14 +3,23 @@ id: 001-008-operator-identity
 unit: 008-operator-identity
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: in-progress
 stories:
   - 001-sign-in-at-terminal
 created: 2026-10-30T09:00:00Z
-started: null
+started: 2026-10-30T10:00:00Z
 completed: null
-current_stage: null
-stages_completed: []
+current_stage: implement
+stages_completed:
+  - name: model
+    completed: 2026-10-30T10:30:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-10-30T11:30:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-10-30T12:10:00Z
+    artifact: adr-001-argon2id-via-node-builtin-crypto.md, adr-002-store-session-tokens-as-digests.md
 
 # Bolt Dependencies (for execution ordering)
 requires_bolts: []
