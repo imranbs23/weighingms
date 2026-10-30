@@ -151,9 +151,9 @@ identity — not an invented format.
 
 | Metric | Count |
 |--------|-------|
-| Total Stories | 5 |
+| Total Stories | 6 |
 | Must Have | 5 |
-| Should Have | 0 |
+| Should Have | 1 |
 | Could Have | 0 |
 
 ### Stories
@@ -165,6 +165,7 @@ identity — not an invented format.
 | 003 | Re-print a ticket, marked as a reprint with a reason | Must | Planned |
 | 004 | Record and export the audit trail for privileged actions | Must | Planned |
 | 005 | Change configuration and language without a redeployment | Must | Planned |
+| 006 | Report on tolerance failures and overrides | Should | Planned |
 
 ---
 
@@ -286,6 +287,7 @@ can be added without a redeployment).
 | `006-ticket-printing-2` | DDD | 003 | Reprint marking and the print-failure boundary |
 | `006-ticket-printing-3` | DDD | 004 | The append-only audit trail, its queries and its export |
 | `006-ticket-printing-4` | DDD | 005 | The configuration store and the locale bundles |
+| `006-ticket-printing-5` | DDD | 006 | The operational report over tolerance failures, overrides and configuration changes |
 
 ---
 

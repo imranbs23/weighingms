@@ -53,7 +53,7 @@ silently applied.
 
 ## Units Overview
 
-This intent decomposes into **six units** — five backend capability units and
+This intent decomposes into **eight units** — seven backend capability units and
 one frontend unit.
 
 | # | Unit | Unit type | Bolt type | FRs | Stories |
@@ -63,9 +63,9 @@ one frontend unit.
 | 003 | `003-weighing-station` | backend | ddd-construction-bolt | FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18 | 9 |
 | 004 | `004-scale-integration` | backend | ddd-construction-bolt | FR-19 (scale half) | 4 |
 | 005 | `005-orgatex-integration` | backend | ddd-construction-bolt | FR-16, FR-19 (orgatex half), FR-20 | 5 |
-| 006 | `006-ticket-printing` | backend | ddd-construction-bolt | FR-17, FR-21, FR-22, FR-23 | 5 |
-| — | `007-weighingms-ui` | frontend | simple-construction-bolt | (consumes all) | 5 |
-| — | `008-operator-identity` | backend | ddd-construction-bolt | — | 2 |
+| 006 | `006-ticket-printing` | backend | ddd-construction-bolt | FR-17, FR-21, FR-22, FR-23 | 6 |
+| 007 | `007-weighingms-ui` | frontend | simple-construction-bolt | (consumes all) | 5 |
+| 008 | `008-operator-identity` | backend | ddd-construction-bolt | — | 2 |
 
 **FR-19 is split** across units 004 and 005 — it is the one requirement that
 covers two genuinely different peripherals (scales vs OrgaTEX) and two
