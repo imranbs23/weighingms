@@ -27,8 +27,8 @@ status: in-progress
 | UI Analysis | ✅ Complete (Step 8) | ui-analysis.md |
 | System Context | ✅ Complete (Step 9) | system-context.md |
 | Units | ✅ Complete (Step 10) — pending Checkpoint 3 | units.md |
-| Stories | ⬜ Pending | units/{unit}/stories/*.md |
-| Bolt Plan | ⬜ Pending | memory-bank/bolts/bolt-*.md |
+| Stories | ✅ Complete (Step 11) — 38 stories | units/{unit}/stories/*.md |
+| Bolt Plan | ✅ Complete (Step 12) — 28 bolts | memory-bank/bolts/{BBB}-{unit}/bolt.md |
 
 ## Summary
 
@@ -41,8 +41,8 @@ status: in-progress
 | Unresolved Questions | 12 |
 | Dummy APIs | 4 |
 | Units | 8 |
-| Stories | 0 (37 planned) |
-| Bolts Planned | 0 (26 suggested) |
+| Stories | 38 |
+| Bolts Planned | 28 |
 
 ## Units Breakdown
 
@@ -303,20 +303,19 @@ grouping of the ticket with the audit trail. The reasoning for each is in
 ## Ready for Construction
 
 **Checklist**:
-- [ ] All requirements documented
-- [ ] System context defined
-- [ ] Units decomposed
-- [ ] Stories created for all units
-- [ ] Bolts planned
-- [ ] Human review complete
+- [x] All requirements documented
+- [x] System context defined
+- [x] Units decomposed
+- [x] Stories created for all units
+- [x] Bolts planned
+- [ ] Human review complete — **Checkpoint 3**
 
 ## Next Steps
 
-1. Complete Checkpoint 1 — validate and approve the Intent
-2. Elaborate detailed Requirements (Step 7)
-3. Analyse the UI prototype as a functional prototype (Step 8)
-4. Create System Context (Step 9), then decompose into Units (Step 10)
-5. Create Stories (Step 11), then plan Bolts (Step 12)
+1. **Checkpoint 3** — review the System Context, Units, Stories and Bolt Plan
+   together (`evidence/STEP-12-checkpoint-3-review.md`)
+2. **Checkpoint 4** — Ready for Construction
+3. Construction — execute bolt 001 onward, stopping at each bolt's stage gates
 
 ## Dependencies
 

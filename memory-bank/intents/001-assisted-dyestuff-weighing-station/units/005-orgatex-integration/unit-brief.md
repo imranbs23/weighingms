@@ -280,11 +280,15 @@ that the system does not own and can re-fetch.
 
 ## Bolt Suggestions
 
+> Generated from the bolt plan in `memory-bank/bolts/` by
+> `scripts/sync-bolt-suggestions.cjs`. The bolt ids are a **global**
+> sequence across all units, not a per-unit one.
+
 | Bolt | Type | Stories | Objective |
 |------|------|---------|-----------|
-| `005-orgatex-integration-1` | DDD | 001, 002 | The adapter seam, the queue and recipe reads, and the training OrgaTEX MES |
-| `005-orgatex-integration-2` | DDD | 003 | The consumption posting and its idempotency contract |
-| `005-orgatex-integration-3` | DDD | 004, 005 | The link state model, the deferred sync queue, and the retry policy |
+| `005-005-orgatex-integration` | DDD | 001-read-released-batch-queue, 002-read-batch-recipe | Build the OrgaTEX adapter seam and the Dummy OrgaTEX MES behind it: the released batch queue and the batch… |
+| `006-005-orgatex-integration` | DDD | 003-post-consumption-idempotently | Post actual consumption idempotently, using a locally generated and tracked idempotency key, so that a retr… |
+| `007-005-orgatex-integration` | DDD | 004-report-link-state, 005-queue-writes-offline-and-sync-on-recovery | Own the link state and the deferred synchronisation queue, so that the station keeps weighing while OrgaTEX… |
 
 ---
 

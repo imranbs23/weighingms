@@ -5,7 +5,7 @@
 - **Total stories**: 38
 - **Generated**: 38
 - **Completed**: 0
-- **Last updated**: 2026-10-30T08:48:00Z
+- **Last updated**: 2026-10-30T11:46:57Z
 
 > This file is **generated** by `scripts/build-story-index.cjs` from the
 > story files on disk. Edit the story files, not this one.

@@ -268,11 +268,14 @@ one — the exact confusion the disconnection rule exists to prevent.
 
 ## Bolt Suggestions
 
+> Generated from the bolt plan in `memory-bank/bolts/` by
+> `scripts/sync-bolt-suggestions.cjs`. The bolt ids are a **global**
+> sequence across all units, not a per-unit one.
+
 | Bolt | Type | Stories | Objective |
 |------|------|---------|-----------|
-| `004-scale-integration-1` | DDD | 001 | The `ScaleDevice` and `WeightReading` model, and the SSE weight stream |
-| `004-scale-integration-2` | DDD | 002 | The disconnection watchdog, the status model, and the calibration gate |
-| `004-scale-integration-3` | DDD | 003, 004 | Tare, automatic scale selection by capacity, and the training dispersion ramp |
+| `003-004-scale-integration` | DDD | 001-receive-live-weight-stream, 002-detect-disconnection-and-block-weighing | Own the scale device seam: a continuous live-weight stream at ≥ 10 Hz and disconnect detection within 2 s t… |
+| `004-004-scale-integration` | DDD | 003-tare-scale-against-container, 004-select-scale-by-capacity | Apply the container tare and select the scale by capacity, so the reading the operator sees is the dyestuff… |
 
 ---
 

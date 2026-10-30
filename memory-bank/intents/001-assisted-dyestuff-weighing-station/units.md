@@ -523,3 +523,44 @@ for the reviewer rather than presented as settled:
 3. **The ticket and the audit trail are in one unit.** They are grouped
    because both are "supporting capabilities with a different owner and
    change rate". They could be separated if the reviewer prefers.
+
+---
+
+## Follow-on artefacts
+
+Steps 11 and 12 built on this decomposition. They are listed here so the
+decomposition and its consequences are read together.
+
+**Stories** — 38, one per capability, in `units/{unit}/stories/*.md`, indexed
+at `memory-bank/story-index.md`.
+
+**Bolts** — 28, in `memory-bank/bolts/{BBB}-{unit}/bolt.md`, with a global
+3-digit sequence:
+
+| Range | Units | Rationale |
+|-------|-------|-----------|
+| 001–002 | `008-operator-identity` | The security boundary is built first — it is the only unit where a defect is a compliance breach rather than a usability bug, and its source is the most uncertain (Q-08). |
+| 003–004 | `004-scale-integration` | The scale seam, including the disconnect rule that blocks weighing (B-3). |
+| 005–007 | `005-orgatex-integration` | The MES seam, including the idempotent posting and the offline queue (B-1, B-11). |
+| 008–009 | `001-batch-management` | The queue and the selection. |
+| 010–012 | `002-recipe-material-management` | The recipe, the identity verification and the container. |
+| 013–018 | `003-weighing-station` | The core: session, tolerance, surplus, escalation, progression, completion. |
+| 019–023 | `006-ticket-printing` | The ticket, the reprint, the audit trail, the configuration and the reporting. |
+| 024–028 | `007-weighingms-ui` | The frontend, last, because it consumes every API. |
+
+**Evidence**
+
+✅ `evidence/STEP-11-fr-reference-convention.md` — the FR numbering convention
+✅ `evidence/STEP-12-bolt-map.png` — the bolt dependency map
+✅ `evidence/STEP-12-checkpoint-3-review.md` — the Checkpoint 3 review document
+
+**Verification** — the plan is checked by script, not asserted:
+
+| Script | Checks |
+|--------|--------|
+| `verify-fr-refs.cjs` | Reference padding, prefix spelling, sentinel leakage, story file structure |
+| `verify-br-ids.cjs` | Every `BRD FR-nn` / `BRD IR-nn` cited exists in `docs/brief.md` |
+| `verify-our-ids.cjs` | Every `FR-n` / `NFR-n` / `AC-nn` / `Q-nn` cited exists in its source document |
+| `verify-frontmatter.cjs` | Bolt frontmatter has no duplicate keys, all required fields, and mirrored dependencies |
+| `build-bolt-plan.cjs` | Every story in exactly one bolt, contiguous global sequence, no cycles, no bolt over 6 stories |
+| `build-story-index.cjs` | The story index is generated from the files, so it cannot drift |

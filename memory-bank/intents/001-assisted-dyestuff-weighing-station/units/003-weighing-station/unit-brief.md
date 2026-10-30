@@ -351,12 +351,18 @@ record referencing the original (BRD DR-02).
 
 ## Bolt Suggestions
 
+> Generated from the bolt plan in `memory-bank/bolts/` by
+> `scripts/sync-bolt-suggestions.cjs`. The bolt ids are a **global**
+> sequence across all units, not a per-unit one.
+
 | Bolt | Type | Stories | Objective |
 |------|------|---------|-----------|
-| `003-weighing-station-1` | DDD | 001, 002 | The `WeighingSession` aggregate and its state machine; automatic scale selection |
-| `003-weighing-station-2` | DDD | 003, 004, 005 | The `ToleranceZone` value object, the live reading path, and confirmation gating |
-| `003-weighing-station-3` | DDD | 006, 007 | Surplus calculation, the proportional compensation rule, and non-compensable escalation |
-| `003-weighing-station-4` | DDD | 008, 009 | Component progression, immutability of the confirmed record, and the completion summary |
+| `013-003-weighing-station` | DDD | 001-select-scale-automatically, 002-consume-live-weight-stream | Open the weighing session: select the scale automatically from the component’s requirements and consume the… |
+| `014-003-weighing-station` | DDD | 003-evaluate-tolerance-zone, 004-gate-confirmation-on-zone | Evaluate the tolerance zone and gate confirmation on it: the zone is computed once, in one place, and confi… |
+| `015-003-weighing-station` | DDD | 005-detect-overdose-and-calculate-surplus, 006-apply-surplus-compensation | Detect the over-dose, calculate the surplus, and where it is compensable, recalculate the remaining targets… |
+| `016-003-weighing-station` | DDD | 007-escalate-non-compensable-overdose | Escalate a non-compensable over-dose to a supervisor and consume a valid authorisation from the identity un… |
+| `017-003-weighing-station` | DDD | 008-advance-to-next-component | Advance the session to the first pending component in recipe order after a confirmation, and keep the confi… |
+| `018-003-weighing-station` | DDD | 009-complete-batch-and-summarise | Close the batch at the last component and produce the summary the ticket is rendered from, with the consump… |
 
 ---
 

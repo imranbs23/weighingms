@@ -260,10 +260,14 @@ worthless.
 
 ## Bolt Suggestions
 
+> Generated from the bolt plan in `memory-bank/bolts/` by
+> `scripts/sync-bolt-suggestions.cjs`. The bolt ids are a **global**
+> sequence across all units, not a per-unit one.
+
 | Bolt | Type | Stories | Objective |
 |------|------|---------|-----------|
-| `008-operator-identity-1` | DDD | 001 | The `Operator` and `IdentitySession` model, sign-in and sign-out, and the local identity provider |
-| `008-operator-identity-2` | DDD | 002 | The supervisor authorisation model — scoping, reason, expiry, and the refusal rules |
+| `001-008-operator-identity` | DDD | 001-sign-in-at-terminal | Establish the identity domain: the Operator, the Credential and the IdentitySession, with a local IdentityP… |
+| `002-008-operator-identity` | DDD | 002-authorise-privileged-action-as-supervisor | Implement the supervisor authorisation model: a different person, a fresh authentication at the point of ac… |
 
 ---
 

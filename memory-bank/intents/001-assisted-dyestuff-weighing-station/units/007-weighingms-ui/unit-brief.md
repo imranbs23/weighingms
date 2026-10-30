@@ -311,13 +311,17 @@ for the same session.
 
 ## Bolt Suggestions
 
+> Generated from the bolt plan in `memory-bank/bolts/` by
+> `scripts/sync-bolt-suggestions.cjs`. The bolt ids are a **global**
+> sequence across all units, not a per-unit one.
+
 | Bolt | Type | Stories | Objective |
 |------|------|---------|-----------|
-| `007-weighingms-ui-1` | simple | 001 | The app shell, the chrome, the queue view and the selection interaction |
-| `007-weighingms-ui-2` | simple | 002 | The weigh view — the rail, the live readout, the tolerance band and the status line |
-| `007-weighingms-ui-3` | simple | 003 | The action row, confirmation, progression, the surplus panel and the escalation prompt |
-| `007-weighingms-ui-4` | simple | 004 | The completion view, the ticket preview and the print controls |
-| `007-weighingms-ui-5` | simple | 005 | The degraded states, the status strip, and the locale bundle wiring |
+| `024-007-weighingms-ui` | Simple | 001-select-batch-from-queue | Build the app shell, the persistent chrome and the Select-batch view, with batch selection by scan and by t… |
+| `025-007-weighingms-ui` | Simple | 002-watch-live-weight-and-tolerance-zone | Build the Weigh view — the recipe rail, the live readout, the tolerance band and the status line — driven e… |
+| `026-007-weighingms-ui` | Simple | 003-confirm-weighing-and-advance | Build the action row, the confirmation, the progression, the surplus panel and the escalation prompt. |
+| `027-007-weighingms-ui` | Simple | 004-review-and-print-ticket | Build the completion view, the ticket preview and the print controls, including the not-printed state a fai… |
+| `028-007-weighingms-ui` | Simple | 005-show-peripheral-degraded-states | Build the degraded states, the status strip and the locale bundle wiring, so that every peripheral failure… |
 
 ---
 

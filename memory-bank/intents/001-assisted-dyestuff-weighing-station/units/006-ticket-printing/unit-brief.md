@@ -281,13 +281,17 @@ can be added without a redeployment).
 
 ## Bolt Suggestions
 
+> Generated from the bolt plan in `memory-bank/bolts/` by
+> `scripts/sync-bolt-suggestions.cjs`. The bolt ids are a **global**
+> sequence across all units, not a per-unit one.
+
 | Bolt | Type | Stories | Objective |
 |------|------|---------|-----------|
-| `006-ticket-printing-1` | DDD | 001, 002 | The `Ticket` and `PrintJob` model, the template rendering, and the printer adapter |
-| `006-ticket-printing-2` | DDD | 003 | Reprint marking and the print-failure boundary |
-| `006-ticket-printing-3` | DDD | 004 | The append-only audit trail, its queries and its export |
-| `006-ticket-printing-4` | DDD | 005 | The configuration store and the locale bundles |
-| `006-ticket-printing-5` | DDD | 006 | The operational report over tolerance failures, overrides and configuration changes |
+| `019-006-ticket-printing` | DDD | 001-generate-weighing-ticket, 002-print-ticket-and-track-job | Render the weighing ticket from a session’s records and print it, tracking the print job as a separate outc… |
+| `020-006-ticket-printing` | DDD | 003-reprint-ticket-with-reason | Permit a reprint that is marked as a reprint, carries a reason, and is distinguishable from a first print i… |
+| `021-006-ticket-printing` | DDD | 004-record-and-export-audit-trail | Own the append-only, immutable, exportable audit trail for privileged actions, retained ≥ 5 years. |
+| `022-006-ticket-printing` | DDD | 005-change-configuration-and-language | Provide a configuration store and runtime-loaded locale bundles, so that scale thresholds, tolerance overri… |
+| `023-006-ticket-printing` | DDD | 006-report-on-tolerance-failures-and-overrides | Produce the operational report over tolerance failures, overrides and configuration changes — the record ma… |
 
 ---
 

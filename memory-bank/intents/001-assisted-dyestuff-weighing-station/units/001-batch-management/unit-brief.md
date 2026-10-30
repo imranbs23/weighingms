@@ -202,10 +202,14 @@ same queue.
 
 ## Bolt Suggestions
 
+> Generated from the bolt plan in `memory-bank/bolts/` by
+> `scripts/sync-bolt-suggestions.cjs`. The bolt ids are a **global**
+> sequence across all units, not a per-unit one.
+
 | Bolt | Type | Stories | Objective |
 |------|------|---------|-----------|
-| `001-batch-management-1` | DDD | 001, 002 | The `Batch` aggregate with its eligibility state machine, and the queue projection |
-| `001-batch-management-2` | DDD | 003 | Selection — scan resolution, touch selection, and the selection record |
+| `008-001-batch-management` | DDD | 001-retrieve-released-batch-queue | Read the released batch queue through the OrgaTEX adapter and expose it as a station-owned projection with… |
+| `009-001-batch-management` | DDD | 002-filter-batch-queue-by-status, 003-select-batch-and-record-identity | Filter the queue by status and turn "the operator picked a batch" into a recorded selection carrying the me… |
 
 ---
 

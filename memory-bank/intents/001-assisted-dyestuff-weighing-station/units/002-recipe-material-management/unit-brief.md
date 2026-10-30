@@ -224,11 +224,15 @@ decimal for every quantity, including tare.
 
 ## Bolt Suggestions
 
+> Generated from the bolt plan in `memory-bank/bolts/` by
+> `scripts/sync-bolt-suggestions.cjs`. The bolt ids are a **global**
+> sequence across all units, not a per-unit one.
+
 | Bolt | Type | Stories | Objective |
 |------|------|---------|-----------|
-| `002-recipe-material-management-1` | DDD | 001 | The `Recipe` and `RecipeComponent` model, and the recipe read |
-| `002-recipe-material-management-2` | DDD | 002, 003 | Material identity — the scan path, the attestation fallback, and the hard-stop mismatch rule |
-| `002-recipe-material-management-3` | DDD | 004 | Lot capture, container assignment and tare |
+| `010-002-recipe-material-management` | DDD | 001-retrieve-recipe-and-component-list | Load a batch’s recipe through the OrgaTEX adapter — components, targets, units, tolerances and scale classe… |
+| `011-002-recipe-material-management` | DDD | 002-verify-dyestuff-identity-by-scan-or-attestation, 003-capture-and-validate-dyestuff-lot | Verify that the dyestuff presented matches the recipe component, by barcode scan where possible and by reco… |
+| `012-002-recipe-material-management` | DDD | 004-assign-container-and-apply-tare | Assign the container to the component and apply its tare, from the container master or by weighing the empt… |
 
 ---
 
