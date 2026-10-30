@@ -1,0 +1,54 @@
+# Line endings
+#
+# The specs.md framework scripts read YAML frontmatter with the pattern
+#
+#     content.match(/^---\n([\s\S]+?)\n---/)
+#
+# which requires LF. With `core.autocrlf=true` (this host's default),
+# Git checks text files out with CRLF, which does NOT match — so
+# `extractFrontmatter` returns null and the framework scripts report
+# "Invalid ... frontmatter, skipping" and move on.
+#
+# The consequence is silent and serious: a unit brief's `status` is never
+# updated to `complete`, and the intent's status never advances. A bolt
+# completion would report success while leaving the memory bank claiming
+# the work is unfinished.
+#
+# The memory bank is therefore pinned to LF in the repository itself, so
+# the normalisation survives a clone on ANY host regardless of that host's
+# autocrlf setting.
+#
+# Normalising the working tree is not enough — Git would reintroduce CRLF
+# on the next checkout. This file is what makes the fix durable.
+
+# The memory bank: frontmatter must be LF for the framework to read it.
+memory-bank/** text eol=lf
+
+# Source and scripts: LF is the convention the codebase was written in.
+src/** text eol=lf
+tests/** text eol=lf
+scripts/** text eol=lf
+
+# Configuration files.
+*.json text eol=lf
+*.ts text eol=lf
+*.cjs text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.md text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Binary assets: never touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.mp4 binary
+*.webm binary
+*.pdf binary
+*.sqlite binary
+*.sqlite-wal binary
+*.sqlite-shm binary
