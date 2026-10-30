@@ -1,15 +1,17 @@
 ---
 intent: 001-assisted-dyestuff-weighing-station
 phase: inception
-status: approved
+status: inception-complete
 created: 2026-10-29T13:20:00Z
-updated: 2026-10-29T13:40:00Z
+updated: 2026-10-30T05:00:00Z
 ---
 
 # Requirements: Assisted Dyestuff Weighing Station
 
 > **Intent approved at Checkpoint 1 (2026-10-29).**
 > **Requirements approved at Checkpoint 2 (2026-10-29).**
+> **Inception complete at Checkpoint 4 (2026-10-30)** — every functional requirement
+> below is traced to at least one story, verified by `scripts/verify-inception.cjs`.
 
 ## Intent Overview
 

@@ -20,9 +20,9 @@ implemented: false
 ## Acceptance Criteria
 
 - [ ] **Given** an existing ticket, **When** a reprint is requested with a non-empty reason, **Then** a new print job is created with `isReprint` set to `true` and `reprintOf` pointing at the original ticket (BRD FR-17, BRD FR-28).
-- [ ] **Given** a reprint job, **When** it is read, **Then** it carries the reason for the reprint, the reprinting actor and the time, and it is distinguishable from a first print in both the stored record and the rendered output (BRD FR-17, BRD FR-28, BRD FR-21).
-- [ ] **Given** a reprint request with an empty or absent reason, **When** it is submitted, **Then** the request is refused and no print job is created (BRD FR-21).
-- [ ] **Given** a reprint of a ticket, **When** the reprint job is recorded, **Then** an append-only audit entry is written carrying the actor, the actor's role, the subject (the ticket and the original print job) and the reason (BRD FR-21, BRD FR-36).
+- [ ] **Given** a reprint job, **When** it is read, **Then** it carries the reason for the reprint, the reprinting actor and the time, and it is distinguishable from a first print in both the stored record and the rendered output (FR-21, BRD FR-17, BRD FR-28, BRD FR-21).
+- [ ] **Given** a reprint request with an empty or absent reason, **When** it is submitted, **Then** the request is refused and no print job is created (FR-21, BRD FR-21).
+- [ ] **Given** a reprint of a ticket, **When** the reprint job is recorded, **Then** an append-only audit entry is written carrying the actor, the actor's role, the subject (the ticket and the original print job) and the reason (FR-21, BRD FR-21, BRD FR-36).
 - [ ] **Given** a reprint has been produced, **When** the original ticket's weighing records are read, **Then** they are unchanged — a reprint never creates, alters or removes a weighing record (BRD FR-18, BRD DR-02, B-7).
 
 ## Technical Notes
@@ -30,7 +30,7 @@ implemented: false
 - The reprint is a **new print job against the existing ticket**, never a re-generation of the ticket. Regenerating would produce a new ticket identity and lose the link to the original print.
 - The marking must appear in two places: on the stored `PrintJob` (`isReprint`, `reprintOf`, `reason`) and on the rendered artefact, so a paper copy in the dyehouse is self-identifying. The rendered marking's wording comes from the locale bundle, not from a literal in code.
 - The reason is **mandatory**. A reprint without one is refused at the request boundary, not merely recorded as blank.
-- The audit entry is written by the same append-only mechanism as every other privileged action, so the reason is queryable from the audit trail and from the export (BRD FR-21).
+- The audit entry is written by the same append-only mechanism as every other privileged action, so the reason is queryable from the audit trail and from the export. This is our **FR-21** — privileged actions are recorded — and it is the reason the reprint's reason and actor are mandatory rather than optional metadata (FR-21, BRD FR-21).
 - A reprint is a privileged action but does **not** require supervisor authentication in this build — the BRD's supervisor-authentication requirement (BRD FR-35) names tolerance override, manual scale reselection and calibration bypass. What a reprint requires is attribution and a reason. The `actorRole` on the audit entry therefore records whoever pressed reprint, which may be the operator.
 - The reprint does not re-weigh, re-confirm or re-post anything to OrgaTEX.
 

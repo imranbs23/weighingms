@@ -1,8 +1,8 @@
 ---
 intent: 001-assisted-dyestuff-weighing-station
 created: 2026-10-29T13:20:00Z
-completed: null
-status: in-progress
+completed: 2026-10-30T05:00:00Z
+status: complete
 ---
 
 # Inception Log: assisted-dyestuff-weighing-station
@@ -26,9 +26,10 @@ status: in-progress
 | Requirements | ✅ Approved (Checkpoint 2) | requirements.md |
 | UI Analysis | ✅ Complete (Step 8) | ui-analysis.md |
 | System Context | ✅ Complete (Step 9) | system-context.md |
-| Units | ✅ Complete (Step 10) — pending Checkpoint 3 | units.md |
-| Stories | ✅ Complete (Step 11) — 38 stories | units/{unit}/stories/*.md |
-| Bolt Plan | ✅ Complete (Step 12) — 28 bolts | memory-bank/bolts/{BBB}-{unit}/bolt.md |
+| Units | ✅ Approved (Checkpoint 3) | units.md |
+| Stories | ✅ Approved (Checkpoint 3) — 38 stories | units/{unit}/stories/*.md |
+| Bolt Plan | ✅ Approved (Checkpoint 3) — 28 bolts | memory-bank/bolts/{BBB}-{unit}/bolt.md |
+| Inception gate | ✅ Complete (Checkpoint 4) | scripts/verify-inception.cjs |
 
 ## Summary
 
@@ -53,7 +54,7 @@ status: in-progress
 | `003-weighing-station` | 9 | 4 | L |
 | `004-scale-integration` | 4 | 3 | M |
 | `005-orgatex-integration` | 5 | 3 | M |
-| `006-ticket-printing` | 5 | 4 | M |
+| `006-ticket-printing` | 6 | 5 | M |
 | `007-weighingms-ui` | 5 | 5 | L |
 | `008-operator-identity` | 2 | 2 | S |
 
@@ -250,7 +251,7 @@ contract shapes.
   independence validation.
 
 **The decomposition.** WeighingMS decomposes into **eight units** — seven
-backend capability units and one frontend unit — carrying **37 stories**
+backend capability units and one frontend unit — carrying **38 stories**
 across **23 functional requirements**.
 
 | # | Unit | FRs | Stories |
@@ -260,7 +261,7 @@ across **23 functional requirements**.
 | 003 | `weighing-station` | FR-7…FR-15, FR-18 | 9 |
 | 004 | `scale-integration` | FR-19 (scale half) | 4 |
 | 005 | `orgatex-integration` | FR-16, FR-19 (MES half), FR-20 | 5 |
-| 006 | `ticket-printing` | FR-17, FR-21, FR-22, FR-23 | 5 |
+| 006 | `ticket-printing` | FR-17, FR-21, FR-22, FR-23 | 6 |
 | 007 | `weighingms-ui` (frontend) | — | 5 |
 | 008 | `operator-identity` | — | 2 |
 
@@ -294,11 +295,92 @@ as settled: unit 003's size, unit 008's lack of an FR of its own, and the
 grouping of the ticket with the audit trail. The reasoning for each is in
 `units.md` §Notes for Checkpoint 3.
 
+### Step 11 — Stories
+
+**Date**: 2026-10-30
+**Outcome**: COMPLETE
+
+**38 stories** across the eight units, each with acceptance criteria in
+Given/When/Then form, technical notes, dependencies, edge cases and out-of-scope.
+
+**The identifier convention.** Two FR numbering schemes exist in this project
+and they overlap: **ours** (`FR-1`…`FR-23`, unpadded) and **the BRD's**
+(`FR-01`…`FR-37`, zero-padded). Our own FR-10…FR-23 are two digits long, so
+shape alone cannot tell them apart from the BRD's. The rule is numeric: a bare
+`FR-n` where n ≤ 23 is ours; n ≥ 24 is unambiguously the BRD's and must be
+written `BRD FR-nn`. This is enforced by script, not by convention —
+`scripts/verify-fr-refs.cjs` derives the split from the number and
+`scripts/verify-br-ids.cjs` derives the BRD's ranges from `docs/brief.md`
+itself, so an invented or renumbered requirement fails the check. The rule is
+documented in `evidence/STEP-11-fr-reference-convention.md`.
+
+### Step 12 — Bolt Plan
+
+**Date**: 2026-10-30
+**Outcome**: COMPLETE
+
+**28 bolts** on a global 3-digit sequence, generated from data by
+`scripts/build-bolt-plan.cjs` and then validated: every story in exactly one
+bolt, contiguous numbering, `enables_bolts` mirroring `requires_bolts`, no
+dependency cycle, no bolt over six stories, and cross-unit dependencies
+declared. The plan is in two bands — the leaf seams first (identity, scale,
+OrgaTEX, batch, recipe), then the core (weighing station), then the outputs
+(ticket, audit, reporting), then the UI.
+
+`scripts/verify-frontmatter.cjs` checks every bolt document for duplicate
+YAML keys, missing fields and dependency mirrors. It was hardened after a
+generated bolt was found to emit `requires_bolts:` twice — a YAML parser keeps
+only the last, which would have silently dropped a dependency.
+
+### Checkpoint 3 — Artifacts Review
+
+**Date**: 2026-10-30
+**Outcome**: APPROVED
+
+The System Context, Units, Stories and Bolt Plan were reviewed together
+(`evidence/STEP-12-checkpoint-3-review.md`), because a story referencing a
+non-existent unit is invisible when artefacts are reviewed one at a time.
+
+### Checkpoint 4 — Ready for Construction
+
+**Date**: 2026-10-30
+**Outcome**: COMPLETE
+
+The formal gate is `scripts/verify-inception.cjs`, the counterpart to the
+review skill's Steps 1 and 2. It checks five things: artefact existence,
+story coverage (every FR traced to a story and every story citing a
+requirement), unit independence (no circular dependency), bolt completeness
+(every story assigned exactly once) and type alignment (frontend units use
+simple bolts, backend units use DDD bolts).
+
+**It found two real gaps on first run.**
+
+| Problem | Fix |
+|---|---|
+| `FR-23` (operational reporting) was cited by no story — its story cited only `BRD FR-23` | All six acceptance criteria in `006-report-on-tolerance-failures-and-overrides.md` now carry `FR-23`, plus `FR-21` on the override row, with a technical note stating that this story *is* the implementation of our FR-23. |
+| `003-reprint-ticket-with-reason.md` cited no requirement of ours | Its audit-related criteria and technical note now carry `FR-21` — a reprint is a privileged action, which is exactly what our FR-21 requires to be recorded. |
+
+Both were genuine traceability defects, not bookkeeping: FR-23 would have
+shipped unimplemented and the reprint's audit trail would have had no
+requirement of its own behind it.
+
+**Final gate result** — all five checks pass:
+
+```
+✅ 14 required artefacts present
+✅ 38 stories across 8 units
+✅ 23 functional requirements defined in requirements.md
+✅ every one of the 23 FRs is cited by at least one story
+✅ no circular dependency between units
+✅ 28 bolts, every story assigned exactly once
+✅ every bolt type matches its unit type
+```
+
 ## Scope Changes
 
 | Date | Change | Reason | Impact |
 |------|--------|--------|--------|
-| — | None yet | — | — |
+| 2026-10-30 | Unit 006 gained `006-report-on-tolerance-failures-and-overrides` (FR-23) | The FR-to-story coverage check found FR-23 had no story | Unit 006 goes from 5 stories / 4 bolts to 6 stories / 5 bolts; total 38 stories, 28 bolts |
 
 ## Ready for Construction
 
@@ -308,14 +390,23 @@ grouping of the ticket with the audit trail. The reasoning for each is in
 - [x] Units decomposed
 - [x] Stories created for all units
 - [x] Bolts planned
-- [ ] Human review complete — **Checkpoint 3**
+- [x] Human review complete — **Checkpoint 3**
+- [x] Inception gate passed — **Checkpoint 4**
 
 ## Next Steps
 
-1. **Checkpoint 3** — review the System Context, Units, Stories and Bolt Plan
-   together (`evidence/STEP-12-checkpoint-3-review.md`)
-2. **Checkpoint 4** — Ready for Construction
-3. Construction — execute bolt 001 onward, stopping at each bolt's stage gates
+1. Construction — execute bolt `001-008-operator-identity` onward, stopping at
+   each bolt's stage gates and waiting for human approval.
+2. Unit `007-weighingms-ui` is built last, against contracts that already exist.
+3. Final validation and evidence — the application must be demonstrable, not
+   merely screenshotted (workbook Rule 6).
+
+## Dependencies
+
+Inception order: Intent → Requirements → UI analysis → System Context → Units → Stories → Bolt plan.
+
+Construction dependency: units that depend on the OrgaTEX adapter and the scale
+integration must be built before the weighing-station UI that consumes them.
 
 ## Dependencies
 
