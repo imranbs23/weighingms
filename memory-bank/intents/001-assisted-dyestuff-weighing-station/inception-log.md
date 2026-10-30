@@ -25,7 +25,7 @@ status: in-progress
 |----------|--------|------|
 | Requirements | ✅ Approved (Checkpoint 2) | requirements.md |
 | UI Analysis | ✅ Complete (Step 8) | ui-analysis.md |
-| System Context | ⬜ Pending | system-context.md |
+| System Context | ✅ Complete (Step 9) | system-context.md |
 | Units | ⬜ Pending | units.md |
 | Stories | ⬜ Pending | units/{unit}/stories/*.md |
 | Bolt Plan | ⬜ Pending | memory-bank/bolts/bolt-*.md |
@@ -170,6 +170,63 @@ replacements for — the 12 questions already recorded in `requirements.md`
 (Q-01…Q-12), because the prototype exposes its own BRD references in its
 tooltips. The union is reviewed in Step 9 (System Context) and Step 11
 (Stories).
+
+### Step 9 — System Context
+
+**Date**: 2026-10-30
+**Outcome**: COMPLETE
+
+**Artefact**: `memory-bank/intents/001-assisted-dyestuff-weighing-station/system-context.md`
+**Evidence**: `evidence/STEP-09-system-context.png` (boundary map) and
+`evidence/STEP-09-system-context.md` (evidence note with a coverage checklist).
+
+**Boundary decisions taken.**
+
+| Boundary | Decision |
+|---|---|
+| Human actors | Six, not two: Operator (primary), Supervisor (privileged), Lab/QA, Store/Inventory, FCI IT, FCI Management. The last four are *consumers of the record or owners of the environment*, not users of the terminal — stating them keeps the record's purpose visible. |
+| OrgaTEX | Upstream **and** downstream. Read-only except batch weighing status and consumption posting. Owned by SETEX, a third party. |
+| Devices | Two scales (3 kg precision, 32 kg floor), one scanner, one printer — matching the prototype's status strip, which lists both scales separately. |
+| Identity source | Drawn as an **undecided** boundary, not as a system we have. Q-08 owns it. |
+| Adapter seam | Every external interaction crosses an adapter (BRD IR-07). This is the mechanism that lets a dummy be swapped for a real system without changing the domain. |
+
+**Two judgement calls, both recorded rather than assumed.**
+
+1. **The identity source has no dummy.** The workbook lists four training
+   substitutes and this step keeps exactly four. Operator identity is a
+   *local* concern of the station — sign-in, role, session — not an external
+   integration. Faking it as an external service would misdescribe the
+   boundary, so it is drawn as undecided instead.
+
+2. **Three question families are kept apart.** `Q-nn` (BRD, 12) in
+   `requirements.md`; `PQ-nn` (prototype, 18) in `ui-analysis.md`; `CQ-nn`
+   (raised by drawing the boundaries, 8) in `system-context.md`. **38 in
+   total, none silently dropped.** Merging them into one series would discard
+   the provenance that tells a reader who can answer each one.
+
+**The eight new context questions** are CQ-01 (station vs shared printer) ·
+CQ-02 (identity per shift or per weighing) · CQ-03 (batch split across shifts
+or operators) · CQ-04 (two scales or one re-zeroed indicator) · CQ-05
+(consumption posted per batch, component or lot) · CQ-06 (is a rejected posting
+permanent or retryable) · CQ-07 (is a dashboard or BI export needed) · CQ-08
+(do containers carry a lot barcode, or is it keyed in).
+
+**Eleven failure boundaries** were specified, B-1…B-11, each with the
+behaviour on failure. The governing rule: **no failure at any boundary may
+produce a silently wrong number.** A weight that is not live is shown as not
+live; a posting that has not landed is shown as pending, not confirmed. The
+prototype's hard-coded `ORGATEX · LINKED` becomes a real link state —
+`LINKED`, `DEGRADED` or `OFFLINE`.
+
+**B-5 is the one that changes the product's shape.** If the scales return only
+a stabilised value rather than a continuous stream, guided weighing as drawn
+is not buildable. It is carried forward explicitly as assumption A-05 rather
+than designed around.
+
+**Contracts not invented.** Three of the six external contracts are
+undocumented (OrgaTEX A-01/A-02, the scale protocol A-05, the ticket content
+Q-11). The document specifies boundaries and directions of data flow, never
+contract shapes.
 
 ## Scope Changes
 
