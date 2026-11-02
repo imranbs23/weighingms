@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-10-31T03:50:00Z
-total_decisions: 19
+last_updated: 2026-11-02T21:50:00Z
+total_decisions: 26
 ---
 
 # Decision Index
@@ -30,6 +30,62 @@ Use this to find relevant prior decisions when working on related features.
 - **Read when**: {Agent guidance - domain keywords and scenarios when this ADR is relevant}
 
 -->
+
+### ADR-026: The rejection disposition is configuration, and defaults to RETRYABLE
+- **Status**: accepted
+- **Date**: 2026-11-02
+- **Bolt**: 006-005-orgatex-integration (005-orgatex-integration)
+- **Path**: `bolts/006-005-orgatex-integration/adr-026-the-rejection-disposition-is-configuration.md`
+- **Summary**: CQ-06 asks whether a rejected posting is permanent or retryable, and the two answers lead to genuinely different product behaviour — under PERMANENT a transient rejection is never sent again, and the consumption is silently missing from the order. Make the disposition a configuration value and default it to RETRYABLE, because the failure modes are asymmetric: a permanently-dropped consumption is a silently wrong number, while a noisy retry is a visible problem. The default is explicitly NOT an answer to CQ-06, and the posting's state is REJECTED under either disposition — the disposition decides whether bolt 007 re-drives it.
+- **Read when**: Implementing or changing the rejection handling, the retry machinery or the failure disposition; working on CQ-06; deciding whether a failed posting is re-sent or abandoned; changing the OrgaTEX configuration; reviewing a proposal to discard a rejected posting; setting a deployment's rejection policy.
+
+### ADR-025: The local ledger is the guarantee, because the MES's contract is unknown
+- **Status**: accepted
+- **Date**: 2026-11-02
+- **Bolt**: 006-005-orgatex-integration (005-orgatex-integration)
+- **Path**: `bolts/006-005-orgatex-integration/adr-025-the-local-ledger-is-the-guarantee.md`
+- **Summary**: A-02 and Q-02 mean the MES's write contract is unknown — and whether it deduplicates is the one property that decides whether a retry double-counts a dye batch. Assume the worst case: the MES does not deduplicate and does not read the key, and the local ledger guarantees that at most one copy of a consumption ever leaves the station. The key is still carried on the request as a second line of defence, and no claim is made that OrgaTEX understands it.
+- **Read when**: Changing the posting path, the idempotency key's derivation or the adapter's write methods; working on A-02, Q-01 or Q-02; deciding whether the local ledger is still needed once the real MES is connected; changing what is sent to the MES; reviewing a proposal to drop the key from the request.
+
+### ADR-024: The posting's content is immutable, and the state transition is the only mutation
+- **Status**: accepted
+- **Date**: 2026-11-02
+- **Bolt**: 006-005-orgatex-integration (005-orgatex-integration)
+- **Path**: `bolts/006-005-orgatex-integration/adr-024-the-postings-content-is-immutable.md`
+- **Summary**: BRD DR-02 wants immutability but a posting genuinely has a lifecycle — it becomes ACCEPTED or REJECTED — so the resolution is partial: the content is written once and never again, only the outcome may change, only once, and only from QUEUED, with the repository exposing no general update and the SQL carrying a WHERE state = 'QUEUED' guard so a double-resolution affects zero rows and raises.
+- **Read when**: Implementing or changing the posting repository, the state transition or the attempt history; adding a column to the postings table; reviewing a proposal for an update method, an updated_at column or a version column; working on DR-02; correcting a posted consumption; implementing the rejection reason.
+
+### ADR-023: The ledger's primary key is the idempotency guarantee
+- **Status**: accepted
+- **Date**: 2026-11-02
+- **Bolt**: 006-005-orgatex-integration (005-orgatex-integration)
+- **Path**: `bolts/006-005-orgatex-integration/adr-023-the-ledgers-primary-key-is-the-idempotency-guarantee.md`
+- **Summary**: IR-08 requires idempotent posting and the story names a concurrency case — two submissions of the same key at once, where exactly one must be admitted — so the guard has to be atomic rather than merely present. Make the idempotency ledger a table whose PRIMARY KEY is the key: the uniqueness constraint IS the guard, there is no check-then-write window, the ledger is separate from the postings so the dedup decision never reads mutable state, and there is no delete path so a consumed key is consumed forever.
+- **Read when**: Designing or changing the idempotency ledger, the dedup check or the retention of consumed keys; adding an idempotency_key column to another table; implementing the duplicate refusal; working on concurrency or on DR-01 retention; reviewing a proposal to clean up or prune the ledger.
+
+### ADR-022: The adapter's transport is not exercised by the tests
+- **Status**: accepted
+- **Date**: 2026-11-02
+- **Bolt**: 005-005-orgatex-integration (005-orgatex-integration)
+- **Path**: `bolts/005-005-orgatex-integration/adr-022-the-adapters-transport-is-not-exercised-by-the-tests.md`
+- **Summary**: BRD IR-07's seam is only worth having if the other side can actually be swapped, and A-01/Q-01 mean the contract on that side does not exist yet — so what the tests prove must be stated precisely. Keep the adapter in process so the domain rules are tested without a socket, keep the Dummy MES's HTTP router alongside it so the training artefact is real and curl-able, and record explicitly that the transport is untested until a real adapter exists.
+- **Read when**: Writing or reviewing a real OrgaTEX adapter or any HTTP transport in this product; deciding what a test suite has actually proven about an external integration; adding an adapter to a port; reviewing a claim that the seam is exercised end to end.
+
+### ADR-021: The snapshots are not persisted, but the last known-good is held in memory
+- **Status**: accepted
+- **Date**: 2026-11-02
+- **Bolt**: 005-005-orgatex-integration (005-orgatex-integration)
+- **Path**: `bolts/005-005-orgatex-integration/adr-021-the-snapshots-are-not-persisted.md`
+- **Summary**: FR-20 requires a `DEGRADED` read to serve the last successful snapshot marked with its age, while the unit brief says snapshots are not persisted — and both are right, because they are about different things. Hold the last known-good in a bounded, disposable in-memory cache and persist nothing, so the stale-looking-fresh path is impossible by construction rather than merely guarded against.
+- **Read when**: Adding a table, repository or cache for the batch queue or a recipe; deciding whether a MES snapshot may survive a restart; working on the `DEGRADED` fallback or the freshness window; deciding what unit 002's recipe cache owns; reviewing a proposal to persist the queue "just to be safe".
+
+### ADR-020: The OrgaTEX reads require an operator session
+- **Status**: accepted
+- **Date**: 2026-11-02
+- **Bolt**: 005-005-orgatex-integration (005-orgatex-integration)
+- **Path**: `bolts/005-005-orgatex-integration/adr-020-the-orgatex-reads-require-an-operator-session.md`
+- **Summary**: ADR-013 left the scale's read endpoints open because a scale's weight is physically visible at the station and the UI needs the status strip before sign-in — and neither premise holds for the MES queue, which is OrgaTEX's production schedule and sits behind a sign-in the workflow already requires. Require an operator session, not a supervisor authorisation, and narrow ADR-013's rule to devices that are physically present at the station.
+- **Read when**: Adding or changing any OrgaTEX endpoint; deciding what requires an operator session; working on the batch queue screen or the UI's boot sequence; applying ADR-013 to a new endpoint; reviewing information exposure on the MES seam.
 
 ### ADR-019: The selection threshold is configuration, and is unset until FCI answers
 - **Status**: accepted
