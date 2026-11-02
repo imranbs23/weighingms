@@ -21,6 +21,11 @@ import type { IdentityConfig } from '../src/008-operator-identity/infrastructure
 import { OperatorId } from '../src/008-operator-identity/domain/value-objects/operator-id.js';
 import { OperatorRole } from '../src/008-operator-identity/domain/value-objects/operator-role.js';
 import { Operator } from '../src/008-operator-identity/domain/entities/operator.js';
+import {
+  buildScaleModule,
+  type ScaleModule,
+} from '../src/004-scale-integration/infrastructure/composition-root.js';
+import type { ScaleConfig } from '../src/004-scale-integration/infrastructure/config/scale-config.js';
 
 /** A controllable clock. */
 export class TestClock {
@@ -43,6 +48,7 @@ export class TestClock {
 
 export interface Harness {
   readonly identity: IdentityModule;
+  readonly scales: ScaleModule;
   readonly app: ReturnType<typeof createApp>;
   readonly clock: TestClock;
   close(): void;
@@ -65,6 +71,8 @@ export function createHarness(options?: {
   argon2Memory?: number;
   argon2Passes?: number;
   authorisationLifetimeMs?: number;
+  disconnectTimeoutMs?: number;
+  sampleIntervalMs?: number;
 }): Harness {
   const clock = new TestClock();
 
@@ -77,13 +85,31 @@ export function createHarness(options?: {
   };
 
   const identity = buildIdentityModule({ config, clock: clock.now });
-  const app = createApp({ identity });
+
+  // The scale unit shares the identity unit's database, so the two units'
+  // migrations live in one `schema_migrations` table.
+  const scaleConfig: ScaleConfig = {
+    databasePath: ':memory:',
+    disconnectTimeoutMs: options?.disconnectTimeoutMs ?? 2000,
+    sampleIntervalMs: options?.sampleIntervalMs ?? 100,
+  };
+  const scales = buildScaleModule({
+    config: scaleConfig,
+    clock: clock.now,
+    db: identity.db,
+  });
+
+  const app = createApp({ identity, scales });
 
   return {
     identity,
+    scales,
     app,
     clock,
-    close: () => identity.close(),
+    close: () => {
+      scales.close();
+      identity.close();
+    },
   };
 }
 

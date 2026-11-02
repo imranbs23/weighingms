@@ -11,12 +11,20 @@ import {
   buildIdentityModule,
 } from '../008-operator-identity/infrastructure/composition-root.js';
 import { loadIdentityConfig } from '../008-operator-identity/infrastructure/config/identity-config.js';
+import { buildScaleModule } from '../004-scale-integration/infrastructure/composition-root.js';
+import { loadScaleConfig } from '../004-scale-integration/infrastructure/config/scale-config.js';
 
 const PORT = Number(process.env['PORT'] ?? 3000);
 
 const config = loadIdentityConfig();
 const identity = buildIdentityModule({ config });
-const app = createApp({ identity });
+
+// The scale unit shares the identity unit's database file, so both
+// units' migrations live in one `schema_migrations` table.
+const scaleConfig = loadScaleConfig({ ...process.env, WEIGHINGMS_DATABASE_PATH: config.databasePath });
+const scales = buildScaleModule({ config: scaleConfig, db: identity.db });
+
+const app = createApp({ identity, scales });
 
 const server = app.listen(PORT, () => {
   console.log(`[api] WeighingMS API listening on http://localhost:${PORT}`);
@@ -27,11 +35,15 @@ const server = app.listen(PORT, () => {
   console.log(
     `[api] session lifetime: ${Math.round(config.sessionLifetimeMs / 60000)} minutes`,
   );
+  console.log(
+    `[api] scales: ${scales.registry.list().length} registered — disconnect timeout ${scaleConfig.disconnectTimeoutMs}ms, sample interval ${scaleConfig.sampleIntervalMs}ms`,
+  );
 });
 
 function shutdown(signal: string): void {
   console.log(`[api] ${signal} received, shutting down`);
   server.close(() => {
+    scales.close();
     identity.close();
     process.exit(0);
   });

@@ -14,15 +14,21 @@ import {
 } from '../008-operator-identity/presentation/middleware/resolve-current-operator.js';
 import { requireOperator } from '../008-operator-identity/presentation/middleware/require-operator.js';
 import type { IdentityModule } from '../008-operator-identity/infrastructure/composition-root.js';
+import { createScaleRouter } from '../004-scale-integration/presentation/controllers/scale-controller.js';
+import {
+  createWeightStreamRouter,
+} from '../004-scale-integration/presentation/controllers/weight-stream-controller.js';
+import type { ScaleModule } from '../004-scale-integration/infrastructure/composition-root.js';
 
 export interface AppOptions {
   readonly identity: IdentityModule;
+  readonly scales: ScaleModule;
   /** Allowed CORS origins. Empty means same-origin only. */
   readonly corsOrigins?: readonly string[];
 }
 
 export function createApp(options: AppOptions): Express {
-  const { identity } = options;
+  const { identity, scales } = options;
   const app = express();
 
   app.disable('x-powered-by');
@@ -65,6 +71,17 @@ export function createApp(options: AppOptions): Express {
   // base path because they are the same bounded context: the identity
   // unit's public surface.
   app.use('/api/identity', createAuthorisationRouter(identity));
+
+  // ── Scale ──
+  // The Dummy Scale's read endpoints are open (ADR-013) — a scale's
+  // weight and calibration state are physically visible at the station,
+  // and the UI needs the status strip before anyone signs in.
+  app.use('/api/scales', createScaleRouter(scales));
+
+  // The weight stream is mounted separately because it lives at
+  // /api/scales/:scaleId/weight and must not be shadowed by the router
+  // above.
+  app.use('/api/scales', createWeightStreamRouter(scales));
 
   // A route that REQUIRES a signed-in operator — this is the shape other
   // units' protected endpoints will use.

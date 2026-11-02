@@ -3,15 +3,30 @@ id: 003-004-scale-integration
 unit: 004-scale-integration
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 001-receive-live-weight-stream
   - 002-detect-disconnection-and-block-weighing
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
-current_stage: null
-stages_completed: []
+started: 2026-10-30T20:50:00Z
+completed: 2026-10-31T00:20:00Z
+current_stage: complete
+stages_completed:
+  - name: model
+    completed: 2026-10-30T20:50:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-10-30T23:20:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-10-30T23:45:00Z
+    artifact: adr-008-weight-value-crosses-the-wire-as-a-decimal-string.md, adr-009-weight-readings-are-never-persisted.md, adr-010-zeroed-does-not-block-weighing.md, adr-011-link-state-is-separate-from-device-status.md, adr-012-the-disconnection-watchdog-is-scheduled-not-polled.md, adr-013-scale-telemetry-endpoints-are-not-session-authenticated.md
+  - name: implement
+    completed: 2026-10-31T00:05:00Z
+    artifact: src/004-scale-integration/domain, src/004-scale-integration/infrastructure, src/004-scale-integration/presentation
+  - name: test
+    completed: 2026-10-31T00:20:00Z
+    artifact: ddd-03-test-report.md
 
 # Bolt Dependencies (for execution ordering)
 requires_bolts: []
@@ -51,10 +66,10 @@ Own the scale device seam: a continuous live-weight stream at ≥ 10 Hz and disc
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-008…adr-013
+- [ ] **4. implement**: Implement - In progress → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
 ## Expected Outputs

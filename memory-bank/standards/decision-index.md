@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-10-30T20:15:00Z
-total_decisions: 7
+last_updated: 2026-10-30T23:40:00Z
+total_decisions: 13
 ---
 
 # Decision Index
@@ -30,6 +30,54 @@ Use this to find relevant prior decisions when working on related features.
 - **Read when**: {Agent guidance - domain keywords and scenarios when this ADR is relevant}
 
 -->
+
+### ADR-013: The scale telemetry endpoints are not behind an operator session
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 003-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/003-004-scale-integration/adr-013-scale-telemetry-endpoints-are-not-session-authenticated.md`
+- **Summary**: Every endpoint in the identity unit requires a session, but a scale's current weight and calibration state are physically visible to anyone at the station, and the UI needs the status strip before anyone signs in. Leave the read endpoints open and session-guard only the write endpoints that change device state, and make them require a session but NOT a supervisor, because they authorise nothing.
+- **Read when**: Adding or changing any scale endpoint; deciding what requires an operator session; working on the peripheral status strip or the UI's boot sequence; deciding whether a training control needs supervisor authorisation; exposing the API beyond the station's own network segment.
+
+### ADR-012: The disconnection watchdog is scheduled, not polled
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 003-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/003-004-scale-integration/adr-012-the-disconnection-watchdog-is-scheduled-not-polled.md`
+- **Summary**: IR-13 requires disconnection detection within 2 seconds, and a polled watchdog quantises that latency to the poll interval — at the stream's 10 Hz that is 2.1 s against a 2.0 s requirement, and the three boundary test points cannot be hit exactly. Schedule the deadline from the last reading's receipt time through a scheduler port, and let a pure policy decide the answer so the timer only decides when to ask.
+- **Read when**: Working on disconnection detection, the 2 s timeout, or any deadline in this product; deciding whether to poll or schedule; adding a `WatchdogScheduler` port or a timer to a domain service; testing a time boundary exactly.
+
+### ADR-011: Link state is a separate axis from the published device status
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 003-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/003-004-scale-integration/adr-011-link-state-is-separate-from-device-status.md`
+- **Summary**: The published vocabulary has five statuses but two of them are facts the device says about itself, `DISCONNECTED` is a fact we conclude because the device stopped talking, and a device that has never spoken fits neither rule — yet both failure modes must publish as `DISCONNECTED`. Keep the link state (`UNKNOWN`/`UP`/`DOWN`) as its own axis, publish both failure modes as `DISCONNECTED`, and preserve the difference in the gate's refusal reason.
+- **Read when**: Working on device status, link state, or the disconnection gap; adding a device status value; deciding what the status strip shows; distinguishing "went silent" from "never responded"; writing a device's `startedAt`.
+
+### ADR-010: `ZEROED` does not block weighing
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 003-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/003-004-scale-integration/adr-010-zeroed-does-not-block-weighing.md`
+- **Summary**: The story says "only `CONNECTED` is a state in which weighing may proceed", but `ZEROED` is what a tared scale is, and tare exists to enable the weighing — read literally, the rule makes a correctly prepared station refuse its weighing. Read the rule as "only a *connected* device may proceed"; `ZEROED` is a state of readiness, not a fault, and every blocking status names its own reason.
+- **Read when**: Changing the weighing gate or its block reasons; working on tare, zeroing or a container tare; adding a device status value; checking conformance against the disconnection story's wording; wondering why a zeroed scale is allowed to be weighed on.
+
+### ADR-009: Weight readings are never persisted, and the absence of a repository is the enforcement
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 003-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/003-004-scale-integration/adr-009-weight-readings-are-never-persisted.md`
+- **Summary**: Persisting readings is the obvious choice and it is what makes a stale reading readable as a live one — the "latest reading" query returns an hour-old value from a scale that died, with nothing in the query to say so, which is the exact confusion the disconnection rule exists to prevent. Persist no readings and provide no reading repository, so the failure is impossible by construction; the durable facts that investigation needs are the confirmed weighing record, the disconnection gap and the audit trail.
+- **Read when**: Adding a table, repository or endpoint for weight readings or weight history; deciding what to persist in the scale unit; building a "weight history" screen or a trend view; working on the reading stream's hot path; investigating what evidence exists after an incident.
+
+### ADR-008: The weight value crosses the wire as a decimal string, not a JSON number
+- **Status**: accepted
+- **Date**: 2026-10-30
+- **Bolt**: 003-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/003-004-scale-integration/adr-008-weight-value-crosses-the-wire-as-a-decimal-string.md`
+- **Summary**: BRD NFR-16 forbids floating point for quantities and the domain honours it with a string-only `WeightValue` constructor, but the approved tech stack's own SSE example shows `"weight":93.42` — a JSON number, which every parser decodes to an IEEE-754 double, so the example undoes the domain guarantee in transit. Send the value as a decimal string, use the story's field names, and apply the same rule to every quantity on every boundary.
+- **Read when**: Writing or changing any API that returns a quantity; working on the SSE weight frame, the status view or the weigh record; deciding whether a JSON number is acceptable for a weight; working on tolerance boundary tests or the no-floating-point rule; parsing a quantity on the client side.
 
 ### ADR-007: Record the operator an authorisation was issued for
 - **Status**: accepted

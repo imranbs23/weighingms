@@ -17,6 +17,7 @@ import {
 } from '../../src/008-operator-identity/infrastructure/composition-root.js';
 import type { IdentityConfig } from '../../src/008-operator-identity/infrastructure/config/identity-config.js';
 import { createApp } from '../../src/api/app.js';
+import { buildScaleModule } from '../../src/004-scale-integration/infrastructure/composition-root.js';
 import { OperatorId } from '../../src/008-operator-identity/domain/value-objects/operator-id.js';
 import { OperatorRole } from '../../src/008-operator-identity/domain/value-objects/operator-role.js';
 import { Operator } from '../../src/008-operator-identity/domain/entities/operator.js';
@@ -41,7 +42,17 @@ class Harness {
       authorisationLifetimeMs: 15 * 60 * 1000,
     };
     this.module = buildIdentityModule({ config });
-    this.app = createApp({ identity: this.module });
+    this.app = createApp({
+      identity: this.module,
+      scales: buildScaleModule({
+        config: {
+          databasePath: ':memory:',
+          disconnectTimeoutMs: 2000,
+          sampleIntervalMs: 100,
+        },
+        db: this.module.db,
+      }),
+    });
   }
 
   async seed(

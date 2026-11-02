@@ -21,6 +21,7 @@ import {
   type Harness,
 } from '../harness.js';
 import { createApp } from '../../src/api/app.js';
+import { buildScaleModule } from '../../src/004-scale-integration/infrastructure/composition-root.js';
 import { Argon2SecretHasher } from '../../src/008-operator-identity/infrastructure/security/argon2-secret-hasher.js';
 import { LocalIdentityProvider } from '../../src/008-operator-identity/infrastructure/security/local-identity-provider.js';
 import { OperatorId } from '../../src/008-operator-identity/domain/value-objects/operator-id.js';
@@ -405,5 +406,15 @@ describe('security', () => {
 function createAppFor(module: ReturnType<
   typeof import('../../src/008-operator-identity/infrastructure/composition-root.js').buildIdentityModule
 >) {
-  return createApp({ identity: module });
+  return createApp({
+    identity: module,
+    scales: buildScaleModule({
+      config: {
+        databasePath: ':memory:',
+        disconnectTimeoutMs: 2000,
+        sampleIntervalMs: 100,
+      },
+      db: module.db,
+    }),
+  });
 }
