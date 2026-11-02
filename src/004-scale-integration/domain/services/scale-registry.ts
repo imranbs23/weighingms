@@ -30,10 +30,20 @@ import { ReadingAcceptancePolicy } from './reading-acceptance-policy.js';
 import { Instant } from '../value-objects/instant.js';
 import { DisconnectionStarted } from '../entities/disconnection-started.js';
 import { DisconnectionEnded } from '../entities/disconnection-ended.js';
+import { TarePolicy } from './tare-policy.js';
+import { WeightUnitConverter } from './weight-unit-converter.js';
+import { ScaleSelectionRule } from './scale-selection-rule.js';
+import { ComponentId } from '../value-objects/component-id.js';
+import { WeightValue } from '../value-objects/weight-value.js';
+import type { ScaleClass } from '../value-objects/scale-capability.js';
+import type { TareSource } from '../value-objects/tare-source.js';
+import type { TareApplication } from '../value-objects/tare-application.js';
+import type { ScaleSelectionOutcome } from '../value-objects/scale-selection-outcome.js';
 import type { ScaleEvent } from '../events/scale-events.js';
 import type { WatchdogScheduler } from '../ports/watchdog-scheduler.js';
 import type { ScaleDeviceRepository } from '../ports/scale-device-repository.js';
 import type { DeviceLinkHistoryRepository } from '../ports/device-link-history-repository.js';
+import type { ScaleAdapter } from '../ports/scale-adapter.js';
 
 export interface ScaleRegistryOptions {
   readonly watchdog: LinkWatchdog;
@@ -50,17 +60,41 @@ export interface ScaleRegistryOptions {
    * port itself stays free of training-only methods (ADR-013).
    */
   readonly adapters?: Map<string, { silence?: () => void; unsilence?: () => void }> | undefined;
+  /**
+   * The adapters, for the TARE operation.
+   *
+   * Separate from the training-control map above, because this one is
+   * the product's real seam: the tare command reaches the device
+   * through here (ADR-014). The registry asks the adapter to apply the
+   * tare and the adapter reports which mechanism it used.
+   */
+  readonly scaleAdapters?: Map<string, ScaleAdapter> | undefined;
+  /**
+   * The selection rule's threshold.
+   *
+   * `null` until FCI answers `Q-04` (ADR-019). The rule works fully
+   * without it, because the capacity constraint alone decides every
+   * case the story names.
+   */
+  readonly selectionThreshold?: WeightValue | null;
 }
 
 export class ScaleRegistry {
   private readonly devices = new Map<string, ScaleDevice>();
   private readonly acceptance = new ReadingAcceptancePolicy();
   private readonly health = new ScaleHealthPolicy();
+  private readonly tarePolicy = new TarePolicy();
+  private readonly converter = new WeightUnitConverter();
+  private readonly selection: ScaleSelectionRule;
 
   /** The open disconnection per device, if any. */
   private readonly openGaps = new Map<string, DisconnectionStarted>();
 
-  constructor(private readonly options: ScaleRegistryOptions) {}
+  constructor(private readonly options: ScaleRegistryOptions) {
+    this.selection = new ScaleSelectionRule({
+      threshold: options.selectionThreshold ?? null,
+    });
+  }
 
   /** Register a device. Its link starts UNKNOWN. */
   register(device: ScaleDevice): void {
@@ -218,6 +252,174 @@ export class ScaleRegistry {
     // when the device next speaks.
     silenceable?.unsilence?.();
     return true;
+  }
+
+  /**
+   * Apply a tare to a device.
+   *
+   * ══════════════════════════════════════════════════════════════════
+   * THE ORDER OF THE STEPS MATTERS
+   * ══════════════════════════════════════════════════════════════════
+   *
+   *   1. the gate — may this device be weighed on at all? (S-13)
+   *   2. convert the tare into the DEVICE's unit, exactly (BRD NFR-16)
+   *   3. the adapter applies it — the ONE place a tare reaches a device
+   *   4. the device's state reflects it — the ONE place it changes
+   *
+   * A REFUSAL CHANGES NOTHING (S-14). The previous tare remains in
+   * force, and the outcome says so. A device whose zero reference was
+   * silently dropped would report a container's full weight as the
+   * dispensed quantity — a plausible wrong number with no error.
+   *
+   * The conversion happens HERE, in the domain, rather than in the
+   * adapter: the adapter is handed a value already in the device's own
+   * unit, so that there is exactly one place a conversion happens and
+   * the adapter never has to guess what unit it was given.
+   */
+  applyTare(
+    scaleId: ScaleId,
+    tareValue: WeightValue,
+    source: TareSource,
+  ): TareApplication {
+    const device = this.devices.get(scaleId.value);
+    if (device === undefined) {
+      return { kind: 'REFUSED', reason: 'SCALE_NOT_RESPONDING' };
+    }
+
+    // 1. THE ADAPTER, and the device's proof that it is there.
+    //
+    //    A tare is a command sent TO a device, and a device that has
+    //    never spoken cannot be commanded. So the adapter is asked for
+    //    one reading, which is ingested through the NORMAL path — which
+    //    brings the link UP and makes the gate's verdict meaningful.
+    //
+    //    Asking for a reading rather than trusting the device's stored
+    //    status is deliberate: the link state is the system's own
+    //    evidence that the device is there, not the device's word about
+    //    itself (S-5).
+    const adapter = this.options.scaleAdapters?.get(scaleId.value);
+    if (adapter === undefined) {
+      this.emit({
+        type: 'TARE_REFUSED',
+        scaleId: device.id,
+        reason: 'SCALE_NOT_RESPONDING',
+        at: this.options.clock(),
+        previousTareRetained: true,
+      });
+      return { kind: 'REFUSED', reason: 'SCALE_NOT_RESPONDING' };
+    }
+
+    const proof = adapter.readOnce(device.id);
+    if (proof === null) {
+      // The device produced nothing — it is not there. That is the same
+      // distinction the stream makes (S-1): absent, never a zero.
+      this.emit({
+        type: 'TARE_REFUSED',
+        scaleId: device.id,
+        reason: 'SCALE_DISCONNECTED',
+        at: this.options.clock(),
+        previousTareRetained: true,
+      });
+      return { kind: 'REFUSED', reason: 'SCALE_DISCONNECTED' };
+    }
+
+    this.ingestReading(device.id, proof);
+
+    // 2. THE GATE. The same gate the weighing uses, so a tare is
+    //    refused for exactly the reasons a weighing is refused.
+    const verdict = device.canWeigh(this.health);
+    const tareVerdict = this.tarePolicy.evaluate(device, verdict);
+    if (!tareVerdict.allowed) {
+      this.emit({
+        type: 'TARE_REFUSED',
+        scaleId: device.id,
+        reason: tareVerdict.reason ?? 'SCALE_NOT_RESPONDING',
+        at: this.options.clock(),
+        previousTareRetained: true,
+      });
+      return { kind: 'REFUSED', reason: tareVerdict.reason ?? 'SCALE_NOT_RESPONDING' };
+    }
+
+    // 3. CONVERT into the device's own unit, exactly.
+    const deviceUnit = device.capability.capacity.unit;
+    const inDeviceUnit = this.converter.convert(tareValue, deviceUnit);
+
+    const state = adapter.applyTare(device.id, {
+      value: inDeviceUnit,
+      appliedAt: Instant.of(this.options.clock()),
+      source,
+    });
+
+    // 4. THE DEVICE. The one place the tare state changes. The adapter
+    //    returned the state it applied, so the device's state and the
+    //    adapter's subtraction are the same object rather than two
+    //    independently built copies that could disagree.
+    device.applyTare(state);
+
+    this.emit({
+      type: 'TARE_APPLIED',
+      scaleId: device.id,
+      tare: state,
+    });
+
+    return { kind: 'APPLIED', state };
+  }
+
+  /** The tare in force on a device, or null when none is. */
+  tareOf(scaleId: ScaleId): ScaleDevice['tareState'] {
+    return this.devices.get(scaleId.value)?.tareState ?? null;
+  }
+
+  /**
+   * Select the device for a component.
+   *
+   * The decision and its record — nothing more. It does NOT bind the
+   * session, does NOT reset the weight and does NOT touch either device:
+   * a selection is a DECISION, not a connection switch (S-16).
+   *
+   * The "no device can weigh this" outcome is NOT an error (ADR-018). It
+   * is a successful answer to a well-formed question, and it carries
+   * the target and the maximum available capacity so the caller can say
+   * why.
+   */
+  selectScale(
+    componentId: ComponentId,
+    target: WeightValue,
+    demandedClass: ScaleClass,
+  ): ScaleSelectionOutcome {
+    const devices = this.list().map((device) => ({
+      scaleId: device.id,
+      scaleClass: device.capability.scaleClass,
+      capacity: device.capability.capacity,
+    }));
+
+    const outcome = this.selection.select(
+      target,
+      demandedClass,
+      devices,
+      componentId,
+      Instant.of(this.options.clock()),
+    );
+
+    if (outcome.kind === 'SELECTED') {
+      this.emit({ type: 'SCALE_SELECTED', selection: outcome.selection });
+      return outcome;
+    }
+
+    this.emit({
+      type: 'SCALE_SELECTION_REFUSED',
+      componentId,
+      target: outcome.target,
+      maximumCapacity: outcome.maximumCapacity,
+      demandedClass: outcome.demandedClass,
+      at: this.options.clock(),
+    });
+    return outcome;
+  }
+
+  /** The selection threshold currently configured, or null (ADR-019). */
+  get selectionThreshold(): WeightValue | null {
+    return this.selection.threshold;
   }
 
   private scheduleWatchdog(device: ScaleDevice, receivedAt: Date): void {

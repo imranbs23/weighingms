@@ -26,6 +26,7 @@ import {
   type ScaleModule,
 } from '../src/004-scale-integration/infrastructure/composition-root.js';
 import type { ScaleConfig } from '../src/004-scale-integration/infrastructure/config/scale-config.js';
+import { WeightValue } from '../src/004-scale-integration/domain/value-objects/weight-value.js';
 
 /** A controllable clock. */
 export class TestClock {
@@ -73,6 +74,13 @@ export function createHarness(options?: {
   authorisationLifetimeMs?: number;
   disconnectTimeoutMs?: number;
   sampleIntervalMs?: number;
+  /**
+   * The selection threshold, or null to leave it unset.
+   *
+   * Null is the production default, because `Q-04` is unanswered
+   * (ADR-019). A test that needs the threshold configured passes one.
+   */
+  selectionThreshold?: WeightValue | null;
 }): Harness {
   const clock = new TestClock();
 
@@ -92,6 +100,10 @@ export function createHarness(options?: {
     databasePath: ':memory:',
     disconnectTimeoutMs: options?.disconnectTimeoutMs ?? 2000,
     sampleIntervalMs: options?.sampleIntervalMs ?? 100,
+    // `Q-04` is unanswered, so the threshold is UNSET — exactly as it is
+    // in production (ADR-019). A test that needs it configured passes one
+    // here.
+    selectionThreshold: options?.selectionThreshold ?? null,
   };
   const scales = buildScaleModule({
     config: scaleConfig,

@@ -36,6 +36,7 @@ import type { ScaleModule } from '../../infrastructure/composition-root.js';
 import { DummyScaleAdapter } from '../../infrastructure/adapters/dummy-scale-adapter.js';
 import { scaleIdSchema } from '../schemas/scale-schemas.js';
 import { SUBSCRIBER_BUFFER_LIMIT } from '../../domain/services/scale-stream-service.js';
+import type { Instant } from '../../domain/value-objects/instant.js';
 
 export const SCALE_NOT_FOUND = 'SCALE_NOT_FOUND';
 
@@ -193,6 +194,12 @@ function writeReading(
     readonly stable: boolean;
     readonly sequence: { readonly value: number };
     readonly receivedAt: Date;
+    readonly tare: {
+      readonly tareValue: { readonly text: string; readonly unit: string };
+      readonly appliedAt: Instant;
+      readonly source: string;
+      readonly appliedBy: string;
+    } | null;
   },
 ): void {
   const payload = {
@@ -202,6 +209,19 @@ function writeReading(
     stable: reading.stable,
     sequence: reading.sequence.value,
     receivedAt: reading.receivedAt.toISOString(),
+    // ADR-014: the value is NET, and the tare that produced it travels
+    // with it. A consumer can therefore always answer "what was this
+    // reading net of?" — and the tare is visible in the evidence.
+    tare:
+      reading.tare === null
+        ? null
+        : {
+            value: reading.tare.tareValue.text,
+            unit: reading.tare.tareValue.unit,
+            appliedAt: reading.tare.appliedAt.toDate().toISOString(),
+            source: reading.tare.source,
+            appliedBy: reading.tare.appliedBy,
+          },
   };
   res.write(`event: reading\ndata: ${JSON.stringify(payload)}\n\n`);
 }

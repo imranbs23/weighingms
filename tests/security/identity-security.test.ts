@@ -413,6 +413,7 @@ function createAppFor(module: ReturnType<
         databasePath: ':memory:',
         disconnectTimeoutMs: 2000,
         sampleIntervalMs: 100,
+        selectionThreshold: null,
       },
       db: module.db,
     }),

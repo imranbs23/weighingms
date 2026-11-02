@@ -49,6 +49,7 @@ class Harness {
           databasePath: ':memory:',
           disconnectTimeoutMs: 2000,
           sampleIntervalMs: 100,
+          selectionThreshold: null,
         },
         db: this.module.db,
       }),

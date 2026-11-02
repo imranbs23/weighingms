@@ -27,7 +27,7 @@
  * class asserts none. It is not "an RS232 scale" or "a Modbus scale" —
  * it is a training device that produces the unit's contract.
  */
-import type { ScaleAdapter } from '../../domain/ports/scale-adapter.js';
+import type { ScaleAdapter, TareRequest } from '../../domain/ports/scale-adapter.js';
 import type { ScaleId } from '../../domain/value-objects/scale-id.js';
 import { ScaleReading } from '../../domain/value-objects/scale-reading.js';
 import { WeightValue } from '../../domain/value-objects/weight-value.js';
@@ -35,6 +35,9 @@ import { ReadingSequence } from '../../domain/value-objects/reading-sequence.js'
 import type { ScaleStatus } from '../../domain/value-objects/scale-status.js';
 import type { CalibrationState } from '../../domain/value-objects/calibration-state.js';
 import { DispenseRamp, type RampLanding } from '../../domain/services/dispense-ramp.js';
+import { TareState } from '../../domain/entities/tare-state.js';
+import { Instant } from '../../domain/value-objects/instant.js';
+import { Decimal } from 'decimal.js';
 
 export interface DummyScaleConfig {
   readonly scaleId: ScaleId;
@@ -61,6 +64,17 @@ export class DummyScaleAdapter implements ScaleAdapter {
     tolerance: WeightValue;
     mode: RampLanding;
   } | null = null;
+
+  /**
+   * The tare in force on this device, or null when none is.
+   *
+   * Held here because this adapter is the one place the tare is
+   * APPLIED (ADR-014). The device aggregate holds the same state for
+   * the same reason — it is what the status view and the API report —
+   * and the two are the same object, because `applyTare` returns the
+   * state it applied and the registry puts THAT on the device.
+   */
+  private tare: TareState | null = null;
 
   constructor(
     private readonly config: DummyScaleConfig,
@@ -142,12 +156,101 @@ export class DummyScaleAdapter implements ScaleAdapter {
   /** Produce one reading now. */
   read(): ScaleReading {
     this.sequence += 1;
+    const net = this.applyTareToGross(this.current);
     return new ScaleReading(
-      this.current,
-      this.current.isZero(),
+      net,
+      net.isZero(),
       ReadingSequence.of(this.sequence),
       this.clock(),
+      this.tare,
     );
+  }
+
+  /**
+   * Produce ONE reading, synchronously.
+   *
+   * The tare flow uses this to prove the device is there before it
+   * commands it: a device that has never spoken cannot be tare'd.
+   *
+   * A SILENCED DEVICE PRODUCES NOTHING — here as in the stream (S-1).
+   * A device that has gone away must be ABSENT, not present with a
+   * weight of zero. So a silenced device returns `null`, and the tare
+   * flow treats that as "the device is not there".
+   */
+  readOnce(_scaleId: ScaleId): ScaleReading | null {
+    if (this.silenced) return null;
+    return this.read();
+  }
+
+  /**
+   * Apply a tare to the device.
+   *
+   * ══════════════════════════════════════════════════════════════════
+   * THE TRAINING DEVICE HAS NO TARE COMMAND (Q-03)
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * The indicator's protocol is unconfirmed, and the training device
+   * implements none of it. So the tare is applied IN SOFTWARE — the
+   * subtraction happens here, in the adapter, which is the one place a
+   * software tare is subtracted (ADR-014).
+   *
+   * A real adapter that supports a tare command would issue it to the
+   * device and return the same `TareState` shape with
+   * `appliedBy: 'INDICATOR'`. Nothing above the adapter would change —
+   * which is the point of applying the tare at the device.
+   */
+  applyTare(scaleId: ScaleId, request: TareRequest): TareState {
+    const state = new TareState(
+      scaleId,
+      request.value,
+      request.appliedAt,
+      request.source,
+      'SOFTWARE',
+    );
+    this.tare = state;
+    return state;
+  }
+
+  /**
+   * Subtract the tare from a gross reading, EXACTLY, and floor at zero.
+   *
+   * ══════════════════════════════════════════════════════════════════
+   * WHY THE RESULT FLOORS AT ZERO (ADR-016)
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * A gross reading below the tare — an empty container removed from a
+   * scale zeroed against it — would otherwise produce a negative net
+   * weight. A negative dispensed quantity is not a thing that exists, so
+   * the negative number is never produced: the clamp is here, at the
+   * device, rather than in every consumer that would otherwise have to
+   * remember to apply it.
+   *
+   * The TARE ITSELF is unaffected. Only the net reading floors.
+   *
+   * The arithmetic is exact — `decimal.js`, never a float (BRD NFR-16).
+   */
+  private applyTareToGross(gross: WeightValue): WeightValue {
+    const tare = this.tare;
+    if (tare === null) return gross;
+
+    const net = new Decimal(gross.text).minus(new Decimal(tare.tareValue.text));
+    const floored = net.isNegative() ? new Decimal(0) : net;
+
+    return WeightValue.of(stripTrailingZeros(floored.toFixed(6)), gross.unit);
+  }
+
+  /**
+   * Set the weight the device is showing.
+   *
+   * TRAINING ONLY — it puts a specific weight on the scale so that a
+   * test can exercise the tare subtraction, the ramp or the stream
+   * without waiting for a dispense to reach it.
+   *
+   * The value is GROSS. The tare, if one is in force, is subtracted from
+   * it when the reading is produced (ADR-014).
+   */
+  setWeight(text: string): void {
+    this.current = WeightValue.of(text, this.config.unit);
   }
 
   /**
@@ -204,4 +307,28 @@ export class DummyScaleAdapter implements ScaleAdapter {
       setTimeout(resolve, ms);
     });
   }
+}
+
+/**
+ * Remove the trailing zeros a fixed-point subtraction introduces.
+ *
+ * `"214.000000"` → `"214"`, `"0.420000"` → `"0.42"`, `"0.000000"` →
+ * `"0"`. The result is always a canonical decimal that `WeightValue`
+ * accepts.
+ *
+ * The trailing DOT goes with the zeros: `"1850.000000"` must become
+ * `"1850"`, not `"1850.0"`. A value below one keeps its leading zero
+ * and at least one decimal place — `"0.5"`, never `".5"`.
+ */
+function stripTrailingZeros(text: string): string {
+  if (!text.includes('.')) return text;
+
+  const trimmed = text.replace(/0+$/, '').replace(/\.$/, '');
+  if (trimmed === '' || trimmed === '-') return '0';
+
+  // A value with no integer part keeps one decimal place.
+  if (trimmed.startsWith('.')) return `0${trimmed}`;
+  if (trimmed.startsWith('-.')) return `-0${trimmed.slice(1)}`;
+
+  return trimmed;
 }

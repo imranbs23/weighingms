@@ -117,6 +117,8 @@ export function buildScaleModule(options: BuildScaleOptions): ScaleModule {
       string,
       { silence?: () => void; unsilence?: () => void }
     >,
+    scaleAdapters: adapters,
+    selectionThreshold: config.selectionThreshold,
   });
 
   for (const seed of DEVICE_SEED) {

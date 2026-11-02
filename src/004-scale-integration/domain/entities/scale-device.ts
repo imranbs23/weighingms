@@ -29,6 +29,7 @@ import type { ScaleStatus } from '../value-objects/scale-status.js';
 import type { CalibrationState } from '../value-objects/calibration-state.js';
 import type { ScaleCapability } from '../value-objects/scale-capability.js';
 import { ScaleHealthPolicy, type WeighingVerdict } from '../services/scale-health-policy.js';
+import type { TareState } from './tare-state.js';
 
 export class ScaleDevice {
   private link: LinkState = 'UNKNOWN';
@@ -36,6 +37,20 @@ export class ScaleDevice {
   private lastReading: ScaleReading | null = null;
   private latestSequence: ReadingSequence | null = null;
   private linkedAt: Date;
+
+  /**
+   * The device's CURRENT ZERO REFERENCE (S-12, S-15).
+   *
+   * `null` means NO TARE IS IN FORCE — which is a different fact from a
+   * tare of exactly zero. A tare of zero is recorded, with its source,
+   * and is a real decision.
+   *
+   * The tare is NEVER PERSISTED (ADR-015). There is no repository for
+   * it and no column for it, so a stale tare cannot be read back after
+   * a restart — which would be a wrong number rather than an
+   * inconvenience.
+   */
+  private tare: TareState | null = null;
 
   constructor(
     readonly id: ScaleId,
@@ -154,6 +169,27 @@ export class ScaleDevice {
   /** The device's calibration state has been read or re-issued. */
   updateCalibration(calibration: CalibrationState): void {
     this.calibration = calibration;
+  }
+
+  /** The tare in force, or null when none is. */
+  get tareState(): TareState | null {
+    return this.tare;
+  }
+
+  /**
+   * Apply a tare, REPLACING any previous one.
+   *
+   * S-14: a re-tare REPLACES the previous tare; it never adds to it and
+   * never edits it in place. The state that was in force is therefore
+   * never silently rewritten — the new state carries its own applied
+   * time and source, and the old one remains exactly as it was for
+   * whoever was holding a reading produced under it.
+   *
+   * The tare is set here and NOWHERE ELSE. This is the single mutator,
+   * exactly as `acceptReading` is the single mutator for a reading.
+   */
+  applyTare(state: TareState): void {
+    this.tare = state;
   }
 
   /**

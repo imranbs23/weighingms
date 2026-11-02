@@ -18,12 +18,16 @@
 import { Router, type Request, type Response } from 'express';
 import { ScaleId } from '../../domain/value-objects/scale-id.js';
 import { WeightValue } from '../../domain/value-objects/weight-value.js';
+import { ComponentId } from '../../domain/value-objects/component-id.js';
+import type { Instant } from '../../domain/value-objects/instant.js';
 import type { ScaleModule } from '../../infrastructure/composition-root.js';
 import { DummyScaleAdapter } from '../../infrastructure/adapters/dummy-scale-adapter.js';
 import {
   scaleIdSchema,
   linkControlSchema,
   dispenseControlSchema,
+  tareRequestSchema,
+  selectionRequestSchema,
 } from '../schemas/scale-schemas.js';
 
 export const SCALE_NOT_FOUND = 'SCALE_NOT_FOUND';
@@ -208,5 +212,182 @@ export function createScaleRouter(scales: ScaleModule): Router {
     });
   });
 
+  /**
+   * GET /api/scales/:scaleId/tare — the tare in force.
+   *
+   * OPEN, like the other read endpoints (ADR-013): a scale's tare is
+   * physically visible at the station.
+   *
+   * The `tare` field is `null` when NO TARE IS IN FORCE — which is a
+   * different fact from "a tare of exactly zero" (S-12). The response
+   * mirrors the domain's discriminated union rather than flattening it.
+   */
+  router.get('/:scaleId/tare', (req: Request, res: Response) => {
+    const parsedId = scaleIdSchema.safeParse(req.params['scaleId']);
+    if (!parsedId.success) {
+      res.status(400).json({ error: VALIDATION_ERROR });
+      return;
+    }
+
+    const scaleId = ScaleId.create(parsedId.data);
+    const device = scales.registry.get(scaleId);
+    if (device === null) {
+      res.status(404).json({ error: SCALE_NOT_FOUND });
+      return;
+    }
+
+    res.status(200).json({
+      scaleId: scaleId.value,
+      tare: serialiseTare(device.tareState),
+    });
+  });
+
+  /**
+   * POST /api/scales/:scaleId/tare — apply a tare.
+   *
+   * REQUIRES AN OPERATOR SESSION (ADR-013). The tare MOVES THE DEVICE'S
+   * ZERO REFERENCE — it changes what every subsequent reading means — so
+   * it is a write. It does NOT require a SUPERVISOR, because a tare
+   * authorises nothing.
+   *
+   * 202 — accepted. The tare is applied and the device's state reflects
+   *       it from the next reading onward.
+   * 409 — refused. The body names the reason and STATES THAT THE PREVIOUS
+   *       TARE REMAINS IN FORCE (S-14). A caller that assumed the tare
+   *       had been applied would record a quantity against a device that
+   *       is not zeroed against that container.
+   */
+  router.post('/:scaleId/tare', (req: Request, res: Response) => {
+    if (req.currentOperator === undefined) {
+      res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return;
+    }
+
+    const parsedId = scaleIdSchema.safeParse(req.params['scaleId']);
+    if (!parsedId.success) {
+      res.status(400).json({ error: VALIDATION_ERROR });
+      return;
+    }
+    const parsedBody = tareRequestSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      res.status(400).json({
+        error: VALIDATION_ERROR,
+        fields: parsedBody.error.issues.map((i) => ({
+          path: i.path.join('.'),
+          message: i.message,
+        })),
+      });
+      return;
+    }
+
+    const scaleId = ScaleId.create(parsedId.data);
+    if (scales.registry.get(scaleId) === null) {
+      res.status(404).json({ error: SCALE_NOT_FOUND });
+      return;
+    }
+
+    // The value's unit is NOT obeyed — it is converted into the DEVICE's
+    // own unit inside the registry. A request claiming "kg" against a
+    // gram-reporting device is converted, not obeyed.
+    const outcome = scales.registry.applyTare(
+      scaleId,
+      WeightValue.of(parsedBody.data.tareValue, parsedBody.data.unit),
+      parsedBody.data.source,
+    );
+
+    if (outcome.kind === 'REFUSED') {
+      res.status(409).json({
+        error: 'TARE_REFUSED',
+        reason: outcome.reason,
+        previousTareRetained: true,
+      });
+      return;
+    }
+
+    res.status(202).json({ tare: serialiseTare(outcome.state) });
+  });
+
+  /**
+   * POST /api/scales/select — the automatic selection rule.
+   *
+   * REQUIRES AN OPERATOR SESSION (ADR-013). The selection is a decision
+   * about the station's state, so it is a write.
+   *
+   * 200 — with EITHER outcome. The selection succeeded, or no device can
+   *       weigh this target. NEITHER IS AN ERROR: a 40 kg target on a
+   *       32 kg floor scale is a legitimate answer to a legitimate
+   *       question, and a 4xx would make the caller treat a normal
+   *       business outcome as a failure (ADR-018).
+   */
+  router.post('/select', (req: Request, res: Response) => {
+    if (req.currentOperator === undefined) {
+      res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return;
+    }
+
+    const parsedBody = selectionRequestSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      res.status(400).json({
+        error: VALIDATION_ERROR,
+        fields: parsedBody.error.issues.map((i) => ({
+          path: i.path.join('.'),
+          message: i.message,
+        })),
+      });
+      return;
+    }
+
+    const outcome = scales.registry.selectScale(
+      ComponentId.create(parsedBody.data.componentId),
+      WeightValue.of(parsedBody.data.target, parsedBody.data.unit),
+      parsedBody.data.demandedClass,
+    );
+
+    if (outcome.kind === 'NO_DEVICE_CAN_WEIGH') {
+      res.status(200).json({
+        selected: false,
+        target: outcome.target.toJSON(),
+        maximumCapacity: outcome.maximumCapacity.toJSON(),
+        unit: outcome.target.unit,
+        demandedClass: outcome.demandedClass,
+      });
+      return;
+    }
+
+    const selection = outcome.selection;
+    res.status(200).json({
+      selected: true,
+      scaleId: selection.scaleId.value,
+      componentId: selection.componentId.value,
+      selectedAt: selection.selectedAt.toDate().toISOString(),
+      reason: selection.reason,
+      scaleClass: selection.scaleClass,
+      capacity: selection.capacity.toJSON(),
+      unit: selection.capacity.unit,
+    });
+  });
+
   return router;
+}
+
+/**
+ * Serialise a tare for the wire.
+ *
+ * The value is a JSON STRING, never a number (ADR-008), and the unit
+ * travels with it.
+ */
+function serialiseTare(tare: {
+  readonly tareValue: { readonly text: string; readonly unit: string };
+  readonly appliedAt: Instant;
+  readonly source: string;
+  readonly appliedBy: string;
+} | null): unknown {
+  if (tare === null) return null;
+  return {
+    value: tare.tareValue.text,
+    unit: tare.tareValue.unit,
+    appliedAt: tare.appliedAt.toDate().toISOString(),
+    source: tare.source,
+    appliedBy: tare.appliedBy,
+  };
 }

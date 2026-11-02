@@ -20,6 +20,11 @@
 import type { ScaleId } from '../value-objects/scale-id.js';
 import type { ScaleStatus } from '../value-objects/scale-status.js';
 import type { ReadingSequence } from '../value-objects/reading-sequence.js';
+import type { TareState } from '../entities/tare-state.js';
+import type { WeighingBlockReason } from '../value-objects/weighing-block-reason.js';
+import type { ScaleSelection } from '../entities/scale-selection.js';
+import type { WeightValue } from '../value-objects/weight-value.js';
+import type { ScaleClass } from '../value-objects/scale-capability.js';
 
 export interface ScaleDisconnected {
   readonly type: 'SCALE_DISCONNECTED';
@@ -54,8 +59,47 @@ export interface ReadingRejected {
   readonly at: Date;
 }
 
+export interface TareApplied {
+  readonly type: 'TARE_APPLIED';
+  readonly scaleId: ScaleId;
+  readonly tare: TareState;
+}
+
+export interface TareRefused {
+  readonly type: 'TARE_REFUSED';
+  readonly scaleId: ScaleId;
+  readonly reason: WeighingBlockReason;
+  readonly at: Date;
+  /**
+   * The previous tare remains in force (S-14).
+   *
+   * The event says so explicitly, because a device whose zero reference
+   * was silently dropped would report a container's full weight as the
+   * dispensed quantity — a plausible wrong number.
+   */
+  readonly previousTareRetained: true;
+}
+
+export interface ScaleSelected {
+  readonly type: 'SCALE_SELECTED';
+  readonly selection: ScaleSelection;
+}
+
+export interface ScaleSelectionRefused {
+  readonly type: 'SCALE_SELECTION_REFUSED';
+  readonly componentId: ScaleSelection['componentId'];
+  readonly target: WeightValue;
+  readonly maximumCapacity: WeightValue;
+  readonly demandedClass: ScaleClass;
+  readonly at: Date;
+}
+
 export type ScaleEvent =
   | ScaleDisconnected
   | ScaleReconnected
   | ScaleStatusChanged
-  | ReadingRejected;
+  | ReadingRejected
+  | TareApplied
+  | TareRefused
+  | ScaleSelected
+  | ScaleSelectionRefused;
