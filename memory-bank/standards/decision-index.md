@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-10-30T23:40:00Z
-total_decisions: 13
+last_updated: 2026-10-31T03:50:00Z
+total_decisions: 19
 ---
 
 # Decision Index
@@ -30,6 +30,54 @@ Use this to find relevant prior decisions when working on related features.
 - **Read when**: {Agent guidance - domain keywords and scenarios when this ADR is relevant}
 
 -->
+
+### ADR-019: The selection threshold is configuration, and is unset until FCI answers
+- **Status**: accepted
+- **Date**: 2026-10-31
+- **Bolt**: 004-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/004-004-scale-integration/adr-019-the-selection-threshold-is-configuration.md`
+- **Summary**: Q-04 asks FCI production for the scale-selection threshold and the boundary behaviour, and A-06 binds the story until it is answered, yet the acceptance criteria are already fully decided by the capacity constraint alone — a target of exactly 3 kg is within the precision scale's capacity. Make the threshold a configuration parameter that is currently unset and write the rule against a set of devices, so the capacity constraint carries the rule today and answering Q-04 is a configuration change rather than a code change.
+- **Read when**: Changing the scale-selection rule or its threshold; working on Q-04 or A-06; adding a third scale or changing a scale's capacity; deciding whether to hard-code the 3 kg boundary; writing the selection unit tests.
+
+### ADR-018: "No device can weigh this" is a successful outcome, not an error
+- **Status**: accepted
+- **Date**: 2026-10-31
+- **Bolt**: 004-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/004-004-scale-integration/adr-018-no-device-can-weigh-this-is-a-successful-outcome.md`
+- **Summary**: The story requires an explicit "no device can weigh this" outcome carrying the target and the maximum available capacity, and a 4xx would make the caller treat a legitimate business answer as a failure — alerting on it, showing the operator an error, and retrying a deterministic answer. Return 200 with `selected: false`, and model the outcome as a discriminated union so a caller cannot read a `scaleId` without first proving one was selected.
+- **Read when**: Choosing a status code for a business outcome; changing the selection endpoint's response shape; modelling the selection result in the domain; deciding whether a refusal should be logged as an error; building the operator's "cannot weigh this" message.
+
+### ADR-017: The capacity constraint wins over the scale-class demand
+- **Status**: accepted
+- **Date**: 2026-10-31
+- **Bolt**: 004-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/004-004-scale-integration/adr-017-capacity-constraint-wins-over-class-demand.md`
+- **Summary**: When a component demands precision but its target is 4 kg, the two constraints cannot both hold — the class constraint is a measurement-quality preference while the capacity constraint is a physical impossibility, and honouring the class would mean the 4 kg component could never be weighed at all. Select the floor scale, and record the conflict in the selection's reason so the loss of precision stays visible in the durable record.
+- **Read when**: Changing the scale-selection rule or its reason enum; handling a component whose quantity and class disagree; deciding what happens when no candidate matches the demanded class; building a consumer that must react to a coarser-than-demanded measurement.
+
+### ADR-016: The net reading floors at zero
+- **Status**: accepted
+- **Date**: 2026-10-31
+- **Bolt**: 004-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/004-004-scale-integration/adr-016-the-net-reading-floors-at-zero.md`
+- **Summary**: A gross reading below the tare — an empty container removed from a scale zeroed against it — produces a net reading of −214 g, and a negative dispensed quantity is not a thing that exists. Clamp the net reading at zero at the adapter, where the tare is subtracted, so the negative number is never produced and no consumer has to remember to clamp; the tare itself is unaffected.
+- **Read when**: Writing the tare subtraction or the adapter's reading pipeline; working on the below-tare or empty-container case; deciding how a reading is bounded; changing the reading's shape or its consumers.
+
+### ADR-015: The tare is never persisted
+- **Status**: accepted
+- **Date**: 2026-10-31
+- **Bolt**: 004-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/004-004-scale-integration/adr-015-the-tare-is-never-persisted.md`
+- **Summary**: The unit brief says the tare is held in memory, per device, but not why — and the reason is that a stale tare read back after a restart is a wrong number, not an inconvenience: the scale would report net weight against a container that is no longer on it, and the operator would have no way to know. Persist no tare and provide no `TareRepository`, so the `scale_devices` table gains no tare column and the failure is impossible by construction.
+- **Read when**: Adding a column, table or repository for the tare; designing the scale unit's persistence; working on restart, recovery or power loss; deciding what a status view shows after a restart; reviewing a proposal to "just save the current tare".
+
+### ADR-014: The tare is applied at the device, and the reading carries it
+- **Status**: accepted
+- **Date**: 2026-10-31
+- **Bolt**: 004-004-scale-integration (004-scale-integration)
+- **Path**: `bolts/004-004-scale-integration/adr-014-the-tare-is-applied-at-the-device.md`
+- **Summary**: The tare is applied once but persists into every subsequent reading, so a consumer that subtracted it from its own copy would have to know whether the device already did — and would double-subtract whenever a second consumer attached mid-session, producing a plausible wrong number with no error. Apply the tare at the device: the reading the device emits is net and carries the tare that produced it, so there is nothing left to subtract and nothing to coordinate.
+- **Read when**: Changing the reading's shape or adding a consumer of readings; deciding where the tare is subtracted; working on the indicator's tare command (Q-03); implementing the adapter's tare path; reviewing a proposal to subtract the tare in a consumer or in the UI.
 
 ### ADR-013: The scale telemetry endpoints are not behind an operator session
 - **Status**: accepted

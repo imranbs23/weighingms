@@ -3,15 +3,24 @@ id: 004-004-scale-integration
 unit: 004-scale-integration
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: in-progress
 stories:
   - 003-tare-scale-against-container
   - 004-select-scale-by-capacity
 created: 2026-10-30T09:00:00Z
-started: null
+started: 2026-10-31T01:05:00Z
 completed: null
-current_stage: null
-stages_completed: []
+current_stage: adr
+stages_completed:
+  - name: model
+    completed: 2026-10-31T01:05:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-10-31T02:15:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-10-31T03:50:00Z
+    artifact: adr-014-the-tare-is-applied-at-the-device.md, adr-015-the-tare-is-never-persisted.md, adr-016-the-net-reading-floors-at-zero.md, adr-017-capacity-constraint-wins-over-class-demand.md, adr-018-no-device-can-weigh-this-is-a-successful-outcome.md, adr-019-the-selection-threshold-is-configuration.md
 
 # Bolt Dependencies (for execution ordering)
 requires_bolts:
@@ -52,9 +61,9 @@ Apply the container tare and select the scale by capacity, so the reading the op
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-014…adr-019
 - [ ] **4. implement**: Implement - Pending → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 

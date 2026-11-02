@@ -2,7 +2,7 @@
 unit: 004-scale-integration
 intent: 001-assisted-dyestuff-weighing-station
 created: 2026-10-30T20:50:00Z
-last_updated: 2026-10-30T23:50:00Z
+last_updated: 2026-10-31T03:55:00Z
 ---
 
 # Construction Log: 004-scale-integration
@@ -26,8 +26,8 @@ last_updated: 2026-10-30T23:50:00Z
 
 | Bolt ID | Stories | Type | Status |
 |---------|---------|------|--------|
-| `003-004-scale-integration` | 001-receive-live-weight-stream, 002-detect-disconnection-and-block-weighing | ddd | in-progress (stage: implement) |
-| `004-004-scale-integration` | 003-tare-scale-against-container, 004-select-scale-by-capacity | ddd | planned |
+| `003-004-scale-integration` | 001-receive-live-weight-stream, 002-detect-disconnection-and-block-weighing | ddd | complete |
+| `004-004-scale-integration` | 003-tare-scale-against-container, 004-select-scale-by-capacity | ddd | in-progress (stage: adr) |
 
 ## Progress
 
@@ -37,6 +37,9 @@ last_updated: 2026-10-30T23:50:00Z
 - **2026-10-30T23:50:00Z**: `003-004-scale-integration` stage-complete - adr → implement
 - **2026-10-31T00:05:00Z**: `003-004-scale-integration` stage-complete - implement → test
 - **2026-10-31T00:20:00Z**: `003-004-scale-integration` **COMPLETE** - 114 new tests (454 project total), typecheck clean, all verifiers pass
+- **2026-10-31T01:05:00Z**: `004-004-scale-integration` started - Stage 1: model
+- **2026-10-31T02:15:00Z**: `004-004-scale-integration` stage-complete - model → design
+- **2026-10-31T03:50:00Z**: `004-004-scale-integration` stage-complete - adr (ADR-014 … ADR-019, six decisions)
 
 ## Four defects the suite caught
 
@@ -74,6 +77,44 @@ what this bolt established:
 - The **`SCALE_DISCONNECTED` gate** already blocks a weighing, so the
   tare flow must consult `ScaleRegistry.canWeigh` rather than the
   device's raw status.
+
+## Bolt 004 — the six ADRs
+
+Three decide the **tare**, three decide the **selection**. The decision
+index now carries 19 entries.
+
+### The tare
+
+- **ADR-014 — The tare is applied at the device, and the reading carries
+  it.** The tare is applied once but persists into every subsequent
+  reading, so a consumer subtracting it from its own copy would have to
+  know whether the device already did — and would double-subtract when a
+  second consumer attached mid-session. The reading the device emits is
+  **net** and carries the tare that produced it.
+- **ADR-015 — The tare is never persisted.** A stale tare read back
+  after a restart is a **wrong number**: the scale reports net weight
+  against a container that is no longer on it. No `TareRepository`, no
+  `scale_devices` column, no migration.
+- **ADR-016 — The net reading floors at zero.** A gross reading below the
+  tare (empty container removed from a scale zeroed against it) would
+  produce a negative dispensed quantity, which is not a thing. The clamp
+  is at the adapter, so the negative number is never produced.
+
+### The selection
+
+- **ADR-017 — The capacity constraint wins over the scale-class
+  demand.** A 4 kg component demanding precision cannot be weighed on a
+  3 kg scale; honouring the class would mean it could never be weighed
+  at all. The floor scale is selected and the conflict is recorded in the
+  reason.
+- **ADR-018 — "No device can weigh this" is a successful outcome, not an
+  error.** `200` with `selected: false`, and a discriminated union in the
+  domain so a caller cannot read a `scaleId` without proving one was
+  selected.
+- **ADR-019 — The selection threshold is configuration, and is unset
+  until FCI answers.** `Q-04` is open; the capacity constraint already
+  produces every outcome the story names, so the threshold slot exists
+  and is `null`. Answering `Q-04` is a configuration change.
 
 ## Notes
 
