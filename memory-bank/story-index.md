@@ -4,8 +4,8 @@
 
 - **Total stories**: 38
 - **Generated**: 38
-- **Completed**: 2
-- **Last updated**: 2026-10-30T14:34:05Z
+- **Completed**: 4
+- **Last updated**: 2026-11-02T10:42:35Z
 
 > This file is **generated** by `scripts/build-story-index.cjs` from the
 > story files on disk. Edit the story files, not this one.
@@ -45,8 +45,8 @@
 
 - [x] **001-receive-live-weight-stream** (004): Receive live weight stream - Must - ✅ GENERATED
 - [x] **002-detect-disconnection-and-block-weighing** (004): Detect disconnection and block weighing - Must - ✅ GENERATED
-- [x] **003-tare-scale-against-container** (004): Tare scale against container - Must - ✅ GENERATED
-- [x] **004-select-scale-by-capacity** (004): Select scale by capacity - Must - ✅ GENERATED
+- [x] **003-tare-scale-against-container** (004): Tare scale against container - Must - ✅ COMPLETED
+- [x] **004-select-scale-by-capacity** (004): Select scale by capacity - Must - ✅ COMPLETED
 
 #### `005-orgatex-integration` — OrgaTEX Integration
 
@@ -99,6 +99,6 @@
 ## Stories by Status
 
 - **Planned**: 0
-- **Generated**: 36
+- **Generated**: 34
 - **In Progress**: 0
-- **Completed**: 2
+- **Completed**: 4

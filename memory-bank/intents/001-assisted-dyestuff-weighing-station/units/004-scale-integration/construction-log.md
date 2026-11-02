@@ -2,7 +2,7 @@
 unit: 004-scale-integration
 intent: 001-assisted-dyestuff-weighing-station
 created: 2026-10-30T20:50:00Z
-last_updated: 2026-10-31T03:55:00Z
+last_updated: 2026-11-02T10:40:00Z
 ---
 
 # Construction Log: 004-scale-integration
@@ -27,7 +27,7 @@ last_updated: 2026-10-31T03:55:00Z
 | Bolt ID | Stories | Type | Status |
 |---------|---------|------|--------|
 | `003-004-scale-integration` | 001-receive-live-weight-stream, 002-detect-disconnection-and-block-weighing | ddd | complete |
-| `004-004-scale-integration` | 003-tare-scale-against-container, 004-select-scale-by-capacity | ddd | in-progress (stage: adr) |
+| `004-004-scale-integration` | 003-tare-scale-against-container, 004-select-scale-by-capacity | ddd | complete |
 
 ## Progress
 
@@ -40,6 +40,9 @@ last_updated: 2026-10-31T03:55:00Z
 - **2026-10-31T01:05:00Z**: `004-004-scale-integration` started - Stage 1: model
 - **2026-10-31T02:15:00Z**: `004-004-scale-integration` stage-complete - model → design
 - **2026-10-31T03:50:00Z**: `004-004-scale-integration` stage-complete - adr (ADR-014 … ADR-019, six decisions)
+- **2026-11-02T10:17:00Z**: `004-004-scale-integration` stage-complete - adr → implement
+- **2026-11-02T10:35:00Z**: `004-004-scale-integration` stage-complete - implement → test
+- **2026-11-02T10:40:00Z**: `004-004-scale-integration` **COMPLETE** - 144 new tests (598 project total), typecheck clean, coverage 81.96% branches, all verifiers pass
 
 ## Four defects the suite caught
 
@@ -202,6 +205,68 @@ to prevent.
   validated against a deliberately vulnerable control file first — it
   correctly flagged an `eval()` RCE and a hardcoded secret — so the
   clean result is a real result rather than a silently failing scanner.
+
+## Bolt 004 — the test stage
+
+Stage 5 found one defect that the implementation stage had let through,
+and the project's own coverage gate is what caught it.
+
+### The coverage regression
+
+The implementation stage shipped bolt 004's new code **without a single
+test of its own**. The consequence was measured, not assumed: branch
+coverage fell from **81.02%** at commit `1c2204c` to **78.53%** at
+`86880ce` — below the 80% gate in `vitest.config.ts`.
+
+The new code was the cause. `infrastructure/config/scale-config.ts` — the
+module that holds the selection threshold ADR-019 created — was at
+**0 of 17 branches**, entirely untested. `ComponentId` was at 2 of 4,
+`Instant` at 0 of 2, and the unit converter at 3 of 4.
+
+This is the most consequential defect in the bolt, and it is not a
+runtime bug: the story's acceptance criteria were all *implemented*, and
+the verification claimed to cover them proved only that the code ran —
+not that it was right. `scale-config.ts` could have defaulted the
+threshold to 3000 g, or swallowed a malformed threshold value, and every
+test in the project would still have passed.
+
+### The fix
+
+Three new test files, 75 tests:
+
+- `tests/unit/scale-config.test.ts` — the defaults, the environment
+  overrides, the malformed-value refusals, and the unset threshold.
+- `tests/unit/weight-unit-converter.test.ts` — the exact conversion in
+  every direction, and the trailing-dot case the build already fixed once.
+- `tests/unit/scale-identifiers.test.ts` — `ComponentId`, `ScaleId` and
+  `Instant`, which bolt 004 created and bolt 003 left unpinned.
+
+**After: 81.96% branches** (550/671), 90.26% statements, 92.53%
+functions, 91.37% lines — the gate passes, with margin.
+
+### The final record
+
+- Typecheck: clean.
+- Tests: **598 pass** across 27 files — 454 before this bolt, plus 144.
+- Coverage: 90.26% statements / 81.96% branches / 92.53% functions /
+  91.37% lines (threshold 80%).
+- `verify:adrs`, `verify:implementation`, `verify:requirements`,
+  `verify:fr-refs`, `verify:frontmatter`, `verify:inception` — all pass.
+- Test report: `memory-bank/bolts/004-004-scale-integration/ddd-03-test-report.md`.
+
+### What remains open
+
+Two items carry forward, and neither blocks this bolt:
+
+- **Q-04 is unanswered** — the selection threshold ships unset (`null` via
+  `WEIGHINGMS_SCALE_SELECTION_THRESHOLD`). The rule works fully on
+  capacity alone, and the configuration slot exists and is tested. The
+  rule's behaviour *when a threshold is set* is therefore unproven,
+  because no threshold is set. Answering Q-04 is a configuration change
+  plus the test that goes with it.
+- **The Aikido IaC sub-check reports `Checkov is not configured
+  correctly`** — the project has no IaC, so nothing is being missed, but
+  that check stays inactive until the MCP configuration is fixed.
 
 ## Notes
 

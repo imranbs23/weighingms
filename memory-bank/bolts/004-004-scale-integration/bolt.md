@@ -3,14 +3,14 @@ id: 004-004-scale-integration
 unit: 004-scale-integration
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: in-progress
+status: complete
 stories:
   - 003-tare-scale-against-container
   - 004-select-scale-by-capacity
 created: 2026-10-30T09:00:00Z
 started: 2026-10-31T01:05:00Z
-completed: null
-current_stage: adr
+completed: 2026-11-02T10:35:00Z
+current_stage: complete
 stages_completed:
   - name: model
     completed: 2026-10-31T01:05:00Z
@@ -21,6 +21,12 @@ stages_completed:
   - name: adr
     completed: 2026-10-31T03:50:00Z
     artifact: adr-014-the-tare-is-applied-at-the-device.md, adr-015-the-tare-is-never-persisted.md, adr-016-the-net-reading-floors-at-zero.md, adr-017-capacity-constraint-wins-over-class-demand.md, adr-018-no-device-can-weigh-this-is-a-successful-outcome.md, adr-019-the-selection-threshold-is-configuration.md
+  - name: implement
+    completed: 2026-11-02T10:17:00Z
+    artifact: src/004-scale-integration/domain, src/004-scale-integration/infrastructure, src/004-scale-integration/presentation
+  - name: test
+    completed: 2026-11-02T10:35:00Z
+    artifact: ddd-03-test-report.md
 
 # Bolt Dependencies (for execution ordering)
 requires_bolts:
@@ -64,15 +70,17 @@ Apply the container tare and select the scale by capacity, so the reading the op
 - [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
 - [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
 - [x] **3. adr**: ADR Analysis (optional) - Complete → adr-014…adr-019
-- [ ] **4. implement**: Implement - Pending → source code
-- [ ] **5. test**: Test - Pending → ddd-03-test-report.md
+- [x] **4. implement**: Implement - Complete → src/004-scale-integration/
+- [x] **5. test**: Test - Complete → ddd-03-test-report.md
 
 ## Expected Outputs
 
 - ddd-01-domain-model.md — Tare and ScaleSelection
 - ddd-02-technical-design.md — the tare sources and the capacity rule
+- ddd-03-test-report.md — what the suite proves, and what it cannot
 - src/004-scale-integration/domain — tare and scale-selection rules
-- src/004-scale-integration/application — the tare and selection use cases
+- src/004-scale-integration/infrastructure — the dummy adapter, the config and the composition root
+- src/004-scale-integration/presentation — the tare and selection endpoints
 
 ## Dependencies
 
@@ -91,10 +99,10 @@ Apply the container tare and select the scale by capacity, so the reading the op
 
 ## Success Criteria
 
-- [ ] All stories implemented
-- [ ] All acceptance criteria met
-- [ ] Tests passing
-- [ ] Code reviewed and approved
+- [x] All stories implemented — `003-tare-scale-against-container`, `004-select-scale-by-capacity`
+- [x] All acceptance criteria met — 11/11, verified in `ddd-03-test-report.md`
+- [x] Tests passing — 598/598 across 27 files; coverage 90.26% statements / 81.96% branches / 92.53% functions / 91.37% lines (threshold 80%)
+- [ ] Code reviewed and approved — awaiting the Stage 5 human checkpoint
 
 ## Notes
 

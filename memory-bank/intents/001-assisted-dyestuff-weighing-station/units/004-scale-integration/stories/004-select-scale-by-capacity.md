@@ -2,11 +2,11 @@
 id: 004-select-scale-by-capacity
 unit: 004-scale-integration
 intent: 001-assisted-dyestuff-weighing-station
-status: draft
+status: complete
 priority: must
 created: 2026-10-30T05:00:00Z
-assigned_bolt: null
-implemented: false
+assigned_bolt: 004-004-scale-integration
+implemented: true
 ---
 
 # Story: 004-select-scale-by-capacity
