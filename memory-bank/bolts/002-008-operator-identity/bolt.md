@@ -3,17 +3,29 @@ id: 002-008-operator-identity
 unit: 008-operator-identity
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: in-progress
+status: complete
 stories:
   - 002-authorise-privileged-action-as-supervisor
 created: 2026-10-30T09:00:00Z
 started: 2026-10-30T15:15:00Z
-completed: null
-current_stage: implement
+completed: 2026-10-30T20:30:00Z
+current_stage: complete
 stages_completed:
-  - model
-  - design
-  - adr
+  - name: model
+    completed: 2026-10-30T15:45:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-10-30T17:30:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-10-30T18:45:00Z
+    artifact: adr-003-authorisation-id-is-not-a-bearer-credential.md, adr-004-uniform-authorisation-refusal-response.md, adr-005-store-authorisation-reason-in-clear-text.md, adr-006-consumption-as-a-separate-append-only-record.md, adr-007-record-the-operator-the-authorisation-was-issued-for.md
+  - name: implement
+    completed: 2026-10-30T19:40:00Z
+    artifact: src/008-operator-identity/domain, src/008-operator-identity/infrastructure, src/008-operator-identity/presentation
+  - name: test
+    completed: 2026-10-30T20:30:00Z
+    artifact: ddd-03-test-report.md
 
 # Bolt Dependencies (for execution ordering)
 requires_bolts:

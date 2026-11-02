@@ -26,8 +26,8 @@ last_updated: 2026-10-30T15:00:00Z
 
 | Bolt ID | Stories | Type | Status |
 |---------|---------|------|--------|
-| `001-008-operator-identity` | 001-sign-in-at-terminal | ddd | in-progress (stage: test) |
-| `002-008-operator-identity` | 002-authorise-privileged-action-as-supervisor | ddd | planned |
+| `001-008-operator-identity` | 001-sign-in-at-terminal | ddd | complete |
+| `002-008-operator-identity` | 002-authorise-privileged-action-as-supervisor | ddd | complete |
 
 ## Progress
 
