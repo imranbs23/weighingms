@@ -19,16 +19,23 @@ import {
   createWeightStreamRouter,
 } from '../004-scale-integration/presentation/controllers/weight-stream-controller.js';
 import type { ScaleModule } from '../004-scale-integration/infrastructure/composition-root.js';
+import { createOrgatexRouter } from '../005-orgatex-integration/presentation/controllers/orgatex-controller.js';
+import {
+  createDummyOrgatexRouter,
+} from '../005-orgatex-integration/presentation/controllers/dummy-orgatex-controller.js';
+import type { OrgatexModule } from '../005-orgatex-integration/infrastructure/composition-root.js';
 
 export interface AppOptions {
   readonly identity: IdentityModule;
   readonly scales: ScaleModule;
+  /** The OrgaTEX seam — the MES read path (unit 005). */
+  readonly orgatex: OrgatexModule;
   /** Allowed CORS origins. Empty means same-origin only. */
   readonly corsOrigins?: readonly string[];
 }
 
 export function createApp(options: AppOptions): Express {
-  const { identity, scales } = options;
+  const { identity, scales, orgatex } = options;
   const app = express();
 
   app.disable('x-powered-by');
@@ -82,6 +89,18 @@ export function createApp(options: AppOptions): Express {
   // /api/scales/:scaleId/weight and must not be shadowed by the router
   // above.
   app.use('/api/scales', createWeightStreamRouter(scales));
+
+  // ── OrgaTEX ──
+  // The product's own endpoints over the MES seam. They require an
+  // operator session (ADR-020): the MES's queue is a business record, not
+  // a physically visible device state.
+  app.use('/api/orgatex', createOrgatexRouter(orgatex));
+
+  // ── Dummy OrgaTEX ──
+  // The TRAINING ARTEFACT — the MES's own surface, standing in for
+  // OrgaTEX. It is mounted separately so it can never be mistaken for the
+  // product's API, and a real deployment removes it entirely.
+  app.use('/api', createDummyOrgatexRouter(orgatex.world));
 
   // A route that REQUIRES a signed-in operator — this is the shape other
   // units' protected endpoints will use.

@@ -13,6 +13,8 @@ import {
 import { loadIdentityConfig } from '../008-operator-identity/infrastructure/config/identity-config.js';
 import { buildScaleModule } from '../004-scale-integration/infrastructure/composition-root.js';
 import { loadScaleConfig } from '../004-scale-integration/infrastructure/config/scale-config.js';
+import { buildOrgatexModule } from '../005-orgatex-integration/infrastructure/composition-root.js';
+import { loadOrgatexConfig } from '../005-orgatex-integration/infrastructure/config/orgatex-config.js';
 
 const PORT = Number(process.env['PORT'] ?? 3000);
 
@@ -24,7 +26,19 @@ const identity = buildIdentityModule({ config });
 const scaleConfig = loadScaleConfig({ ...process.env, WEIGHINGMS_DATABASE_PATH: config.databasePath });
 const scales = buildScaleModule({ config: scaleConfig, db: identity.db });
 
-const app = createApp({ identity, scales });
+// The OrgaTEX unit's READ path persists nothing (ADR-021), but its WRITE
+// path does — the postings, the ledger and the attempts — so it shares
+// the identity unit's database file and its migration table.
+const orgatexConfig = loadOrgatexConfig({
+  ...process.env,
+  WEIGHINGMS_DATABASE_PATH: config.databasePath,
+});
+const orgatex = buildOrgatexModule({
+  config: orgatexConfig,
+  db: identity.db,
+});
+
+const app = createApp({ identity, scales, orgatex });
 
 const server = app.listen(PORT, () => {
   console.log(`[api] WeighingMS API listening on http://localhost:${PORT}`);
@@ -37,6 +51,9 @@ const server = app.listen(PORT, () => {
   );
   console.log(
     `[api] scales: ${scales.registry.list().length} registered — disconnect timeout ${scaleConfig.disconnectTimeoutMs}ms, sample interval ${scaleConfig.sampleIntervalMs}ms`,
+  );
+  console.log(
+    `[api] OrgaTEX seam: source ${orgatexConfig.sourceName}, snapshot freshness window ${Math.round(orgatexConfig.freshnessWindowMs / 1000)}s`,
   );
 });
 
