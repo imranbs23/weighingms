@@ -106,6 +106,7 @@ describe('the API surface', () => {
       const restricted = createApp({
         identity: harness.identity,
         scales: harness.scales,
+        orgatex: harness.orgatex,
         corsOrigins: ['https://weighingms.internal'],
       });
 

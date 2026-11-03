@@ -2,11 +2,11 @@
 id: 002-read-batch-recipe
 unit: 005-orgatex-integration
 intent: 001-assisted-dyestuff-weighing-station
-status: draft
+status: complete
 priority: must
 created: 2026-10-30T05:00:00Z
-assigned_bolt: null
-implemented: false
+assigned_bolt: 005-005-orgatex-integration
+implemented: true
 ---
 
 # Story: 002-read-batch-recipe

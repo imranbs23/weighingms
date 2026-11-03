@@ -22,6 +22,7 @@ import {
 } from '../harness.js';
 import { createApp } from '../../src/api/app.js';
 import { buildScaleModule } from '../../src/004-scale-integration/infrastructure/composition-root.js';
+import { createOrgatexHarness } from '../support/orgatex-harness.js';
 import { Argon2SecretHasher } from '../../src/008-operator-identity/infrastructure/security/argon2-secret-hasher.js';
 import { LocalIdentityProvider } from '../../src/008-operator-identity/infrastructure/security/local-identity-provider.js';
 import { OperatorId } from '../../src/008-operator-identity/domain/value-objects/operator-id.js';
@@ -417,5 +418,6 @@ function createAppFor(module: ReturnType<
       },
       db: module.db,
     }),
+    orgatex: createOrgatexHarness(),
   });
 }

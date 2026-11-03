@@ -21,6 +21,7 @@ import { buildScaleModule } from '../../src/004-scale-integration/infrastructure
 import { OperatorId } from '../../src/008-operator-identity/domain/value-objects/operator-id.js';
 import { OperatorRole } from '../../src/008-operator-identity/domain/value-objects/operator-role.js';
 import { Operator } from '../../src/008-operator-identity/domain/entities/operator.js';
+import { createOrgatexHarness } from '../support/orgatex-harness.js';
 
 const OPERATOR_ID = 'OP-001';
 const SUPERVISOR_ID = 'SV-001';
@@ -53,6 +54,7 @@ class Harness {
         },
         db: this.module.db,
       }),
+      orgatex: createOrgatexHarness(),
     });
   }
 

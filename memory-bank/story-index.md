@@ -4,8 +4,8 @@
 
 - **Total stories**: 38
 - **Generated**: 38
-- **Completed**: 4
-- **Last updated**: 2026-11-02T10:42:35Z
+- **Completed**: 7
+- **Last updated**: 2026-11-03T06:21:42Z
 
 > This file is **generated** by `scripts/build-story-index.cjs` from the
 > story files on disk. Edit the story files, not this one.
@@ -50,9 +50,9 @@
 
 #### `005-orgatex-integration` — OrgaTEX Integration
 
-- [x] **001-read-released-batch-queue** (005): Read released batch queue - Must - ✅ GENERATED
-- [x] **002-read-batch-recipe** (005): Read batch recipe - Must - ✅ GENERATED
-- [x] **003-post-consumption-idempotently** (005): Post consumption idempotently - Must - ✅ GENERATED
+- [x] **001-read-released-batch-queue** (005): Read released batch queue - Must - ✅ COMPLETED
+- [x] **002-read-batch-recipe** (005): Read batch recipe - Must - ✅ COMPLETED
+- [x] **003-post-consumption-idempotently** (005): Post consumption idempotently - Must - ✅ COMPLETED
 - [x] **004-report-link-state** (005): Report link state - Must - ✅ GENERATED
 - [x] **005-queue-writes-offline-and-sync-on-recovery** (005): Queue writes offline and sync on recovery - Must - ✅ GENERATED
 
@@ -99,6 +99,6 @@
 ## Stories by Status
 
 - **Planned**: 0
-- **Generated**: 34
+- **Generated**: 31
 - **In Progress**: 0
-- **Completed**: 4
+- **Completed**: 7

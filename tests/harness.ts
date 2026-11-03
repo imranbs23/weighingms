@@ -27,6 +27,11 @@ import {
 } from '../src/004-scale-integration/infrastructure/composition-root.js';
 import type { ScaleConfig } from '../src/004-scale-integration/infrastructure/config/scale-config.js';
 import { WeightValue } from '../src/004-scale-integration/domain/value-objects/weight-value.js';
+import {
+  buildOrgatexModule,
+  type OrgatexModule,
+} from '../src/005-orgatex-integration/infrastructure/composition-root.js';
+import type { OrgatexConfig } from '../src/005-orgatex-integration/infrastructure/config/orgatex-config.js';
 
 /** A controllable clock. */
 export class TestClock {
@@ -50,6 +55,7 @@ export class TestClock {
 export interface Harness {
   readonly identity: IdentityModule;
   readonly scales: ScaleModule;
+  readonly orgatex: OrgatexModule;
   readonly app: ReturnType<typeof createApp>;
   readonly clock: TestClock;
   close(): void;
@@ -81,6 +87,11 @@ export function createHarness(options?: {
    * (ADR-019). A test that needs the threshold configured passes one.
    */
   selectionThreshold?: WeightValue | null;
+  /**
+   * How old a last known-good OrgaTEX snapshot may be and still be served
+   * as stale. A test that needs a stale snapshot passes a small number.
+   */
+  orgatexFreshnessWindowMs?: number;
 }): Harness {
   const clock = new TestClock();
 
@@ -111,11 +122,27 @@ export function createHarness(options?: {
     db: identity.db,
   });
 
-  const app = createApp({ identity, scales });
+  // The OrgaTEX unit's READ path persists nothing (ADR-021). Its WRITE
+  // path does — so it shares the identity unit's database file, and its
+  // migrations go through the same `schema_migrations` table.
+  const orgatexConfig: OrgatexConfig = {
+    databasePath: ':memory:',
+    freshnessWindowMs: options?.orgatexFreshnessWindowMs ?? 5 * 60 * 1000,
+    sourceName: 'DUMMY_ORGATEX',
+    rejectionDisposition: 'RETRYABLE',
+  };
+  const orgatex = buildOrgatexModule({
+    config: orgatexConfig,
+    clock: clock.now,
+    db: identity.db,
+  });
+
+  const app = createApp({ identity, scales, orgatex });
 
   return {
     identity,
     scales,
+    orgatex,
     app,
     clock,
     close: () => {
