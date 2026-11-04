@@ -4,8 +4,8 @@
 
 - **Total stories**: 38
 - **Generated**: 38
-- **Completed**: 9
-- **Last updated**: 2026-11-04T15:07:45Z
+- **Completed**: 11
+- **Last updated**: 2026-11-04T15:12:19Z
 
 > This file is **generated** by `scripts/build-story-index.cjs` from the
 > story files on disk. Edit the story files, not this one.
@@ -43,8 +43,8 @@
 
 #### `004-scale-integration` — Scale Integration
 
-- [x] **001-receive-live-weight-stream** (004): Receive live weight stream - Must - ✅ GENERATED
-- [x] **002-detect-disconnection-and-block-weighing** (004): Detect disconnection and block weighing - Must - ✅ GENERATED
+- [x] **001-receive-live-weight-stream** (004): Receive live weight stream - Must - ✅ COMPLETED
+- [x] **002-detect-disconnection-and-block-weighing** (004): Detect disconnection and block weighing - Must - ✅ COMPLETED
 - [x] **003-tare-scale-against-container** (004): Tare scale against container - Must - ✅ COMPLETED
 - [x] **004-select-scale-by-capacity** (004): Select scale by capacity - Must - ✅ COMPLETED
 
@@ -99,6 +99,6 @@
 ## Stories by Status
 
 - **Planned**: 0
-- **Generated**: 29
+- **Generated**: 27
 - **In Progress**: 0
-- **Completed**: 9
+- **Completed**: 11

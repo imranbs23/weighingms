@@ -2,7 +2,7 @@
 unit: 005-orgatex-integration
 intent: 001-assisted-dyestuff-weighing-station
 phase: inception
-status: draft
+status: complete
 created: 2026-10-30T04:05:00Z
 updated: 2026-10-30T04:05:00Z
 ---
