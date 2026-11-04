@@ -71,13 +71,14 @@ Own the link state and the deferred synchronisation queue, so that the station k
 - [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
 - [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
 - [x] **3. adr**: ADR Analysis (optional) - Complete → adr-027-the-link-state-and-the-durable-sync-queue.md
-- [ ] **4. implement**: Implement - Pending → source code
-- [ ] **5. test**: Test - Pending → ddd-03-test-report.md
+- [x] **4. implement**: Implement - Complete → source code
+- [x] **5. test**: Test - Complete → ddd-03-test-report.md
 
 ## Expected Outputs
 
 - ddd-01-domain-model.md — LinkState and SyncQueueEntry
 - ddd-02-technical-design.md — the state machine, the retry policy and the pending semantics
+- ddd-03-test-report.md — the test results, the coverage and the defects the tests found
 - src/005-orgatex-integration/domain — the link-state model
 - src/005-orgatex-integration/infrastructure — the durable sync queue and the retry worker
 
@@ -99,7 +100,7 @@ Own the link state and the deferred synchronisation queue, so that the station k
 
 - [x] All stories implemented
 - [x] All acceptance criteria met
-- [x] Tests passing (1094 across 53 files; 280 new)
+- [x] Tests passing (1094 across 53 files; 234 new)
 - [ ] Code reviewed and approved
 
 ## Notes

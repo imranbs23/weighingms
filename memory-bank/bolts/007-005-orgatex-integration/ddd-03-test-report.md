@@ -54,7 +54,7 @@ bolt 006's pre-existing code, which this bolt did not change.
 
 ## Unit Tests
 
-Twenty-one files, 246 tests. The new ones:
+Twenty-two files, 262 tests. The new ones:
 
 - `orgatex-link-state.test.ts` — the derivation's boundaries: the
   inclusive window, the zero window, a non-finite window's refusal.
@@ -134,6 +134,11 @@ Every file this bolt created reads 100% lines:
 
 The readers — `batch-queue-reader.ts` and `recipe-reader.ts` — are at
 100% lines too, after the defect below was fixed.
+
+`consumption-posting-service.ts` is a file bolt 007 **modified** rather
+than created, so it carries bolt 006's uncovered lines. Every line and
+branch **bolt 007 added** to it is covered — the check was made against
+the staged diff, not against the file as a whole.
 
 ## Issues Found
 
