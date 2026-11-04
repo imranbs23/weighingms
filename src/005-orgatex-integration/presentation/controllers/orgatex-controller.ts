@@ -30,6 +30,8 @@ import {
   batchStatusWriteSchema,
   consumptionPostingSchema,
 } from '../schemas/orgatex-write-schemas.js';
+import { IdempotencyKey } from '../../domain/value-objects/idempotency-key.js';
+import type { SnapshotFreshness } from '../../domain/value-objects/snapshot-freshness.js';
 
 export const ORGATEX_UNAVAILABLE = 'ORGATEX_UNAVAILABLE';
 export const BATCH_NOT_FOUND = 'BATCH_NOT_FOUND';
@@ -37,6 +39,8 @@ export const VALIDATION_ERROR = 'VALIDATION_ERROR';
 export const UNAUTHENTICATED = 'UNAUTHENTICATED';
 export const POSTINGS_UNRESOLVED = 'POSTINGS_UNRESOLVED';
 export const POSTING_REJECTED = 'POSTING_REJECTED';
+export const REDRIVE_REFUSED = 'REDRIVE_REFUSED';
+export const QUEUE_ENTRY_NOT_FOUND = 'QUEUE_ENTRY_NOT_FOUND';
 
 export function createOrgatexRouter(orgatex: OrgatexModule): Router {
   const router = Router();
@@ -240,12 +244,24 @@ export function createOrgatexRouter(orgatex: OrgatexModule): Router {
           return;
 
         case 'QUEUED':
+          // The MES could not be reached. The consumption is DURABLE now —
+          // bolt 006 wrote the posting — and it must also be in the QUEUE,
+          // or a restart would lose it (R-09, R-10).
+          //
+          // The enqueue is the queue's own guard: the ledger and the queue
+          // are read together, so a key that is already consumed is
+          // refused rather than queued twice.
+          const enqueued = await orgatex.syncQueueService.enqueue(
+            outcome.posting,
+          );
+
           res.status(201).json({
             state: 'QUEUED',
             pending: true,
             postingId: outcome.posting.id.value,
             batchId: outcome.posting.batchId.value,
             componentId: outcome.posting.componentId.value,
+            queued: enqueued.outcome === 'QUEUED',
           });
           return;
 
@@ -303,7 +319,10 @@ export function createOrgatexRouter(orgatex: OrgatexModule): Router {
       return;
     }
 
-    const parsedBody = batchStatusWriteSchema.safeParse(req.body ?? {});
+    // The body-parser always installs an object, and the schema refuses an
+    // empty one — so the `?? {}` default that used to sit here could never
+    // fire. A request with no body is a validation error either way.
+    const parsedBody = batchStatusWriteSchema.safeParse(req.body);
     if (!parsedBody.success) {
       res.status(400).json({ error: VALIDATION_ERROR });
       return;
@@ -351,6 +370,168 @@ export function createOrgatexRouter(orgatex: OrgatexModule): Router {
     }
   });
 
+  /**
+   * GET /api/orgatex/link-state — the MES link's state.
+   *
+   * ══════════════════════════════════════════════════════════════════
+   * THE STATUS IS DERIVED, NOT STORED. (R-08)
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * The endpoint reads the observations and applies the pure policy — the
+   * same one the contact path uses. So the reported status and the
+   * recorded transitions cannot disagree, because both come from the same
+   * rule applied to the same observations.
+   *
+   * `unsynchronisedCount` is the queue's depth: how many consumptions
+   * have not landed (R-04). It is reported in every state, because a
+   * healthy link with a non-empty queue is a fact the operator needs.
+   *
+   * THE ERROR DETAIL NEVER REACHES THE CLIENT
+   * -----------------------------------------
+   * `lastError` carries a **code** and a bounded summary. The detail goes
+   * to the log (NFR-11). A client that received the raw adapter prose
+   * would be a client rendering text that was never written for it.
+   */
+  router.get('/link-state', async (req: Request, res: Response) => {
+    if (req.currentOperator === undefined) {
+      res.status(401).json({ error: UNAUTHENTICATED });
+      return;
+    }
+
+    const state = await orgatex.linkStateService.read();
+    const unsynchronisedCount = await orgatex.syncQueueService.countUnlanded();
+
+    res.status(200).json({
+      status: state.status,
+      lastContactAt:
+        state.lastContactAt === null
+          ? null
+          : state.lastContactAt.toDate().toISOString(),
+      lastError: state.lastError === null ? null : state.lastError.toClient(),
+      consecutiveFailures: state.consecutiveFailures,
+      unsynchronisedCount,
+    });
+  });
+
+  /**
+   * GET /api/orgatex/sync-queue — the consumptions that have not landed.
+   *
+   * The entries are in **queue order** — the order they were queued in,
+   * with a total tie-break, so the list is the same after a restart.
+   *
+   * A `FAILED` entry is visible here with its last error, its attempt
+   * count and its last attempt time. It is never silently discarded
+   * (BRD FR-20, FR-33) — a queue whose failures are invisible is a queue
+   * that loses data quietly.
+   */
+  router.get('/sync-queue', async (req: Request, res: Response) => {
+    if (req.currentOperator === undefined) {
+      res.status(401).json({ error: UNAUTHENTICATED });
+      return;
+    }
+
+    const entries = await orgatex.syncQueueService.findAll();
+
+    res.status(200).json({
+      count: entries.length,
+      entries: entries.map((entry) => ({
+        postingId: entry.postingId.value,
+        batchId: entry.batchId.value,
+        componentId: entry.componentId.value,
+        actualQuantity: entry.actualQuantity.toJSON(),
+        unit: entry.actualQuantity.unit,
+        lotNumber: entry.lotNumber.value,
+        operatorId: entry.operatorId.value,
+        weighedAt: entry.weighedAt.toDate().toISOString(),
+        queuedAt: entry.queuedAt.toDate().toISOString(),
+        attempts: entry.attempts,
+        lastAttemptAt:
+          entry.lastAttemptAt === null
+            ? null
+            : entry.lastAttemptAt.toDate().toISOString(),
+        nextAttemptAt:
+          entry.nextAttemptAt === null
+            ? null
+            : entry.nextAttemptAt.toDate().toISOString(),
+        lastError: entry.lastError === null ? null : entry.lastError.toClient(),
+        state: entry.state,
+      })),
+    });
+  });
+
+  /**
+   * POST /api/orgatex/sync-queue/:postingId/redrive — retry one failed
+   * entry.
+   *
+   * ══════════════════════════════════════════════════════════════════
+   * THE KEY IS THE PATH PARAMETER, AND IT IS NEVER RE-DERIVED.
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * A re-drive of an ambiguous failure must not double-post, so the
+   * delivery reuses the entry's **original** key. Re-deriving it here
+   * would risk a different key for the same weighing, and two keys for
+   * one weighing is two deliveries.
+   *
+   * - **200** — the attempt was made. `delivered` says whether it landed.
+   * - **404** — there is no such queue entry.
+   * - **409** — the re-drive was **refused**: the link is not up, the
+   *   entry is still on the automatic path, or the key has already been
+   *   consumed.
+   */
+  router.post(
+    '/sync-queue/:postingId/redrive',
+    async (req: Request, res: Response) => {
+      if (req.currentOperator === undefined) {
+        res.status(401).json({ error: UNAUTHENTICATED });
+        return;
+      }
+
+      const rawId = req.params['postingId'];
+      if (typeof rawId !== 'string' || rawId.trim().length === 0) {
+        res.status(400).json({ error: VALIDATION_ERROR });
+        return;
+      }
+
+      // The key's SHAPE is checked here, so a malformed key is a plain
+      // 400 rather than a thrown value object. The value object refuses
+      // to exist in that shape — and an unhandled throw would answer
+      // with a 500 and a stack, which tells the caller nothing and
+      // leaks the server's internals.
+      let postingId: IdempotencyKey;
+      try {
+        postingId = IdempotencyKey.of(rawId.trim());
+      } catch {
+        res.status(400).json({ error: VALIDATION_ERROR });
+        return;
+      }
+
+      const result = await orgatex.syncQueueService.redrive(postingId);
+
+      if (result.outcome === 'REFUSED') {
+        if (result.reason === 'NOT_FOUND') {
+          res.status(404).json({ error: QUEUE_ENTRY_NOT_FOUND });
+          return;
+        }
+        res.status(409).json({
+          error: REDRIVE_REFUSED,
+          reason: result.reason,
+        });
+        return;
+      }
+
+      res.status(200).json({
+        postingId: rawId.trim(),
+        delivered: result.delivered,
+        state: result.entry?.state ?? null,
+        attempts: result.entry?.attempts ?? null,
+        lastError:
+          result.entry?.lastError === null || result.entry === null
+            ? null
+            : result.entry.lastError.toClient(),
+      });
+    },
+  );
+
   return router;
 }
 
@@ -360,14 +541,13 @@ export function createOrgatexRouter(orgatex: OrgatexModule): Router {
  * It is **always present** — a consumer must never have to infer whether
  * a snapshot is stale from its absence.
  */
-function serialiseFreshness(freshness: {
-  readonly kind: 'CURRENT' | 'STALE';
-  readonly ageMs?: number;
-}): unknown {
+function serialiseFreshness(freshness: SnapshotFreshness): unknown {
   if (freshness.kind === 'CURRENT') {
     return { kind: 'CURRENT' };
   }
-  return { kind: 'STALE', ageMs: freshness.ageMs ?? 0 };
+  // A STALE freshness ALWAYS carries its age — the type says so, so the
+  // projection cannot silently report zero for an unknown age.
+  return { kind: 'STALE', ageMs: freshness.ageMs };
 }
 
 /**

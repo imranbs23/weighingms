@@ -8,6 +8,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_FRESHNESS_WINDOW_MS,
+  DEFAULT_SYNC_BACKOFF_BASE_MS,
+  DEFAULT_SYNC_BACKOFF_JITTER_MS,
+  DEFAULT_SYNC_BACKOFF_MAX_MS,
+  DEFAULT_SYNC_BACKOFF_MULTIPLIER,
+  DEFAULT_SYNC_RETRY_INTERVAL_MS,
   loadOrgatexConfig,
 } from '../../src/005-orgatex-integration/infrastructure/config/orgatex-config.js';
 
@@ -40,12 +45,24 @@ describe('the OrgaTEX configuration', () => {
     // A typo must not make the station unweighable. The window's effect
     // is to serve a snapshot marked with its age — so a mistyped window
     // produces a visibly-aged snapshot, not a wrong number.
-    for (const mistyped of ['not-a-number', '', '   ', '0', '-1', '12.5.6']) {
+    for (const mistyped of ['not-a-number', '', '   ', '-1', '12.5.6']) {
       const config = loadOrgatexConfig({
         WEIGHINGMS_ORGATEX_SNAPSHOT_TTL_MS: mistyped,
       } as NodeJS.ProcessEnv);
       expect(config.freshnessWindowMs).toBe(DEFAULT_FRESHNESS_WINDOW_MS);
     }
+  });
+
+  it('accepts a freshness window of ZERO — it is a legal value (R-06)', () => {
+    // A window of zero makes `DEGRADED` unreachable: no snapshot is ever
+    // fresh enough to serve, so the state goes to `OFFLINE` on the FIRST
+    // failure. That is a documented behaviour, so it has to be reachable —
+    // and it is only reachable if the loader accepts a configured zero
+    // instead of silently replacing it with the default.
+    const config = loadOrgatexConfig({
+      WEIGHINGMS_ORGATEX_SNAPSHOT_TTL_MS: '0',
+    } as NodeJS.ProcessEnv);
+    expect(config.freshnessWindowMs).toBe(0);
   });
 
   it('reads the source name from the environment', () => {
@@ -97,5 +114,43 @@ describe('the OrgaTEX configuration', () => {
       WEIGHINGMS_ORGATEX_REJECTION_DISPOSITION: 'permanent',
     } as NodeJS.ProcessEnv);
     expect(config.rejectionDisposition).toBe('PERMANENT');
+  });
+
+  // ── The backoff and the retry interval (R-15) ──
+
+  it('reads the backoff schedule from the environment', () => {
+    const config = loadOrgatexConfig({
+      WEIGHINGMS_ORGATEX_SYNC_BACKOFF_BASE_MS: '2000',
+      WEIGHINGMS_ORGATEX_SYNC_BACKOFF_MAX_MS: '60000',
+      WEIGHINGMS_ORGATEX_SYNC_BACKOFF_MULTIPLIER: '3',
+      WEIGHINGMS_ORGATEX_SYNC_BACKOFF_JITTER_MS: '100',
+      WEIGHINGMS_ORGATEX_SYNC_RETRY_INTERVAL_MS: '15000',
+    } as NodeJS.ProcessEnv);
+
+    expect(config.syncBackoff.baseMs).toBe(2000);
+    expect(config.syncBackoff.maxMs).toBe(60_000);
+    expect(config.syncBackoff.multiplier).toBe(3);
+    expect(config.syncBackoff.jitterMs).toBe(100);
+    expect(config.syncRetryIntervalMs).toBe(15_000);
+  });
+
+  it('falls back on a MISTYPED backoff value rather than refusing to start', () => {
+    // The same rule as the freshness window: a typo must not make the
+    // station unweighable, and the default is the safe one.
+    for (const mistyped of ['not-a-number', '', '   ', '0', '-1', '12.5.6']) {
+      const config = loadOrgatexConfig({
+        WEIGHINGMS_ORGATEX_SYNC_BACKOFF_BASE_MS: mistyped,
+        WEIGHINGMS_ORGATEX_SYNC_BACKOFF_MAX_MS: mistyped,
+        WEIGHINGMS_ORGATEX_SYNC_BACKOFF_MULTIPLIER: mistyped,
+        WEIGHINGMS_ORGATEX_SYNC_BACKOFF_JITTER_MS: mistyped,
+        WEIGHINGMS_ORGATEX_SYNC_RETRY_INTERVAL_MS: mistyped,
+      } as NodeJS.ProcessEnv);
+
+      expect(config.syncBackoff.baseMs).toBe(DEFAULT_SYNC_BACKOFF_BASE_MS);
+      expect(config.syncBackoff.maxMs).toBe(DEFAULT_SYNC_BACKOFF_MAX_MS);
+      expect(config.syncBackoff.multiplier).toBe(DEFAULT_SYNC_BACKOFF_MULTIPLIER);
+      expect(config.syncBackoff.jitterMs).toBe(DEFAULT_SYNC_BACKOFF_JITTER_MS);
+      expect(config.syncRetryIntervalMs).toBe(DEFAULT_SYNC_RETRY_INTERVAL_MS);
+    }
   });
 });

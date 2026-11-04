@@ -4,8 +4,8 @@
 
 - **Total stories**: 38
 - **Generated**: 38
-- **Completed**: 7
-- **Last updated**: 2026-11-03T06:21:42Z
+- **Completed**: 9
+- **Last updated**: 2026-11-04T14:07:33Z
 
 > This file is **generated** by `scripts/build-story-index.cjs` from the
 > story files on disk. Edit the story files, not this one.
@@ -53,8 +53,8 @@
 - [x] **001-read-released-batch-queue** (005): Read released batch queue - Must - ✅ COMPLETED
 - [x] **002-read-batch-recipe** (005): Read batch recipe - Must - ✅ COMPLETED
 - [x] **003-post-consumption-idempotently** (005): Post consumption idempotently - Must - ✅ COMPLETED
-- [x] **004-report-link-state** (005): Report link state - Must - ✅ GENERATED
-- [x] **005-queue-writes-offline-and-sync-on-recovery** (005): Queue writes offline and sync on recovery - Must - ✅ GENERATED
+- [x] **004-report-link-state** (005): Report link state - Must - ✅ COMPLETED
+- [x] **005-queue-writes-offline-and-sync-on-recovery** (005): Queue writes offline and sync on recovery - Must - ✅ COMPLETED
 
 #### `006-ticket-printing` — Ticket, Printing, Audit & Configuration
 
@@ -99,6 +99,6 @@
 ## Stories by Status
 
 - **Planned**: 0
-- **Generated**: 31
+- **Generated**: 29
 - **In Progress**: 0
-- **Completed**: 7
+- **Completed**: 9

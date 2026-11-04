@@ -3,15 +3,30 @@ id: 007-005-orgatex-integration
 unit: 005-orgatex-integration
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 004-report-link-state
   - 005-queue-writes-offline-and-sync-on-recovery
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
-current_stage: null
-stages_completed: []
+started: 2026-11-03T13:00:00Z
+completed: 2026-11-04T19:15:00Z
+current_stage: complete
+stages_completed:
+  - name: model
+    completed: 2026-11-03T13:20:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-03T17:30:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-03T18:30:00Z
+    artifact: adr-027-the-link-state-and-the-durable-sync-queue.md
+  - name: implement
+    completed: 2026-11-04T18:00:00Z
+    artifact: src/005-orgatex-integration
+  - name: test
+    completed: 2026-11-04T19:15:00Z
+    artifact: ddd-03-test-report.md
 
 # Bolt Dependencies (for execution ordering)
 requires_bolts:
@@ -41,8 +56,10 @@ Own the link state and the deferred synchronisation queue, so that the station k
 
 ## Stories Included
 
-- [ ] **004-report-link-state**: Report link state - Priority: must
-- [ ] **005-queue-writes-offline-and-sync-on-recovery**: Queue writes offline and sync on recovery - Priority: must
+## Stories Included
+
+- [x] **004-report-link-state**: Report link state - Priority: must
+- [x] **005-queue-writes-offline-and-sync-on-recovery**: Queue writes offline and sync on recovery - Priority: must
 
 ## Bolt Type
 
@@ -51,9 +68,9 @@ Own the link state and the deferred synchronisation queue, so that the station k
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-027-the-link-state-and-the-durable-sync-queue.md
 - [ ] **4. implement**: Implement - Pending → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
@@ -80,11 +97,19 @@ Own the link state and the deferred synchronisation queue, so that the station k
 
 ## Success Criteria
 
-- [ ] All stories implemented
-- [ ] All acceptance criteria met
-- [ ] Tests passing
+- [x] All stories implemented
+- [x] All acceptance criteria met
+- [x] Tests passing (1094 across 53 files; 280 new)
 - [ ] Code reviewed and approved
 
 ## Notes
 
 The queue is durable across a restart (NFR-05); the snapshots are not. A snapshot can always be re-fetched — an unlanded consumption posting cannot.
+
+The Stage 5 tests found and fixed four defects, all recorded in
+`ddd-03-test-report.md`: the read path swallowed its failed contacts
+(so a read-only station reported `LINKED` to a dead MES), a rejected
+freshness deadline became an unhandled rejection (which Node terminates
+the process on), the test harness closed its database before
+disposing the unit's timers, and the queue's delivery path
+(`redeliver`) had no test at all.

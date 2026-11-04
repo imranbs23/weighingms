@@ -43,6 +43,8 @@ import {
   type RawComponent,
   type RawRecipe,
 } from '../ports/orgatex-adapter.js';
+import type { LinkContactReporter } from '../ports/link-repositories.js';
+import { SyncError } from '../value-objects/sync-error.js';
 import type { OrgatexEvent } from '../events/orgatex-events.js';
 
 /**
@@ -81,6 +83,14 @@ export interface RecipeReaderOptions {
   readonly source: string;
   /** How old a last known-good may be and still be served as stale. */
   readonly freshnessWindowMs: number;
+  /**
+   * Where the contact outcome is reported.
+   *
+   * Optional, so a reader can be built without a link reporter — which is
+   * what bolt 005's own tests do. When it IS present, every contact
+   * reports its outcome, so the link state reflects reality (R-08).
+   */
+  readonly contactReporter?: LinkContactReporter;
   readonly onEvent?: (event: OrgatexEvent) => void;
 }
 
@@ -95,7 +105,7 @@ export class RecipeReader {
     try {
       raw = await adapter.readRecipe(batchId);
     } catch (error) {
-      return this.onFailure(batchId, error);
+      return await this.onFailure(batchId, error);
     }
 
     let snapshot: RecipeSnapshot;
@@ -103,7 +113,7 @@ export class RecipeReader {
       snapshot = this.buildSnapshot(raw, batchId);
     } catch (error) {
       // A malformed component fails the WHOLE read (S-24).
-      return this.onFailure(
+      return await this.onFailure(
         batchId,
         new AdapterError(
           'MALFORMED',
@@ -113,6 +123,10 @@ export class RecipeReader {
     }
 
     cache.rememberRecipe(snapshot);
+
+    // The contact SUCCEEDED — the MES was reached and answered. The link
+    // state service is the single writer of the observation row (R-08).
+    await this.reportSuccess();
 
     this.emit({
       type: 'RECIPE_READ',
@@ -132,15 +146,18 @@ export class RecipeReader {
    * consulted — because a batch the MES says does not exist must not be
    * answered with a stale recipe for a batch that did.
    */
-  private onFailure(
+  private async onFailure(
     batchId: BatchId,
     error: unknown,
-  ): RecipeReadOutcome {
+  ): Promise<RecipeReadOutcome> {
     const { cache, clock } = this.options;
 
     const message = error instanceof Error ? error.message : String(error);
 
     if (error instanceof AdapterError && error.reason === 'NOT_FOUND') {
+      // A `NOT_FOUND` is a SUCCESSFUL contact that produced no record — the
+      // MES was reached and answered. It is a `404`, not a failure, so it
+      // does not touch the link state.
       this.emit({
         type: 'RECIPE_READ_FAILED',
         batchId,
@@ -148,6 +165,7 @@ export class RecipeReader {
         at: clock(),
         message,
       });
+      await this.reportSuccess();
       return { kind: 'NOT_FOUND', message };
     }
 
@@ -158,6 +176,16 @@ export class RecipeReader {
         error.reason === 'TIMEOUT')
         ? error.reason
         : 'UNREACHABLE';
+
+    // The contact FAILED — the MES was reached and answered unusably, or
+    // could not be reached at all. The link state service is the single
+    // writer of the observation row (R-08, OQ-5), so a station that only
+    // READS still learns that the link is down.
+    //
+    // The report happens BEFORE the outcome is decided, because the
+    // outcome — a stale recipe served from the cache — does not change
+    // what was observed: the MES did not answer.
+    await this.reportFailure(reason, message);
 
     this.emit({
       type: 'RECIPE_READ_FAILED',
@@ -259,5 +287,25 @@ export class RecipeReader {
 
   private emit(event: OrgatexEvent): void {
     this.options.onEvent?.(event);
+  }
+
+  /** Report a successful contact to the link state service. */
+  private async reportSuccess(): Promise<void> {
+    const reporter = this.options.contactReporter;
+    if (reporter === undefined) return;
+    await reporter.recordSuccess(Instant.of(this.options.clock()));
+  }
+
+  /** Report a failed contact to the link state service. */
+  private async reportFailure(
+    reason: 'UNREACHABLE' | 'MALFORMED' | 'TIMEOUT',
+    message: string,
+  ): Promise<void> {
+    const reporter = this.options.contactReporter;
+    if (reporter === undefined) return;
+    await reporter.recordFailure(
+      SyncError.fromAdapterReason(reason, message),
+      Instant.of(this.options.clock()),
+    );
   }
 }

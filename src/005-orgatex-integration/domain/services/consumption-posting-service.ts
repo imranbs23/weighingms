@@ -68,6 +68,8 @@ import type {
   UnitOfWork,
 } from '../ports/posting-repositories.js';
 import type { PostingEvent } from '../events/posting-events.js';
+import type { LinkContactReporter } from '../ports/link-repositories.js';
+import { SyncError } from '../value-objects/sync-error.js';
 
 /**
  * What the caller asked for.
@@ -120,6 +122,14 @@ export interface ConsumptionPostingServiceOptions {
   readonly postings: PostingRepository;
   readonly unitOfWork: UnitOfWork;
   readonly clock: () => Date;
+  /**
+   * Where the contact outcome is reported.
+   *
+   * Optional, so the service can be built without a link reporter — which
+   * is what bolt 006's own tests do. When it IS present, every contact
+   * reports its outcome, so the link state reflects reality (R-08).
+   */
+  readonly contactReporter?: LinkContactReporter;
   readonly onEvent?: (event: PostingEvent) => void;
   /** Injected so the attempt id is deterministic in tests. */
   readonly newAttemptId: () => string;
@@ -234,10 +244,22 @@ export class ConsumptionPostingService {
       await adapter.postConsumption(raw);
     } catch (error) {
       if (error instanceof AdapterRejection) {
+        // The MES was REACHED and REFUSED. That is a failed contact — the
+        // MES answered, and the answer was a failure (R-01).
+        await this.reportFailure('REJECTED', error.message);
         return this.onRejected(posting, error, unitOfWork, clock);
       }
+      const reason = this.adapterReason(error);
+      await this.reportFailure(
+        reason,
+        error instanceof Error ? error.message : String(error),
+      );
       return this.onUnreachable(posting, error, unitOfWork, clock);
     }
+
+    // The contact SUCCEEDED. The link state service is the single writer
+    // of the observation row (R-08).
+    await this.reportSuccess();
 
     // ── Accepted ─────────────────────────────────────────────────────
     // The posting, the attempt and the ledger entry are written
@@ -262,6 +284,143 @@ export class ConsumptionPostingService {
       // The ledger's PRIMARY KEY refused the key. That is the
       // ATOMIC duplicate refusal (ADR-023) — and the transaction rolled
       // back, so the posting is still QUEUED and nothing was recorded.
+      if (this.isUniqueViolation(error, 'idempotency_ledger.idempotency_key')) {
+        const duplicate = await postings.findById(key);
+        if (duplicate !== null) {
+          this.emit({
+            type: 'CONSUMPTION_POSTING_ATTEMPTED',
+            postingId: key,
+            outcome: 'ACCEPTED',
+            attemptedAt: clock(),
+            message:
+              'Refused as a duplicate — the key was consumed concurrently',
+          });
+          return {
+            kind: 'DUPLICATE',
+            posting: duplicate,
+            alreadyAccepted: true,
+          };
+        }
+      }
+      throw error;
+    }
+
+    this.emit({
+      type: 'CONSUMPTION_POSTING_ACCEPTED',
+      postingId: posting.id,
+      batchId: posting.batchId,
+      componentId: posting.componentId,
+      acceptedAt: clock(),
+    });
+
+    const accepted = await postings.findById(posting.id);
+    return {
+      kind: 'ACCEPTED',
+      posting: accepted ?? posting.accept(Instant.of(clock())),
+    };
+  }
+
+  /**
+   * Re-send a posting that has not landed.
+   *
+   * ══════════════════════════════════════════════════════════════════
+   * THIS IS THE QUEUE'S DELIVERY PATH. (bolt 007)
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * Bolt 007's sync queue **calls this method** rather than writing its
+   * own send path, and that is the whole point: *"has this key been
+   * consumed?"* must have exactly **one** implementation.
+   *
+   * The difference from `post` is the guard. `post` refuses a key whose
+   * posting is still `QUEUED` — because a second submission of the same
+   * weighing must not create a second posting. But a **queue** is
+   * precisely the case where the posting exists and is `QUEUED`, and it
+   * must be sent again.
+   *
+   * So `redeliver` skips the enqueue-path guard and keeps the send-path
+   * guard — the ledger's PRIMARY KEY. That guard is the **atomic** one
+   * (ADR-023), and it is what stops a re-delivery of an ambiguous
+   * failure from double-counting a dye batch.
+   *
+   * The key is **never re-derived** here: it is the posting's own id,
+   * which is the key it was first created with.
+   */
+  async redeliver(posting: ConsumptionPosting): Promise<PostingOutcome> {
+    const { adapter, ledger, postings, unitOfWork, clock } = this.options;
+    const key = posting.id;
+
+    // ── The send-path guard ──────────────────────────────────────────
+    // The ledger holds exactly the keys that may never be used again.
+    // This is the ATOMIC duplicate refusal — and it is checked here so
+    // that "the key was already consumed" has one implementation.
+    if (await ledger.has(key)) {
+      const existing = await postings.findById(key);
+      if (existing !== null) {
+        this.emit({
+          type: 'CONSUMPTION_POSTING_ATTEMPTED',
+          postingId: key,
+          outcome: 'ACCEPTED',
+          attemptedAt: clock(),
+          message: 'Refused as a duplicate — the key is already consumed',
+        });
+        return { kind: 'DUPLICATE', posting: existing, alreadyAccepted: true };
+      }
+    }
+
+    // ── Send ─────────────────────────────────────────────────────────
+    const raw: RawConsumption = {
+      batchId: posting.batchId.value,
+      componentId: posting.componentId.value,
+      actualQuantity: posting.actualQuantity.toJSON(),
+      unit: posting.actualQuantity.unit,
+      lotNumber: posting.lotNumber.value,
+      operatorId: posting.operatorId.value,
+      weighedAt: posting.weighedAt.toDate().toISOString(),
+      idempotencyKey: posting.id.value,
+    };
+
+    try {
+      await adapter.postConsumption(raw);
+    } catch (error) {
+      if (error instanceof AdapterRejection) {
+        // The MES was REACHED and REFUSED. That is a failed contact — the
+        // MES answered, and the answer was a failure (R-01).
+        await this.reportFailure('REJECTED', error.message);
+        return this.onRejected(posting, error, unitOfWork, clock);
+      }
+      const reason = this.adapterReason(error);
+      await this.reportFailure(
+        reason,
+        error instanceof Error ? error.message : String(error),
+      );
+      return this.onUnreachable(posting, error, unitOfWork, clock);
+    }
+
+    // The contact SUCCEEDED. The link state service is the single writer
+    // of the observation row (R-08).
+    await this.reportSuccess();
+
+    // ── Accepted ─────────────────────────────────────────────────────
+    // The posting, the attempt and the ledger entry are written
+    // TOGETHER — one transaction.
+    const attempt = new PostingAttempt(
+      this.options.newAttemptId(),
+      posting.id,
+      Instant.of(clock()),
+      'ACCEPTED',
+    );
+
+    try {
+      await unitOfWork.commit({
+        kind: 'ACCEPTED',
+        posting,
+        attempt,
+        ledgerKey: posting.id,
+        ledgerAt: Instant.of(clock()),
+      });
+    } catch (error) {
+      // The ledger's PRIMARY KEY refused the key. The consumption was
+      // already delivered — so this is a DUPLICATE, not a failure.
       if (this.isUniqueViolation(error, 'idempotency_ledger.idempotency_key')) {
         const duplicate = await postings.findById(key);
         if (duplicate !== null) {
@@ -437,6 +596,62 @@ export class ConsumptionPostingService {
       error.message.includes('UNIQUE constraint failed') &&
       error.message.includes(constraint)
     );
+  }
+
+  /**
+   * The adapter's failure reason, defaulted.
+   *
+   * An error the adapter did not classify is treated as `UNREACHABLE`,
+   * because that is the **safe** default: it says "we do not know what
+   * happened", and the queue retries it.
+   */
+  private adapterReason(error: unknown): 'UNREACHABLE' | 'TIMEOUT' | 'MALFORMED' {
+    if (error instanceof AdapterError) {
+      if (
+        error.reason === 'UNREACHABLE' ||
+        error.reason === 'TIMEOUT' ||
+        error.reason === 'MALFORMED'
+      ) {
+        return error.reason;
+      }
+    }
+    return 'UNREACHABLE';
+  }
+
+  /** Report a successful contact to the link state service. */
+  private async reportSuccess(): Promise<void> {
+    const reporter = this.options.contactReporter;
+    if (reporter === undefined) return;
+    await reporter.recordSuccess(Instant.of(this.options.clock()));
+  }
+
+  /** Report a failed contact to the link state service. */
+  private async reportFailure(
+    code: 'UNREACHABLE' | 'TIMEOUT' | 'MALFORMED' | 'REJECTED',
+    detail: string,
+  ): Promise<void> {
+    const reporter = this.options.contactReporter;
+    if (reporter === undefined) return;
+    await reporter.recordFailure(
+      SyncError.of(code, this.summaryFor(code), detail),
+      Instant.of(this.options.clock()),
+    );
+  }
+
+  /** The short, client-safe summary for a failure kind. */
+  private summaryFor(
+    code: 'UNREACHABLE' | 'TIMEOUT' | 'MALFORMED' | 'REJECTED',
+  ): string {
+    switch (code) {
+      case 'UNREACHABLE':
+        return 'OrgaTEX could not be reached';
+      case 'TIMEOUT':
+        return 'OrgaTEX did not answer in time';
+      case 'MALFORMED':
+        return 'OrgaTEX returned an unusable response';
+      case 'REJECTED':
+        return 'OrgaTEX refused the consumption';
+    }
   }
 
   private emit(event: PostingEvent): void {

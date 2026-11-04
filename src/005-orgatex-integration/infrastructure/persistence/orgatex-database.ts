@@ -162,6 +162,151 @@ const MIGRATIONS: readonly { id: string; sql: string }[] = [
         ON batch_status_writes (batch_id, written_at);
     `,
   },
+  {
+    id: '018-create-sync-queue-entries',
+    sql: `
+      -- ═════════════════════════════════════════════════════════════════
+      -- THE DURABLE RECORD OF A CONSUMPTION THAT HAS NOT LANDED.
+      -- ═════════════════════════════════════════════════════════════════
+      --
+      -- A queued posting must survive a restart, because a consumption
+      -- the station believes it sent but cannot prove is a correctness
+      -- problem, not an inconvenience (BRD NFR-05).
+      --
+      -- THE PRIMARY KEY IS THE DUPLICATE GUARD, EXACTLY AS THE LEDGER'S
+      -- IS. A second entry for one weighing would be two deliveries, and
+      -- two deliveries with the same key is what the key exists to
+      -- prevent (ADR-023).
+      --
+      -- THE CONTENT IS IMMUTABLE. The columns from batch_id through
+      -- queued_at describe something that physically happened — 94.01 g
+      -- of DYE-4471 was dispensed at 08:14:22 — and that event does not
+      -- change. Only the attempt bookkeeping may move (ADR-024).
+      --
+      -- QUANTITIES ARE TEXT, never REAL. SQLite's REAL is an IEEE-754
+      -- double, which is what BRD NFR-16 forbids.
+      --
+      -- TIMESTAMPS ARE ISO-8601 TEXT, matching every other table in this
+      -- unit.
+      CREATE TABLE IF NOT EXISTS sync_queue_entries (
+        posting_id         TEXT    NOT NULL PRIMARY KEY,
+        batch_id           TEXT    NOT NULL,
+        component_id       TEXT    NOT NULL,
+        actual_quantity    TEXT    NOT NULL,
+        unit               TEXT    NOT NULL,
+        lot_number         TEXT    NOT NULL,
+        operator_id        TEXT    NOT NULL,
+        weighed_at         TEXT    NOT NULL,
+        queued_at          TEXT    NOT NULL,
+        attempts           INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+        last_attempt_at    TEXT,
+        next_attempt_at    TEXT,
+        last_error_code    TEXT,
+        last_error_summary TEXT,
+        last_error_detail  TEXT,
+        state              TEXT    NOT NULL CHECK (state IN ('PENDING', 'FAILED')),
+        -- A PENDING entry is ON the automatic path and always has a next
+        -- attempt time; a FAILED entry is OFF it and has none.
+        CHECK (
+          (state = 'PENDING' AND next_attempt_at IS NOT NULL)
+          OR (state = 'FAILED' AND next_attempt_at IS NULL)
+        ),
+        -- An attempt time without an attempt would be a lie.
+        CHECK (last_attempt_at IS NULL OR attempts >= 1)
+      );
+
+      -- findDue(now, limit): only PENDING entries are ever due.
+      CREATE INDEX IF NOT EXISTS idx_sync_queue_entries_due
+        ON sync_queue_entries (next_attempt_at, queued_at, posting_id)
+        WHERE state = 'PENDING';
+
+      -- The queue order: queued_at ascending, posting_id as the
+      -- tie-breaker. A TOTAL order, stable across processes and across
+      -- a restart.
+      CREATE INDEX IF NOT EXISTS idx_sync_queue_entries_queue_order
+        ON sync_queue_entries (queued_at, posting_id);
+    `,
+  },
+  {
+    id: '019-create-link-contact-observations',
+    sql: `
+      -- ═════════════════════════════════════════════════════════════════
+      -- ONE ROW. THE OBSERVATIONS, NEVER THE DERIVED STATUS.
+      -- ═════════════════════════════════════════════════════════════════
+      --
+      -- The link's status is DERIVED from these columns by a pure policy
+      -- on every read. A persisted status would be a second source of
+      -- truth that could disagree with the derivation — and it would have
+      -- to be updated on every path that can change the link.
+      --
+      -- The CHECK (id = 1) makes it structurally impossible for a second
+      -- row to exist: there is exactly one link, and one row says so.
+      CREATE TABLE IF NOT EXISTS link_contact_observations (
+        id                   INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+        last_success_at      TEXT,
+        last_failure_at      TEXT,
+        last_error_code      TEXT,
+        last_error_summary   TEXT,
+        last_error_detail    TEXT,
+        consecutive_failures INTEGER NOT NULL DEFAULT 0
+          CHECK (consecutive_failures >= 0)
+      );
+
+      -- The row is seeded by the migration, so read() never has to
+      -- special-case a missing row.
+      INSERT OR IGNORE INTO link_contact_observations
+        (id, consecutive_failures)
+      VALUES (1, 0);
+    `,
+  },
+  {
+    id: '020-create-link-transitions',
+    sql: `
+      -- ═════════════════════════════════════════════════════════════════
+      -- APPEND-ONLY. THE STATUS-CHANGE LOG.
+      -- ═════════════════════════════════════════════════════════════════
+      --
+      -- A transition is a fact about the past. A history that could be
+      -- rewritten is not a history — and the transition record exists to
+      -- serve a diagnosis, which a rewritten history cannot.
+      --
+      -- THE TRIGGERS ARE THE ENFORCEMENT. A repository without an
+      -- update method is a convention; a trigger that ABORTS is a
+      -- guarantee.
+      CREATE TABLE IF NOT EXISTS link_transitions (
+        id          INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        from_status TEXT    NOT NULL
+          CHECK (from_status IN ('LINKED', 'DEGRADED', 'OFFLINE')),
+        to_status   TEXT    NOT NULL
+          CHECK (to_status IN ('LINKED', 'DEGRADED', 'OFFLINE')),
+        occurred_at TEXT    NOT NULL,
+        cause       TEXT    NOT NULL
+          CHECK (cause IN (
+            'FIRST_OBSERVATION',
+            'CONTACT_SUCCESS',
+            'CONTACT_FAILURE',
+            'FRESHNESS_DEADLINE'
+          )),
+        -- A transition that changes nothing is not a transition.
+        CHECK (from_status <> to_status)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_link_transitions_occurred_at
+        ON link_transitions (occurred_at, id);
+
+      CREATE TRIGGER IF NOT EXISTS trg_link_transitions_no_update
+      BEFORE UPDATE ON link_transitions
+      BEGIN
+        SELECT RAISE(ABORT, 'link_transitions is append-only');
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS trg_link_transitions_no_delete
+      BEFORE DELETE ON link_transitions
+      BEGIN
+        SELECT RAISE(ABORT, 'link_transitions is append-only');
+      END;
+    `,
+  },
 ];
 
 /**

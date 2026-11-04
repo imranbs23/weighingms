@@ -32,6 +32,7 @@ import {
   type OrgatexModule,
 } from '../src/005-orgatex-integration/infrastructure/composition-root.js';
 import type { OrgatexConfig } from '../src/005-orgatex-integration/infrastructure/config/orgatex-config.js';
+import { BackoffSchedule } from '../src/005-orgatex-integration/domain/value-objects/backoff-schedule.js';
 
 /** A controllable clock. */
 export class TestClock {
@@ -92,6 +93,15 @@ export function createHarness(options?: {
    * as stale. A test that needs a stale snapshot passes a small number.
    */
   orgatexFreshnessWindowMs?: number;
+  /**
+   * Whether a rejected consumption may be re-driven.
+   *
+   * `RETRYABLE` (the default) keeps a rejected entry on the automatic
+   * path. `PERMANENT` takes it off — the entry becomes `FAILED` and waits
+   * for an operator. It is configuration (ADR-026), and a test that needs
+   * the other behaviour passes one here.
+   */
+  orgatexRejectionDisposition?: 'RETRYABLE' | 'PERMANENT';
 }): Harness {
   const clock = new TestClock();
 
@@ -129,7 +139,10 @@ export function createHarness(options?: {
     databasePath: ':memory:',
     freshnessWindowMs: options?.orgatexFreshnessWindowMs ?? 5 * 60 * 1000,
     sourceName: 'DUMMY_ORGATEX',
-    rejectionDisposition: 'RETRYABLE',
+    rejectionDisposition:
+      options?.orgatexRejectionDisposition ?? 'RETRYABLE',
+    syncBackoff: BackoffSchedule.defaults(),
+    syncRetryIntervalMs: 5000,
   };
   const orgatex = buildOrgatexModule({
     config: orgatexConfig,
@@ -146,6 +159,13 @@ export function createHarness(options?: {
     app,
     clock,
     close: () => {
+      // The OrgaTEX unit's timers must be released BEFORE the database
+      // is closed. A freshness deadline that fires after the database is
+      // gone reads a closed database — and its rejection would surface
+      // as an unhandled rejection in whichever test happened to be
+      // running.
+      orgatex.linkScheduler.dispose();
+      orgatex.syncRetryWorker.dispose();
       scales.close();
       identity.close();
     },

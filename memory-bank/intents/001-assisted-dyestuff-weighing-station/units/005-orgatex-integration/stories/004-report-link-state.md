@@ -2,11 +2,11 @@
 id: 004-report-link-state
 unit: 005-orgatex-integration
 intent: 001-assisted-dyestuff-weighing-station
-status: draft
+status: complete
 priority: must
 created: 2026-10-30T05:00:00Z
-assigned_bolt: null
-implemented: false
+assigned_bolt: 007-005-orgatex-integration
+implemented: true
 ---
 
 # Story: 004-report-link-state

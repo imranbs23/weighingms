@@ -54,6 +54,8 @@ import {
   type RawBatch,
   type RawQueue,
 } from '../ports/orgatex-adapter.js';
+import type { LinkContactReporter } from '../ports/link-repositories.js';
+import { SyncError } from '../value-objects/sync-error.js';
 import type { OrgatexEvent } from '../events/orgatex-events.js';
 
 /**
@@ -99,6 +101,14 @@ export interface BatchQueueReaderOptions {
    * is an operational question.
    */
   readonly freshnessWindowMs: number;
+  /**
+   * Where the contact outcome is reported.
+   *
+   * Optional, so a reader can be built without a link reporter — which is
+   * what bolt 005's own tests do. When it IS present, every contact
+   * reports its outcome, so the link state reflects reality (R-08).
+   */
+  readonly contactReporter?: LinkContactReporter;
   readonly onEvent?: (event: OrgatexEvent) => void;
 }
 
@@ -127,7 +137,7 @@ export class BatchQueueReader {
       // A malformed record is a FAILED read, not a crash — and it fails
       // the WHOLE read (S-24). A snapshot missing one batch is a wrong
       // work list to the operator.
-      return this.onFailure(
+      return await this.onFailure(
         new AdapterError(
           'MALFORMED',
           error instanceof Error ? error.message : String(error),
@@ -138,6 +148,10 @@ export class BatchQueueReader {
     // The snapshot is remembered BEFORE the outcome is decided, so a
     // later failure can serve it.
     cache.rememberQueue(snapshot);
+
+    // The contact SUCCEEDED — the MES was reached and answered. The link
+    // state service is the single writer of the observation row (R-08).
+    await this.reportSuccess();
 
     this.emit({
       type: 'BATCH_QUEUE_READ',
@@ -164,7 +178,7 @@ export class BatchQueueReader {
    * had already been failing, is not "the last successful snapshot" — it is
    * an old one. The freshness window bounds how old that may be.
    */
-  private onFailure(error: unknown): BatchQueueReadOutcome {
+  private async onFailure(error: unknown): Promise<BatchQueueReadOutcome> {
     const { cache, clock, source } = this.options;
 
     const reason =
@@ -176,6 +190,16 @@ export class BatchQueueReader {
         : 'UNREACHABLE';
 
     const message = error instanceof Error ? error.message : String(error);
+
+    // The contact FAILED — the MES was reached and answered unusably, or
+    // could not be reached at all. The link state service is the single
+    // writer of the observation row (R-08, OQ-5), so a station that only
+    // READS still learns that the link is down.
+    //
+    // The report happens BEFORE the outcome is decided, because the
+    // outcome — a stale snapshot served from the cache — does not change
+    // what was observed: the MES did not answer.
+    await this.reportFailure(reason, message);
 
     this.emit({
       type: 'BATCH_QUEUE_READ_FAILED',
@@ -263,5 +287,25 @@ export class BatchQueueReader {
 
   private emit(event: OrgatexEvent): void {
     this.options.onEvent?.(event);
+  }
+
+  /** Report a successful contact to the link state service. */
+  private async reportSuccess(): Promise<void> {
+    const reporter = this.options.contactReporter;
+    if (reporter === undefined) return;
+    await reporter.recordSuccess(Instant.of(this.options.clock()));
+  }
+
+  /** Report a failed contact to the link state service. */
+  private async reportFailure(
+    reason: 'UNREACHABLE' | 'MALFORMED' | 'TIMEOUT',
+    message: string,
+  ): Promise<void> {
+    const reporter = this.options.contactReporter;
+    if (reporter === undefined) return;
+    await reporter.recordFailure(
+      SyncError.fromAdapterReason(reason, message),
+      Instant.of(this.options.clock()),
+    );
   }
 }

@@ -15,12 +15,55 @@ import {
 } from '../../src/005-orgatex-integration/infrastructure/composition-root.js';
 import { DummyOrgatexWorld } from '../../src/005-orgatex-integration/infrastructure/adapters/dummy-orgatex-data.js';
 import type { OrgatexConfig } from '../../src/005-orgatex-integration/infrastructure/config/orgatex-config.js';
+import { BackoffSchedule } from '../../src/005-orgatex-integration/domain/value-objects/backoff-schedule.js';
+import type { Instant } from '../../src/004-scale-integration/domain/value-objects/instant.js';
+import type { LinkFreshnessScheduler } from '../../src/005-orgatex-integration/domain/ports/link-repositories.js';
+
+/**
+ * A scheduler that records the deadline and never fires on its own.
+ *
+ * ADR-012: the scheduler decides WHEN TO ASK, and the pure policy decides
+ * the answer. So a test injects this and fires the deadline when it
+ * chooses, and the boundary is testable **exactly** — not approximately.
+ */
+export class ManualLinkScheduler implements LinkFreshnessScheduler {
+  deadline: Instant | null = null;
+  callback: (() => void) | null = null;
+  cancelled = false;
+
+  schedule(deadline: Instant, callback: () => void): void {
+    this.deadline = deadline;
+    this.callback = callback;
+    this.cancelled = false;
+  }
+
+  cancel(): void {
+    this.deadline = null;
+    this.callback = null;
+    this.cancelled = true;
+  }
+
+  dispose(): void {
+    this.cancel();
+  }
+
+  /** Fire the scheduled deadline — the test chooses when. */
+  async fire(): Promise<void> {
+    const callback = this.callback;
+    this.callback = null;
+    if (callback !== null) {
+      await callback();
+    }
+  }
+}
 
 export const DEFAULT_ORGATEX_CONFIG: OrgatexConfig = {
   databasePath: ':memory:',
   freshnessWindowMs: 5 * 60 * 1000,
   sourceName: 'DUMMY_ORGATEX',
   rejectionDisposition: 'RETRYABLE',
+  syncBackoff: BackoffSchedule.defaults(),
+  syncRetryIntervalMs: 5000,
 };
 
 /**

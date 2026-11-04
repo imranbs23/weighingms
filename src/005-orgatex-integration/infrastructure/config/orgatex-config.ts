@@ -4,7 +4,10 @@
  * Every value here is a **PARAMETER of a rule** rather than a constant
  * buried in an implementation, so the operational questions can be answered
  * without a rebuild (BRD NFR-14).
- *
+ */
+import { BackoffSchedule } from '../../domain/value-objects/backoff-schedule.js';
+
+/**
  * THE FRESHNESS WINDOW
  * --------------------
  * How long a last known-good snapshot may be served, marked with its age,
@@ -17,13 +20,20 @@
  * exist. It is what a station shift looks like between queue refreshes,
  * and it is settable without a rebuild.
  *
- * IT IS NOT ZERO, AND NOT INFINITE
- * ---------------------------------
- * A window of zero would mean a snapshot is never served as stale, and the
- * `DEGRADED` read — which FR-20 and both stories require — would have
- * nothing to serve. A window of infinity would mean a snapshot from last
- * week is presented with a two-day age, and the age would be the only
- * thing standing between the operator and a schedule nobody is working.
+ * IT IS NOT INFINITE, BUT IT **IS** ZERO
+ * --------------------------------------
+ * A window of infinity would mean a snapshot from last week is presented
+ * with a two-day age, and the age would be the only thing standing between
+ * the operator and a schedule nobody is working. So infinity is refused.
+ *
+ * Zero, on the other hand, is **legal** — and R-06 names it explicitly: a
+ * window of zero makes `DEGRADED` unreachable, because no snapshot is ever
+ * fresh enough to serve, so the state transitions to `OFFLINE` on the
+ * first failure.
+ *
+ * That is a documented behaviour, so the loader accepts a configured zero
+ * rather than silently replacing it with the default — which is why the
+ * window is read by `readNonNegativeInt` and not by `readInt`.
  */
 export interface OrgatexConfig {
   /** The SQLite path — shared with the other units. */
@@ -65,6 +75,21 @@ export interface OrgatexConfig {
    * the rejection faithfully and exposes the disposition.
    */
   readonly rejectionDisposition: RejectionDisposition;
+  /**
+   * The bounded retry schedule for the sync queue.
+   *
+   * The **bound** (`maxMs`) is the part that matters: an unbounded backoff
+   * is a queue that never retries, which is a silent discard with extra
+   * steps. So the bound is a required parameter of the schedule, and it
+   * is configuration rather than a constant in an implementation
+   * (BRD NFR-14).
+   */
+  readonly syncBackoff: BackoffSchedule;
+  /**
+   * How often the retry worker looks for entries whose backoff has
+   * expired, in milliseconds.
+   */
+  readonly syncRetryIntervalMs: number;
 }
 
 /**
@@ -82,19 +107,47 @@ export const REJECTION_DISPOSITIONS: readonly RejectionDisposition[] = [
 
 export const DEFAULT_FRESHNESS_WINDOW_MS = 5 * 60 * 1000;
 
+export const DEFAULT_SYNC_BACKOFF_BASE_MS = 1000;
+export const DEFAULT_SYNC_BACKOFF_MAX_MS = 300000;
+export const DEFAULT_SYNC_BACKOFF_MULTIPLIER = 2;
+export const DEFAULT_SYNC_BACKOFF_JITTER_MS = 250;
+export const DEFAULT_SYNC_RETRY_INTERVAL_MS = 5000;
+
 export function loadOrgatexConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): OrgatexConfig {
   return {
     databasePath:
       env['WEIGHINGMS_DATABASE_PATH'] ?? './data/weighingms.sqlite',
-    freshnessWindowMs: readInt(
+    freshnessWindowMs: readNonNegativeInt(
       env['WEIGHINGMS_ORGATEX_SNAPSHOT_TTL_MS'],
       DEFAULT_FRESHNESS_WINDOW_MS,
     ),
     sourceName: env['WEIGHINGMS_ORGATEX_SOURCE'] ?? 'DUMMY_ORGATEX',
     rejectionDisposition: readDisposition(
       env['WEIGHINGMS_ORGATEX_REJECTION_DISPOSITION'],
+    ),
+    syncBackoff: BackoffSchedule.of(
+      readInt(
+        env['WEIGHINGMS_ORGATEX_SYNC_BACKOFF_BASE_MS'],
+        DEFAULT_SYNC_BACKOFF_BASE_MS,
+      ),
+      readInt(
+        env['WEIGHINGMS_ORGATEX_SYNC_BACKOFF_MAX_MS'],
+        DEFAULT_SYNC_BACKOFF_MAX_MS,
+      ),
+      readInt(
+        env['WEIGHINGMS_ORGATEX_SYNC_BACKOFF_MULTIPLIER'],
+        DEFAULT_SYNC_BACKOFF_MULTIPLIER,
+      ),
+      readInt(
+        env['WEIGHINGMS_ORGATEX_SYNC_BACKOFF_JITTER_MS'],
+        DEFAULT_SYNC_BACKOFF_JITTER_MS,
+      ),
+    ),
+    syncRetryIntervalMs: readInt(
+      env['WEIGHINGMS_ORGATEX_SYNC_RETRY_INTERVAL_MS'],
+      DEFAULT_SYNC_RETRY_INTERVAL_MS,
     ),
   };
 }
@@ -142,6 +195,42 @@ function readInt(raw: string | undefined, fallback: number): number {
   }
   const parsed = Number(raw.trim());
   if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
+/**
+ * Read a NON-NEGATIVE whole number from the environment.
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * WHY THIS EXISTS AT ALL, WHEN `readInt` ALREADY READS A NUMBER.
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * Because **zero is a legal value** for the freshness window, and
+ * `readInt` rejects it (`parsed <= 0`).
+ *
+ * R-06 is explicit: a window of zero makes `DEGRADED` unreachable, so the
+ * state transitions to `OFFLINE` on the first failure. That behaviour is
+ * only reachable if the loader accepts a zero — and `readInt` would
+ * silently replace a configured zero with the default, so the documented
+ * behaviour would be unreachable in practice.
+ *
+ * A second reader, rather than a flag on the first, because the two
+ * settings want **opposite** rules and a boolean parameter would make
+ * the call site a decision rather than a fact:
+ *
+ * - the freshness window — **zero is legal**;
+ * - the retry interval and the backoff's parameters — **zero is not**,
+ *   because a zero retry interval is a busy loop and a zero backoff base
+ *   is a hot retry.
+ */
+function readNonNegativeInt(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') {
+    return fallback;
+  }
+  const parsed = Number(raw.trim());
+  if (!Number.isInteger(parsed) || parsed < 0) {
     return fallback;
   }
   return parsed;

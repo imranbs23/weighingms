@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-11-02T21:50:00Z
-total_decisions: 26
+last_updated: 2026-11-03T18:00:00Z
+total_decisions: 27
 ---
 
 # Decision Index
@@ -30,6 +30,14 @@ Use this to find relevant prior decisions when working on related features.
 - **Read when**: {Agent guidance - domain keywords and scenarios when this ADR is relevant}
 
 -->
+
+### ADR-027: The MES link state is derived, and the sync queue is the only durable record of an unlanded consumption
+- **Status**: accepted
+- **Date**: 2026-11-03
+- **Bolt**: 007-005-orgatex-integration (005-orgatex-integration)
+- **Path**: `bolts/007-005-orgatex-integration/adr-027-the-link-state-and-the-durable-sync-queue.md`
+- **Summary**: The station must keep weighing while OrgaTEX is unreachable, and no failure at any boundary may produce a silently wrong number — so the MES link state is DERIVED from observed contact outcomes by one pure policy (never stored, never hard-coded, never blocking a weighing), and an undeliverable consumption is recorded in a durable queue that survives a restart and is later delivered with the same idempotency key, in order, without duplication. The queue reuses bolt 006's ledger-guarded posting path rather than writing a second send path, and the rejection disposition is consumed as configuration, never re-decided.
+- **Read when**: Implementing or changing the link state, its derivation, the freshness window or the scheduled deadline; working on the sync queue, the enqueue guard, the backoff, the retry worker or the flush on recovery; deciding whether a queue entry may be deleted, pruned or re-keyed; changing the rejection disposition's effect; reviewing a proposal to add a second MES adapter, a health probe or a second implementation of the idempotency check.
 
 ### ADR-026: The rejection disposition is configuration, and defaults to RETRYABLE
 - **Status**: accepted
