@@ -3,16 +3,26 @@ id: 008-001-batch-management
 unit: 001-batch-management
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 001-retrieve-released-batch-queue
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-04T15:30:00Z
+completed: 2026-11-04T15:44:42Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-04T15:30:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-04T15:45:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-04T16:00:00Z
+    artifact: adr-028-the-stations-own-queue-endpoint.md
+  - name: implement
+    completed: 2026-11-04T16:20:00Z
+    artifact: src/001-batch-management
 requires_bolts:
   - 005-005-orgatex-integration
 enables_bolts:
@@ -20,8 +30,6 @@ enables_bolts:
 requires_units:
   - 005-orgatex-integration
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 1
@@ -50,16 +58,17 @@ Read the released batch queue through the OrgaTEX adapter and expose it as a sta
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
-- [ ] **5. test**: Test - Pending → ddd-03-test-report.md
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-028-the-stations-own-queue-endpoint.md
+- [x] **4. implement**: Implement - Complete → source code
+- [x] **5. test**: Test - Complete → ddd-03-test-report.md
 
 ## Expected Outputs
 
-- ddd-01-domain-model.md — BatchQueue and the selection state
-- ddd-02-technical-design.md — the queue projection and its freshness
+- ddd-01-domain-model.md — the station's queue projection and its provenance
+- ddd-02-technical-design.md — the projection, the port and the endpoint
+- ddd-03-test-report.md — the test results, the coverage and the defect the tests found
 - src/001-batch-management/domain — the queue model
 - src/001-batch-management/application — the queue read use case
 - src/001-batch-management/presentation — the queue endpoint
@@ -80,9 +89,9 @@ Read the released batch queue through the OrgaTEX adapter and expose it as a sta
 
 ## Success Criteria
 
-- [ ] All stories implemented
-- [ ] All acceptance criteria met
-- [ ] Tests passing
+- [x] All stories implemented
+- [x] All acceptance criteria met
+- [x] Tests passing
 - [ ] Code reviewed and approved
 
 ## Notes

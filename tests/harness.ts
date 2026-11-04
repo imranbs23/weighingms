@@ -33,6 +33,11 @@ import {
 } from '../src/005-orgatex-integration/infrastructure/composition-root.js';
 import type { OrgatexConfig } from '../src/005-orgatex-integration/infrastructure/config/orgatex-config.js';
 import { BackoffSchedule } from '../src/005-orgatex-integration/domain/value-objects/backoff-schedule.js';
+import {
+  buildBatchManagementModule,
+  type BatchManagementModule,
+} from '../src/001-batch-management/infrastructure/composition-root.js';
+import type { DummyOrgatexWorld } from '../src/005-orgatex-integration/infrastructure/adapters/dummy-orgatex-data.js';
 
 /** A controllable clock. */
 export class TestClock {
@@ -57,6 +62,7 @@ export interface Harness {
   readonly identity: IdentityModule;
   readonly scales: ScaleModule;
   readonly orgatex: OrgatexModule;
+  readonly batches: BatchManagementModule;
   readonly app: ReturnType<typeof createApp>;
   readonly clock: TestClock;
   close(): void;
@@ -102,6 +108,15 @@ export function createHarness(options?: {
    * the other behaviour passes one here.
    */
   orgatexRejectionDisposition?: 'RETRYABLE' | 'PERMANENT';
+  /**
+   * The OrgaTEX world to build the seam over.
+   *
+   * The default is the world with the prototype's four seed batches. A
+   * test that needs a different world — an **empty** one, for the empty
+   * queue — passes one here, so the scenario is exercised through the
+   * REAL seam rather than by injecting rows.
+   */
+  orgatexWorld?: DummyOrgatexWorld;
 }): Harness {
   const clock = new TestClock();
 
@@ -148,14 +163,26 @@ export function createHarness(options?: {
     config: orgatexConfig,
     clock: clock.now,
     db: identity.db,
+    ...(options?.orgatexWorld === undefined
+      ? {}
+      : { world: options.orgatexWorld }),
   });
 
-  const app = createApp({ identity, scales, orgatex });
+  // The station's own batch queue (unit 001). It reads the MES ONLY through
+  // unit 005's reader — bound here, in the one place the two units meet
+  // (ADR-028). The harness deliberately uses the REAL reader, so the test
+  // exercises the real seam rather than a double.
+  const batches = buildBatchManagementModule({
+    source: orgatex.queueReader,
+  });
+
+  const app = createApp({ identity, scales, orgatex, batches });
 
   return {
     identity,
     scales,
     orgatex,
+    batches,
     app,
     clock,
     close: () => {

@@ -24,12 +24,23 @@ import {
   createDummyOrgatexRouter,
 } from '../005-orgatex-integration/presentation/controllers/dummy-orgatex-controller.js';
 import type { OrgatexModule } from '../005-orgatex-integration/infrastructure/composition-root.js';
+import {
+  createBatchQueueRouter,
+} from '../001-batch-management/presentation/controllers/batch-queue-controller.js';
+import type { BatchManagementModule } from '../001-batch-management/infrastructure/composition-root.js';
 
 export interface AppOptions {
   readonly identity: IdentityModule;
   readonly scales: ScaleModule;
   /** The OrgaTEX seam — the MES read path (unit 005). */
   readonly orgatex: OrgatexModule;
+  /**
+   * The station's own batch queue (unit 001).
+   *
+   * Optional so that a test which does not care about the queue can leave
+   * it out. When it IS present, its endpoint is mounted.
+   */
+  readonly batches?: BatchManagementModule;
   /** Allowed CORS origins. Empty means same-origin only. */
   readonly corsOrigins?: readonly string[];
 }
@@ -95,6 +106,15 @@ export function createApp(options: AppOptions): Express {
   // operator session (ADR-020): the MES's queue is a business record, not
   // a physically visible device state.
   app.use('/api/orgatex', createOrgatexRouter(orgatex));
+
+  // ── Batch queue ──
+  // The STATION's queue (unit 001), not the MES's. It is mounted under its
+  // own prefix because `/api/batches` belongs to the Dummy MES, and a
+  // route there would be silently captured by the Dummy's batch-detail
+  // route (ADR-028).
+  if (options.batches !== undefined) {
+    app.use('/api/batch-queue', createBatchQueueRouter(options.batches));
+  }
 
   // ── Dummy OrgaTEX ──
   // The TRAINING ARTEFACT — the MES's own surface, standing in for

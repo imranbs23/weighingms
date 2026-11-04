@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-11-03T18:00:00Z
-total_decisions: 27
+last_updated: 2026-11-04T16:00:00Z
+total_decisions: 28
 ---
 
 # Decision Index
@@ -30,6 +30,14 @@ Use this to find relevant prior decisions when working on related features.
 - **Read when**: {Agent guidance - domain keywords and scenarios when this ADR is relevant}
 
 -->
+
+### ADR-028: The station owns its own queue endpoint, and reads the MES only through unit 005's reader
+- **Status**: accepted
+- **Date**: 2026-11-04
+- **Bolt**: 008-001-batch-management (001-batch-management)
+- **Path**: `bolts/008-001-batch-management/adr-028-the-stations-own-queue-endpoint.md`
+- **Summary**: FR-1 forbids the prototype's hard-coded queue rows, and three things could serve the read — unit 005's own endpoint, the Dummy MES's endpoint, or a second reader of the adapter — and the third would create two readers of one seam, two contacts, two caches and therefore two sources of truth for the same queue. Give unit 001 its own `GET /api/batch-queue` endpoint and read the MES only through a port unit 001 owns, bound in the composition root to unit 005's reader — in process, never over the network, and never with a cache or a table of its own — and pass unit 005's freshness decision through unchanged rather than re-deciding staleness, because the threshold that decides it is unit 005's configuration.
+- **Read when**: Implementing or changing the batch queue endpoint, the queue projection or the station's view of the released work; working on the selection, the filter or the queue screen; deciding whether to call the OrgaTEX adapter or unit 005's endpoint from another unit; adding a second reader of the MES seam or a second cache for the queue; choosing a path under `/api`; working on staleness or the receipt time.
 
 ### ADR-027: The MES link state is derived, and the sync queue is the only durable record of an unlanded consumption
 - **Status**: accepted

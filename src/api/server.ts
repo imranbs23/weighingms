@@ -15,6 +15,9 @@ import { buildScaleModule } from '../004-scale-integration/infrastructure/compos
 import { loadScaleConfig } from '../004-scale-integration/infrastructure/config/scale-config.js';
 import { buildOrgatexModule } from '../005-orgatex-integration/infrastructure/composition-root.js';
 import { loadOrgatexConfig } from '../005-orgatex-integration/infrastructure/config/orgatex-config.js';
+import {
+  buildBatchManagementModule,
+} from '../001-batch-management/infrastructure/composition-root.js';
 
 const PORT = Number(process.env['PORT'] ?? 3000);
 
@@ -38,7 +41,15 @@ const orgatex = buildOrgatexModule({
   db: identity.db,
 });
 
-const app = createApp({ identity, scales, orgatex });
+// The station's own batch queue (unit 001). It reads the MES ONLY through
+// unit 005's reader — bound here, in the one place the two units meet
+// (ADR-028). There is no second reader of the seam and no second cache.
+const batches = buildBatchManagementModule({
+  source: orgatex.queueReader,
+  onError: (detail) => console.error(detail),
+});
+
+const app = createApp({ identity, scales, orgatex, batches });
 
 const server = app.listen(PORT, () => {
   console.log(`[api] WeighingMS API listening on http://localhost:${PORT}`);

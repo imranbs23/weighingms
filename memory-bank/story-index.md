@@ -4,8 +4,8 @@
 
 - **Total stories**: 38
 - **Generated**: 38
-- **Completed**: 11
-- **Last updated**: 2026-11-04T15:12:19Z
+- **Completed**: 12
+- **Last updated**: 2026-11-04T15:45:59Z
 
 > This file is **generated** by `scripts/build-story-index.cjs` from the
 > story files on disk. Edit the story files, not this one.
@@ -18,7 +18,7 @@
 
 #### `001-batch-management` — Batch Management
 
-- [x] **001-retrieve-released-batch-queue** (001): Retrieve released batch queue - Must - ✅ GENERATED
+- [x] **001-retrieve-released-batch-queue** (001): Retrieve released batch queue - Must - ✅ COMPLETED
 - [x] **002-filter-batch-queue-by-status** (001): Filter batch queue by status - Must - ✅ GENERATED
 - [x] **003-select-batch-and-record-identity** (001): Select batch and record identity - Must - ✅ GENERATED
 
@@ -99,6 +99,6 @@
 ## Stories by Status
 
 - **Planned**: 0
-- **Generated**: 27
+- **Generated**: 26
 - **In Progress**: 0
-- **Completed**: 11
+- **Completed**: 12
