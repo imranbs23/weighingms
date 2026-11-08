@@ -3,16 +3,26 @@ id: 012-002-recipe-material-management
 unit: 002-recipe-material-management
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 004-assign-container-and-apply-tare
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-06T00:55:00Z
+completed: 2026-11-05T19:14:31Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-06T01:05:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-06T01:15:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-06T01:30:00Z
+    artifact: adr-035-the-container-assignment-is-a-relation.md
+  - name: implement
+    completed: 2026-11-06T01:55:00Z
+    artifact: source code
 requires_bolts:
   - 011-002-recipe-material-management
   - 004-004-scale-integration
@@ -21,8 +31,6 @@ enables_bolts:
 requires_units:
   - 004-scale-integration
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 2
@@ -51,10 +59,10 @@ Assign the container to the component and apply its tare, from the container mas
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-035
+- [x] **4. implement**: Implement - Complete → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
 ## Expected Outputs

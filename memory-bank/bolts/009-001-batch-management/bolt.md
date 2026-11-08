@@ -3,17 +3,27 @@ id: 009-001-batch-management
 unit: 001-batch-management
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 002-filter-batch-queue-by-status
   - 003-select-batch-and-record-identity
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-05T14:20:00Z
+completed: 2026-11-05T09:13:30Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-05T14:20:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-05T14:45:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-05T15:05:00Z
+    artifact: adr-029-the-selection-record-is-append-only.md
+  - name: implement
+    completed: 2026-11-05T15:10:00Z
+    artifact: source code
 requires_bolts:
   - 008-001-batch-management
 enables_bolts:
@@ -21,8 +31,6 @@ enables_bolts:
   - 024-007-weighingms-ui
 requires_units: []
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 1
@@ -52,18 +60,21 @@ Filter the queue by status and turn "the operator picked a batch" into a recorde
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
-- [ ] **5. test**: Test - Pending → ddd-03-test-report.md
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-029, adr-030
+- [x] **4. implement**: Implement - Complete → source code
+- [x] **5. test**: Test - Complete → ddd-03-test-report.md
 
 ## Expected Outputs
 
-- ddd-01-domain-model.md — BatchFilter and BatchSelection
-- ddd-02-technical-design.md — the filter model and the selection record
-- src/001-batch-management/domain — the filter and selection rules
-- src/001-batch-management/presentation — the filter and selection endpoints
+- ddd-01-domain-model.md — the filter, the selection, the refusal reasons and the append-only record
+- ddd-02-technical-design.md — the filter's endpoint contract and the selection's write path
+- ddd-03-test-report.md — the test results, the coverage and the defects the tests found
+- src/001-batch-management/domain — the filter, the selection and the refusal reasons
+- src/001-batch-management/application — the filter and selection use cases
+- src/001-batch-management/presentation — the filter's query parameter and the selection's write endpoint
+- src/001-batch-management/infrastructure — the selection repository and the scanner's dummy
 
 ## Dependencies
 

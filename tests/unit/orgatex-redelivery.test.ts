@@ -38,6 +38,7 @@ import {
   type RawBatch,
   type RawComponent,
   type RawConsumption,
+  type RawDyestuffLot,
   type RawQueue,
   type RawRecipe,
 } from '../../src/005-orgatex-integration/domain/ports/orgatex-adapter.js';
@@ -67,6 +68,13 @@ class StubAdapter implements OrgatexAdapter {
   }
 
   async readRecipe(_batchId: BatchId): Promise<RawRecipe> {
+    throw new Error('not used');
+  }
+
+  async readDyestuffLot(
+    _batchId: BatchId,
+    _componentId: ComponentId,
+  ): Promise<RawDyestuffLot> {
     throw new Error('not used');
   }
 

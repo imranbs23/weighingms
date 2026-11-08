@@ -200,6 +200,46 @@ export class ScaleRegistry {
   }
 
   /**
+   * Prove a device is present, by asking it for one reading.
+   *
+   * ══════════════════════════════════════════════════════════════════════
+   * A DEVICE'S LINK STARTS `UNKNOWN`, AND `UNKNOWN` BLOCKS.
+   * ══════════════════════════════════════════════════════════════════════
+   *
+   * The gate refuses a device whose link is `UNKNOWN` — and a freshly
+   * registered device's link IS `UNKNOWN`. So a consumer that consults the
+   * gate before the device has ever spoken is asking about a device nobody
+   * has heard from, and the answer is always "no".
+   *
+   * So a consumer that needs to weigh on a device **proves it present
+   * first**: the adapter is asked for one reading, which is ingested through
+   * the NORMAL path — which brings the link UP and makes the gate's verdict
+   * meaningful.
+   *
+   * This is the same order the TARE flow uses (see `applyTare`), and for
+   * the same reason. And it is deliberately **not** "trust the device's
+   * stored status": the link state is the system's own evidence that the
+   * device is there, not the device's word about itself (S-5).
+   *
+   * @returns Whether the device produced anything. A device that has gone
+   *          away is **absent**, never present with a reading of zero
+   *          (S-1).
+   */
+  provePresent(scaleId: ScaleId): boolean {
+    const device = this.devices.get(scaleId.value);
+    if (device === undefined) return false;
+
+    const adapter = this.options.scaleAdapters?.get(scaleId.value);
+    if (adapter === undefined) return false;
+
+    const proof = adapter.readOnce(device.id);
+    if (proof === null) return false;
+
+    this.ingestReading(device.id, proof);
+    return true;
+  }
+
+  /**
    * Force a device's link state — the TRAINING control.
    *
    * This exists so the disconnection path is demonstrable in a running

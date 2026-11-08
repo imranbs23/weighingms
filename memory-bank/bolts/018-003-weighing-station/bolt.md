@@ -3,16 +3,26 @@ id: 018-003-weighing-station
 unit: 003-weighing-station
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 009-complete-batch-and-summarise
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-06T05:15:00Z
+completed: 2026-11-06T07:26:31Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-06T05:35:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-06T05:55:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-06T06:10:00Z
+    artifact: adr-041-the-total-is-summed-in-kilograms.md
+  - name: implement
+    completed: 2026-11-06T06:40:00Z
+    artifact: source code
 requires_bolts:
   - 017-003-weighing-station
   - 006-005-orgatex-integration
@@ -21,8 +31,6 @@ enables_bolts:
 requires_units:
   - 005-orgatex-integration
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 2
@@ -51,10 +59,10 @@ Close the batch at the last component and produce the summary the ticket is rend
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-041
+- [x] **4. implement**: Implement - Complete → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
 ## Expected Outputs

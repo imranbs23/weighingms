@@ -1,8 +1,17 @@
 import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  plugins: [react()],
   test: {
-    include: ['tests/**/*.test.ts'],
+    // NO `include` HERE.
+    //
+    // The two projects below declare their own, and a top-level `include`
+    // is **inherited by both** — so every server test would run twice,
+    // once in the `node` project and once in the `jsdom` one. The suite
+    // reported 220 files and 3519 tests instead of 110 and 1759 before
+    // this was removed.
+    //
     environment: 'node',
     // The Argon2id tests are genuinely slow — each verification costs
     // ~55 ms, and the constant-work test runs many of them. The default
@@ -34,6 +43,32 @@ export default defineConfig({
     //
     // Revisit when Vitest 5.x is upgraded past this behaviour.
     fileParallelism: false,
+    // THE CLIENT'S ENVIRONMENT.
+    //
+    // The component tests need a DOM — and the server tests must stay in
+    // `node` (they exercise SQLite and Express). Vitest 5 replaced
+    // `environmentMatchGlobs` with **projects**, so the two environments
+    // are declared as two projects over one configuration.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'server',
+          include: ['tests/**/*.test.ts'],
+          exclude: ['tests/ui/**'],
+          environment: 'node',
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'client',
+          include: ['tests/ui/**/*.test.ts', 'tests/ui/**/*.test.tsx'],
+          environment: 'jsdom',
+          setupFiles: ['tests/support/ui-setup.ts'],
+        },
+      },
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],

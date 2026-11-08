@@ -3,16 +3,20 @@ id: 010-002-recipe-material-management
 unit: 002-recipe-material-management
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 001-retrieve-recipe-and-component-list
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-05T16:00:00Z
+completed: 2026-11-05T17:42:29Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-05T16:20:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-05T16:50:00Z
+    artifact: ddd-02-technical-design.md
 requires_bolts:
   - 005-005-orgatex-integration
 enables_bolts:
@@ -20,8 +24,6 @@ enables_bolts:
 requires_units:
   - 005-orgatex-integration
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 2
@@ -50,9 +52,9 @@ Load a batch’s recipe through the OrgaTEX adapter — components, targets, uni
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-031, adr-032
 - [ ] **4. implement**: Implement - Pending → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
@@ -60,6 +62,7 @@ Load a batch’s recipe through the OrgaTEX adapter — components, targets, uni
 
 - ddd-01-domain-model.md — Recipe, RecipeComponent and the quantity value object
 - ddd-02-technical-design.md — the recipe contract and the fixed-point decimal rule
+- ddd-03-test-report.md — the test results, the coverage and the defects the tests found
 - src/002-recipe-material-management/domain — the recipe model
 - src/002-recipe-material-management/application — the recipe read use case
 - src/002-recipe-material-management/presentation — the recipe endpoint

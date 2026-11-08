@@ -2,11 +2,11 @@
 id: 004-record-and-export-audit-trail
 unit: 006-ticket-printing
 intent: 001-assisted-dyestuff-weighing-station
-status: draft
+status: complete
 priority: must
 created: 2026-10-30T05:00:00Z
 assigned_bolt: null
-implemented: false
+implemented: true
 ---
 
 # Story: 004-record-and-export-audit-trail

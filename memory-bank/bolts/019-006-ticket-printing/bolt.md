@@ -3,17 +3,27 @@ id: 019-006-ticket-printing
 unit: 006-ticket-printing
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 001-generate-weighing-ticket
   - 002-print-ticket-and-track-job
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-06T07:20:00Z
+completed: 2026-11-06T08:31:07Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-06T07:40:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-06T08:00:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-06T08:15:00Z
+    artifact: adr-042-the-print-path-cannot-cost-a-weighing.md
+  - name: implement
+    completed: 2026-11-06T08:45:00Z
+    artifact: source code
 requires_bolts:
   - 018-003-weighing-station
 enables_bolts:
@@ -23,8 +33,6 @@ enables_bolts:
 requires_units:
   - 003-weighing-station
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 2
@@ -54,10 +62,10 @@ Render the weighing ticket from a session’s records and print it, tracking the
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-042
+- [x] **4. implement**: Implement - Complete → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
 ## Expected Outputs

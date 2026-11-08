@@ -2,11 +2,11 @@
 id: 003-select-batch-and-record-identity
 unit: 001-batch-management
 intent: 001-assisted-dyestuff-weighing-station
-status: draft
+status: complete
 priority: must
 created: 2026-10-30T05:00:00Z
 assigned_bolt: null
-implemented: false
+implemented: true
 ---
 
 # Story: 003-select-batch-and-record-identity
@@ -69,6 +69,96 @@ exactly why a batch I cannot work on is unavailable
   (NFR-7, BRD NFR-11).
 - No quantity fields are involved in selection; where one later appears it must be
   fixed-point decimal, never float (BRD NFR-16).
+
+## Implementation Notes
+
+**Delivered in bolt `009-001-batch-management`.** The selection is recorded
+by `POST /api/selection` and reported by `GET /api/selection`.
+
+### The method is DERIVED, and the client cannot supply it
+
+The body carries **either** a `batchId` (touch) **or** a `code` (scan) —
+exactly one — and the method follows from which field is present. There is
+**no `selectionMethod` field in the schema**, so a client that sends one
+has it **stripped** by Zod: the field does not exist, so it cannot be
+sent (ADR-030).
+
+A client that could choose the method could record a scan that never
+happened — and the selection is an **immutable** traceability record
+(ADR-029), so a false claim could only ever be contradicted, never
+corrected.
+
+The operator is taken from the **session** for the same reason: the schema
+has no `operatorId` field either (ADR-005).
+
+### The record is APPEND-ONLY, and the active selection is the newest row
+
+One table, one row per act of choosing, **no** `superseded_at`, **no**
+`is_active`, **no** pointer table. The active selection is
+`ORDER BY selected_at DESC, id DESC LIMIT 1`, and the row's identifier is
+the **insertion sequence** — so a tie within one millisecond is broken in
+the order the acts **happened**, not at random (ADR-029).
+
+The immutability is enforced twice: there is **no update path** in the
+repository, and the database's `BEFORE UPDATE` / `BEFORE DELETE` triggers
+**abort**.
+
+### The eligibility is ENFORCED here, and DERIVED in unit 005
+
+Unit 005 derives the eligibility from the MES's status vocabulary; this
+unit **enforces** the gate, reading the eligibility from unit 005's
+**snapshot** — not from the projection, which deliberately does not carry
+it. Two copies of the rule would eventually disagree (ADR-028).
+
+The reasons are the four unit 005 already derives: `NOT_RELEASED`,
+`BEING_WEIGHED_ELSEWHERE`, `ALREADY_WEIGHED`, `CANCELLED`. There is no
+fifth `ON_HOLD` reason, because **the MES has no `ON_HOLD` status** — "on
+hold" is the BRD's wording for *"not yet released"*, and inventing a
+status would be inventing a fact about the MES's vocabulary.
+
+Two **recognition** failures are this bolt's own, and they are refused
+**before** eligibility is asked: `UNRECOGNISED_CODE` (the scan named
+nothing) and `UNKNOWN_BATCH` (the touch named nothing).
+
+### The filter is never a gate
+
+Both paths read the queue **without** a filter. A scan of a `RELEASED`
+batch that is not in the currently displayed (filtered) queue **succeeds**,
+because eligibility is governed by status and the filter is a view concern
+only (ADR-030).
+
+### The story's edge cases, and how each is met
+
+| Edge case | How it is met |
+|---|---|
+| The scanner is disconnected or returns an unreadable code | Reported as **`SCANNER_UNAVAILABLE`** (a 503), which is **distinct** from a refusal — nothing was attempted, so there is no batch to refuse. The step is not silently skipped, and the operator may touch the row (BRD FR-19) |
+| A scan resolves to a batch that is present but not `RELEASED` | Refused with the status-specific reason; **nothing is written** |
+| A scan resolves to a `RELEASED` batch not in the filtered queue | The selection **succeeds** — the queue is read without a filter |
+| The operator touches a different row while a selection exists | The new selection is recorded and **supersedes** the previous one; the crumb updates |
+| The operator selects the same batch twice by touch | Idempotent **in effect**: one active selection, with the latest method and timestamp. Both rows are in the history, because the record is append-only |
+| The adapter rejects the scan request with an error | The upstream detail goes to the **log**; the client gets the reason code and nothing else (BRD IR-09) |
+| A batch's status changes between the refresh and the attempt | The eligibility decision is made against the status known **at the time of the attempt**, and the reason reflects the status that caused the refusal |
+
+### Two deviations from the story's wording, and why
+
+1. **The store is `node:sqlite`, not `better-sqlite3`.** The story's
+   technical note names `better-sqlite3`, but it cannot be installed on the
+   target Windows machines — it needs a C++ build toolchain. Node's built-in
+   `node:sqlite` needs no build step, and it is the same argument ADR-001
+   made for Node's built-in Argon2id.
+
+2. **The recipe load is not invoked here.** The story says the selection
+   *"triggers the recipe load owned by unit `002-recipe-material-management`"*.
+   Bolt 009 delivers the **selection**; the recipe load is unit 002's
+   story, and the recipe's own unit has not been built. The selection
+   therefore carries everything unit 002 needs — the batch identity — and
+   the NFR-1 timing criterion stays **unticked** until the recipe's unit
+   exists.
+
+**Proof:** `tests/unit/batch-filter-and-selection.test.ts` (15 selection
+properties), `tests/unit/batch-selection-persistence.test.ts` (9
+persistence properties) and `tests/integration/batch-selection-api.test.ts`
+(16 API properties).
 
 ## Dependencies
 ### Requires

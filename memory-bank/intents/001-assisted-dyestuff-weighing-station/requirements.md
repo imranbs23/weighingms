@@ -1,7 +1,7 @@
 ---
 intent: 001-assisted-dyestuff-weighing-station
 phase: inception
-status: units-defined
+status: complete
 created: 2026-10-29T13:20:00Z
 updated: 2026-10-30T05:00:00Z
 ---

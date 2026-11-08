@@ -2,11 +2,11 @@
 id: 006-report-on-tolerance-failures-and-overrides
 unit: 006-ticket-printing
 intent: 001-assisted-dyestuff-weighing-station
-status: draft
+status: complete
 priority: should
 created: 2026-10-30T05:00:00Z
 assigned_bolt: null
-implemented: false
+implemented: true
 ---
 
 # Story: 006-report-on-tolerance-failures-and-overrides

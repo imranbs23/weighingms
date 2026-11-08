@@ -40,6 +40,7 @@
  * rested on nobody checking.
  */
 import type { BatchId } from '../value-objects/identifiers.js';
+import type { ComponentId } from '../value-objects/identifiers.js';
 import type { BatchWeighingStatus } from '../value-objects/batch-weighing-status.js';
 import type { RejectionReason } from '../value-objects/rejection-reason.js';
 
@@ -80,7 +81,23 @@ export interface RawQueue {
   readonly batches: readonly RawBatch[];
 }
 
-/** A recipe component, as the MES's payload describes it. */
+/**
+ * A recipe component, as the MES's payload describes it.
+ *
+ * THE TWO DISPLAY FACTS ARE OPTIONAL, AND THAT IS THE POINT
+ * -------------------------------------------------------
+ * `name` and `swatchColour` are the component's **display** facts. The BRD
+ * puts them on the DYESTUFF master (BRD §9.2) and the recipe's component
+ * carries a `dyestuff_id` pointing at it — so whether they arrive on the
+ * recipe payload or need a separate master read is **A-01's answer**, and it
+ * is unanswered (ADR-032).
+ *
+ * So they are **optional** here, and the seam carries them if they are
+ * there. A missing name is `null`, not a fabricated one, and a missing swatch
+ * is `null`, not a default colour. The alternative — requiring them — would
+ * fail the whole recipe over a missing *label*, when the thing that must be
+ * right is the *target*.
+ */
 export interface RawComponent {
   readonly sequence: number;
   readonly componentId: string;
@@ -92,7 +109,21 @@ export interface RawComponent {
   readonly toleranceMin: string | null;
   /** The band's upper bound, or null when the MES gives no tolerance. */
   readonly toleranceMax: string | null;
-  readonly scaleClass: string;
+  /**
+   * The class the component demands of a scale, or `null` when the MES
+   * supplied none.
+   *
+   * **MISSING is not UNKNOWN.** A component with no class is a component
+   * the station cannot weigh yet, and it is carried through so the rail can
+   * say so explicitly (BRD FR-06). A class that is *present* but outside
+   * the vocabulary is a different thing — it is refused, and the whole read
+   * fails (S-24).
+   */
+  readonly scaleClass: string | null;
+  /** The material's display name, when the MES supplies one. */
+  readonly name?: string;
+  /** The material's colour, when the MES supplies one. */
+  readonly swatchColour?: string;
 }
 
 /** A recipe, as the MES's payload describes it. */
@@ -158,6 +189,17 @@ export class AdapterRejection extends Error {
 }
 
 /**
+ * The lot the MES holds for a component, as the MES's payload describes it.
+ *
+ * The lot is an **identifier**, never a quantity — so it is a string, and
+ * it is never converted to a number and never to a float (BRD NFR-16).
+ */
+export interface RawDyestuffLot {
+  /** The supplier's lot, or an empty string when the MES holds none. */
+  readonly lotNumber: string;
+}
+
+/**
  * A consumption, as the MES's payload describes it.
  *
  * Every quantity is a **decimal string** — never a JSON number
@@ -201,6 +243,21 @@ export interface OrgatexAdapter {
    *         reached and has no such batch — a `404`, not a failure.
    */
   readRecipe(batchId: BatchId): Promise<RawRecipe>;
+
+  /**
+   * The lot the MES holds for a component.
+   *
+   * **Narrow on purpose.** One question — *"does the MES hold a lot for
+   * this component?"* — over the existing seam, so it is not a second
+   * contact and a second cache for one component's facts (ADR-032).
+   *
+   * @throws {AdapterError} with `reason: 'NOT_FOUND'` when the MES was
+   *         reached and holds no lot — a negative answer, not a failure.
+   */
+  readDyestuffLot(
+    batchId: BatchId,
+    componentId: ComponentId,
+  ): Promise<RawDyestuffLot>;
 
   /**
    * Post one consumption.

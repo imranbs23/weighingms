@@ -81,6 +81,8 @@ const SEED_BATCHES: readonly WorldBatch[] = [
           toleranceMin: '1234.0000',
           toleranceMax: '1246.0000',
           scaleClass: 'PRECISION',
+          name: 'Remazol Brill. Blue RSPL',
+          swatchColour: '#1f4fa8',
         },
         {
           sequence: 2,
@@ -91,6 +93,8 @@ const SEED_BATCHES: readonly WorldBatch[] = [
           toleranceMin: '384.0000',
           toleranceMax: '388.0000',
           scaleClass: 'PRECISION',
+          name: 'Remazol Red RB',
+          swatchColour: '#b8253a',
         },
         {
           sequence: 3,
@@ -101,6 +105,8 @@ const SEED_BATCHES: readonly WorldBatch[] = [
           toleranceMin: '93.5000',
           toleranceMax: '94.5000',
           scaleClass: 'PRECISION',
+          name: 'Remazol Yellow RGB',
+          swatchColour: '#d9a520',
         },
         {
           sequence: 4,
@@ -111,6 +117,8 @@ const SEED_BATCHES: readonly WorldBatch[] = [
           toleranceMin: '23.8800',
           toleranceMax: '24.1200',
           scaleClass: 'FLOOR',
+          name: 'Sodium Sulphate',
+          swatchColour: '#c9d2dc',
         },
         {
           sequence: 5,
@@ -121,6 +129,8 @@ const SEED_BATCHES: readonly WorldBatch[] = [
           toleranceMin: '9.5520',
           toleranceMax: '9.6480',
           scaleClass: 'FLOOR',
+          name: 'Soda Ash',
+          swatchColour: '#e4eaf0',
         },
       ],
     },
@@ -182,6 +192,17 @@ export class DummyOrgatexWorld {
   private readonly batches = new Map<string, WorldBatch>();
 
   /**
+   * The lots the MES holds, keyed by `batchId` then `componentId`.
+   *
+   * The MES owns the lot (BRD §9.3 — *"Dyestuff lot: OrgaTEX if
+   * available, else WeighingMS"*). So it lives here, in the MES's world,
+   * and a component with **no** entry is a component the MES holds no lot
+   * for — which is the normal case for the station's scan and keyed-in
+   * paths.
+   */
+  private readonly lots = new Map<string, Map<string, string>>();
+
+  /**
    * Whether the MES is reachable.
    *
    * The outage switch. It is what makes FR-20 demonstrable in the running
@@ -214,6 +235,14 @@ export class DummyOrgatexWorld {
     for (const batch of seed) {
       this.batches.set(batch.batchId, batch);
     }
+
+    // The MES's own lots — the prototype's (Rule 5). Only SOME components
+    // have one, because that is the interesting case: a component the MES
+    // holds a lot for is captured as `SOURCE`, and one it does not is the
+    // operator's scan or keyed-in path.
+    this.setLot('B-24187', 'DYE-4471-B', '2026-0341');
+    this.setLot('B-24187', 'DYE-2204-R', '2026-0298');
+    this.setLot('B-24187', 'DYE-4471-Y', '2026-0387');
   }
 
   /** Is the MES refusing consumptions right now? */
@@ -346,6 +375,39 @@ export class DummyOrgatexWorld {
     return true;
   }
 
+  /**
+   * The lot the MES holds for a component, or `null` when it holds none.
+   */
+  readLot(batchId: string, componentId: string): string | null {
+    const forBatch = this.lots.get(batchId);
+    if (forBatch === undefined) return null;
+    return forBatch.get(componentId) ?? null;
+  }
+
+  /**
+   * Set (or clear) the lot the MES holds for a component.
+   *
+   * A test drives the three routes through this: a lot here is captured as
+   * `SOURCE`; no lot here means the operator's scan or keyed-in path
+   * applies.
+   */
+  setLot(batchId: string, componentId: string, lotNumber: string | null): boolean {
+    if (!this.batches.has(batchId)) return false;
+
+    let forBatch = this.lots.get(batchId);
+    if (forBatch === undefined) {
+      forBatch = new Map<string, string>();
+      this.lots.set(batchId, forBatch);
+    }
+
+    if (lotNumber === null) {
+      forBatch.delete(componentId);
+    } else {
+      forBatch.set(componentId, lotNumber);
+    }
+    return true;
+  }
+
   /** The consumption accumulated against a batch. */
   readConsumption(batchId: string): readonly RawComponent[] {
     return this.consumption.get(batchId) ?? [];
@@ -387,6 +449,9 @@ export class DummyOrgatexWorld {
         toleranceMin: null,
         toleranceMax: null,
         scaleClass: 'PRECISION',
+        // The MES's consumption echo carries no display facts — the
+        // material's name and colour live on the master, not on a
+        // consumption record (ADR-032).
       },
     ]);
   }

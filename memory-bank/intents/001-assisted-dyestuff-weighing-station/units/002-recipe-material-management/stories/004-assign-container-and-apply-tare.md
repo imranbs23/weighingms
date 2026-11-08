@@ -2,11 +2,11 @@
 id: 004-assign-container-and-apply-tare
 unit: 002-recipe-material-management
 intent: 001-assisted-dyestuff-weighing-station
-status: draft
+status: complete
 priority: must
 created: 2026-10-30T05:00:00Z
 assigned_bolt: null
-implemented: false
+implemented: true
 ---
 
 # Story: 004-assign-container-and-apply-tare

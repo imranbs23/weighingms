@@ -3,24 +3,32 @@ id: 017-003-weighing-station
 unit: 003-weighing-station
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 008-advance-to-next-component
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-06T03:15:00Z
+completed: 2026-11-06T06:54:36Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-06T03:35:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-06T03:55:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-06T04:10:00Z
+    artifact: adr-040-the-record-is-written-before-the-progression.md
+  - name: implement
+    completed: 2026-11-06T04:40:00Z
+    artifact: source code
 requires_bolts:
   - 014-003-weighing-station
 enables_bolts:
   - 018-003-weighing-station
 requires_units: []
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 1
@@ -49,10 +57,10 @@ Advance the session to the first pending component in recipe order after a confi
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-040
+- [x] **4. implement**: Implement - Complete → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
 ## Expected Outputs

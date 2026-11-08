@@ -55,6 +55,7 @@ import {
   type RawBatch,
   type RawComponent,
   type RawConsumption,
+  type RawDyestuffLot,
   type RawQueue,
   type RawRecipe,
 } from '../../src/005-orgatex-integration/domain/ports/orgatex-adapter.js';
@@ -89,6 +90,13 @@ class StubAdapter implements OrgatexAdapter {
 
   async readRecipe(_batchId: BatchId): Promise<RawRecipe> {
     return { batchId: 'B-24187', shadeCode: 'Teal 4C', components: [] };
+  }
+
+  async readDyestuffLot(
+    _batchId: BatchId,
+    _componentId: ComponentId,
+  ): Promise<RawDyestuffLot> {
+    throw new AdapterError('NOT_FOUND', 'the MES holds no lot');
   }
 
   async postConsumption(consumption: RawConsumption): Promise<void> {

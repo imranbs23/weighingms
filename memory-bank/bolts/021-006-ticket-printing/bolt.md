@@ -3,16 +3,26 @@ id: 021-006-ticket-printing
 unit: 006-ticket-printing
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 004-record-and-export-audit-trail
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-06T12:00:00Z
+completed: 2026-11-06T09:20:36Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-06T12:20:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-06T12:40:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-06T13:00:00Z
+    artifact: adr-044-the-export-is-streamed-and-the-trail-is-supervisors.md
+  - name: implement
+    completed: 2026-11-06T13:30:00Z
+    artifact: source code
 requires_bolts:
   - 002-008-operator-identity
   - 016-003-weighing-station
@@ -22,8 +32,6 @@ requires_units:
   - 003-weighing-station
   - 008-operator-identity
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 1
@@ -52,10 +60,10 @@ Own the append-only, immutable, exportable audit trail for privileged actions, r
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-044
+- [x] **4. implement**: Implement - Complete → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
 ## Expected Outputs

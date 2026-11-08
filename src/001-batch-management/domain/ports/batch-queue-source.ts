@@ -1,32 +1,50 @@
 /**
- * BatchQueueSource — the seam THIS unit reads the queue through.
+ * BatchQueueSource — the port through which unit 001 reads the MES.
  *
  * ══════════════════════════════════════════════════════════════════════
- * A PORT BELONGS TO THE CONSUMER.
+ * THE PORT ASKS FOR THE WHOLE QUEUE. IT DOES NOT ASK FOR A FILTERED ONE.
  * ══════════════════════════════════════════════════════════════════════
  *
- * Unit 005 owns `OrgatexAdapter` — the seam with the MES. This port is
- * declared **here**, in the unit that consumes it, and it is satisfied by
- * unit 005's `BatchQueueReader`.
+ * Bolt 009 grew this port with a `filter` parameter, and then removed it
+ * again. The reason is worth recording, because the removal looks like a
+ * step backwards and is not.
  *
- * Why not simply import that class? Because then unit 001 would depend on
- * unit 005's **implementation**, and unit 005's next refactor would ripple
- * into a unit that has no reason to know about it. Declaring the port here
- * means:
+ * The filter has to be applied in **two** places at once, and only one of
+ * them can be this unit:
  *
- * - the dependency runs **inward**, from the application layer to a port
- *   this unit owns;
- * - the composition root binds the two, in one place;
- * - a test can bind a **controlled source** that returns a specific
- *   failure, with no MES, no database and no socket.
+ *   1. the ROWS the operator sees — this unit's business; and
+ *   2. the STATUSES the filter control OFFERS — which must come from the
+ *      whole queue, or the control becomes a one-way door (ADR-030).
  *
- * This is the same hexagonal shape the codebase already uses — unit 004's
- * `ScaleAdapter`, unit 008's `SecretHasher`, unit 005's `OrgatexAdapter`.
+ * A single read that arrives already filtered can satisfy (1) and not (2).
+ * And the failure of (2) is not cosmetic — it is a **correctness** bug
+ * with a second, worse face:
  *
- * THE PORT TAKES NO FILTER
- * -----------------------
- * Filtering is bolt 009's story (`002-filter-batch-queue-by-status`). The
- * port grows a parameter when that story lands, and not before (ADR-028).
+ *   THE CACHE
+ *   ---------
+ *   Unit 005's reader caches the snapshot it built, and that snapshot is
+ *   the one it was asked for. So a filtered read would put a **filtered**
+ *   queue into the cache — and the reader's DEGRADED fallback would later
+ *   serve that partial queue as though it were the whole released
+ *   schedule. The operator would see three `QUEUED` batches and believe
+ *   that was all the work on offer.
+ *
+ *   So the filter must NOT reach the seam. This unit reads the whole
+ *   released queue and narrows it on its own rows.
+ *
+ * The MES's own filtering (BRD IR-01) is untouched: unit 005's reader
+ * still accepts a filter, still passes it to the adapter, and still
+ * re-applies it. This port simply does not use that capability, because
+ * this unit needs the whole queue.
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * AND THE PORT HAS NO FILTER PARAMETER, SO IT CANNOT BE MISUSED.
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * A port that offered `read(filter?)` would invite the next implementer to
+ * pass the filter through — and to reintroduce the defect above. The port
+ * says exactly what this unit needs, and the filter lives where it can be
+ * applied safely.
  */
 import type { BatchQueueReadOutcome } from '../../../005-orgatex-integration/domain/services/batch-queue-reader.js';
 
@@ -37,7 +55,7 @@ import type { BatchQueueReadOutcome } from '../../../005-orgatex-integration/dom
  */
 export interface BatchQueueSource {
   /**
-   * Read the released queue.
+   * Read the **whole** released queue.
    *
    * @returns The reader's outcome. A failure is **returned**, not thrown —
    *          an unreachable MES is a normal condition (BRD FR-20).

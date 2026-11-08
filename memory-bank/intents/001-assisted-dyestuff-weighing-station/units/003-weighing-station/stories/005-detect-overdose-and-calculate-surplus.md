@@ -2,11 +2,11 @@
 id: 005-detect-overdose-and-calculate-surplus
 unit: 003-weighing-station
 intent: 001-assisted-dyestuff-weighing-station
-status: draft
+status: complete
 priority: must
 created: 2026-10-30T05:00:00Z
 assigned_bolt: null
-implemented: false
+implemented: true
 ---
 
 # Story: 005-detect-overdose-and-calculate-surplus

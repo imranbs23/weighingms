@@ -1,0 +1,92 @@
+/**
+ * The design tokens — as CSS custom properties.
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * THE DESIGN TOKEN SET IS THE SPECIFICATION, NOT THE DATA.
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * So this file holds **no** batch, recipe, component, weight or lot — and
+ * **no** operator-facing text. It is the palette, the spacing, and the
+ * touch target.
+ */
+
+:root {
+  /* THE SURFACE AND THE TEXT. */
+  --wm-surface: #12161c;
+  --wm-surface-raised: #1b212a;
+  --wm-border: #2c3543;
+  --wm-text: #eef2f7;
+  --wm-text-muted: #9fb0c4;
+  --wm-accent: #4ea3ff;
+  --wm-danger: #ff6b6b;
+  --wm-warning: #ffc857;
+  --wm-success: #5fd08a;
+
+  /* THE SPACING SCALE. */
+  --wm-space-xs: 4px;
+  --wm-space-sm: 8px;
+  --wm-space-md: 16px;
+  --wm-space-lg: 24px;
+  --wm-space-xl: 40px;
+
+  /*
+   * THE TOUCH TARGET — AT LEAST 15 mm (NFR-4, BRD NFR-07).
+   *
+   * 15 mm at 96 dpi is 56.7 px, and the token rounds UP — because the
+   * requirement is a floor, and a rounded-down target would be under it.
+   */
+  --wm-touch-target: 57px;
+
+  /* THE MINIMUM LABEL SIZE for legibility at 1.5 m (BRD NFR-08). */
+  --wm-label-min: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--wm-surface);
+  color: var(--wm-text);
+  /*
+   * The operator terminal's base size. Every label is at least
+   * `--wm-label-min`, and the body's is the floor the screen inherits.
+   */
+  font-size: var(--wm-label-min);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: var(--wm-surface-raised);
+  border: 1px solid var(--wm-border);
+  border-radius: 6px;
+  /*
+   * EVERY interactive element meets the 15 mm floor — so the requirement
+   * is a property of the design system rather than of each component.
+   */
+  min-height: var(--wm-touch-target);
+  padding: 0 var(--wm-space-md);
+  cursor: pointer;
+}
+
+input {
+  background: var(--wm-surface-raised);
+  border: 1px solid var(--wm-border);
+  border-radius: 6px;
+  min-height: var(--wm-touch-target);
+  padding: 0 var(--wm-space-md);
+}

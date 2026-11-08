@@ -30,7 +30,10 @@ import {
   DyestuffCode,
   ShadeCode,
 } from '../value-objects/identifiers.js';
-import { isDemandedScaleClass } from '../value-objects/demanded-scale-class.js';
+import {
+  isDemandedScaleClass,
+  type DemandedScaleClass,
+} from '../value-objects/demanded-scale-class.js';
 import { Tolerance } from '../value-objects/tolerance.js';
 import {
   CURRENT,
@@ -245,11 +248,17 @@ export class RecipeReader {
 
   /** Build one component, refusing anything the seam does not understand. */
   private buildComponent(raw: RawComponent): RecipeComponent {
-    if (!isDemandedScaleClass(raw.scaleClass)) {
-      throw new Error(
-        `Unknown scale class "${raw.scaleClass}" on component ${raw.componentId}`,
-      );
-    }
+    // A MISSING class and an UNKNOWN class are different facts.
+    //
+    // MISSING — the MES supplied no class. That is carried through as
+    // `null`, because the component is real, it simply cannot be weighed
+    // yet, and the rail says so explicitly (BRD FR-06).
+    //
+    // UNKNOWN — the MES supplied a class the vocabulary does not contain.
+    // That is refused, and the whole read fails: a component weighed on a
+    // device chosen without the constraint that was supposed to apply is a
+    // silent wrong answer, and dropping the constraint is quiet (S-24).
+    const scaleClass = this.buildScaleClass(raw.scaleClass, raw.componentId);
     if (!Number.isInteger(raw.sequence) || raw.sequence < 0) {
       throw new Error(
         `Invalid sequence on component ${raw.componentId}`,
@@ -281,8 +290,37 @@ export class RecipeReader {
       DyestuffCode.create(raw.dyestuffCode),
       target,
       tolerance,
-      raw.scaleClass,
+      scaleClass,
+      normaliseOptionalText(raw.name),
+      normaliseOptionalText(raw.swatchColour),
     );
+  }
+
+  /**
+   * The component's demanded scale class.
+   *
+   * @param raw The MES's value — present, absent, or unknown.
+   * @param componentId The component, for the diagnostic.
+   * @returns The class, or `null` when the MES supplied none.
+   * @throws When the MES supplied a class the vocabulary does not contain.
+   */
+  private buildScaleClass(
+    raw: string | null,
+    componentId: string,
+  ): DemandedScaleClass | null {
+    // ABSENT — no class. Carried through as `null`.
+    if (raw === null) return null;
+
+    const trimmed = raw.trim();
+    if (trimmed.length === 0) return null;
+
+    // PRESENT but unknown — refused, and the whole read fails.
+    if (!isDemandedScaleClass(trimmed)) {
+      throw new Error(
+        `Unknown scale class "${raw}" on component ${componentId}`,
+      );
+    }
+    return trimmed;
   }
 
   private emit(event: OrgatexEvent): void {
@@ -308,4 +346,22 @@ export class RecipeReader {
       Instant.of(this.options.clock()),
     );
   }
+}
+
+/**
+ * Normalise an optional display fact.
+ *
+ * An absent value is `null`. An empty or whitespace-only value is **also**
+ * `null` — because a blank name is the same fact as no name, and a blank
+ * colour is not a colour.
+ *
+ * The value is **not** otherwise interpreted here. The colour's shape is
+ * unit `002`'s concern — it is validated at the station's boundary, where
+ * the value becomes a CSS declaration — and the seam only carries what the
+ * MES gave (ADR-032).
+ */
+function normaliseOptionalText(raw: string | undefined): string | null {
+  if (raw === undefined) return null;
+  const trimmed = raw.trim();
+  return trimmed.length === 0 ? null : trimmed;
 }

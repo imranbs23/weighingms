@@ -3,25 +3,33 @@ id: 011-002-recipe-material-management
 unit: 002-recipe-material-management
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 002-verify-dyestuff-identity-by-scan-or-attestation
   - 003-capture-and-validate-dyestuff-lot
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-05T23:30:00Z
+completed: 2026-11-05T18:49:31Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-05T23:50:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-06T00:10:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-06T00:40:00Z
+    artifact: adr-033-one-scanner-two-ports-one-instance.md
+  - name: implement
+    completed: 2026-11-06T00:30:00Z
+    artifact: source code
 requires_bolts:
   - 010-002-recipe-material-management
 enables_bolts:
   - 012-002-recipe-material-management
 requires_units: []
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 2

@@ -3,24 +3,32 @@ id: 023-006-ticket-printing
 unit: 006-ticket-printing
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 006-report-on-tolerance-failures-and-overrides
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-06T17:00:00Z
+completed: 2026-11-06T12:07:22Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-06T17:20:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-06T17:40:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-06T18:00:00Z
+    artifact: adr-046-the-report-reads-and-mutates-nothing.md
+  - name: implement
+    completed: 2026-11-06T18:20:00Z
+    artifact: source code
 requires_bolts:
   - 021-006-ticket-printing
   - 022-006-ticket-printing
 enables_bolts: []
 requires_units: []
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 3
@@ -49,10 +57,10 @@ Produce the operational report over tolerance failures, overrides and configurat
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-046
+- [x] **4. implement**: Implement - Complete → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
 ## Expected Outputs

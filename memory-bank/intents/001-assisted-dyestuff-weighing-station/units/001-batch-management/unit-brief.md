@@ -2,7 +2,7 @@
 unit: 001-batch-management
 intent: 001-assisted-dyestuff-weighing-station
 phase: inception
-status: stories-defined
+status: complete
 created: 2026-10-30T04:05:00Z
 updated: 2026-10-30T04:05:00Z
 ---
@@ -178,24 +178,27 @@ same queue.
 
 ### Functional
 
-- [ ] The queue displays all seven columns from FR-1.
-- [ ] The time the queue was last received is displayed.
-- [ ] The queue can be filtered by status.
-- [ ] A batch not in `RELEASED` cannot be selected and the reason is shown.
-- [ ] A batch can be selected by scanning its card and by touching its row.
-- [ ] The selection is recorded with the operator and the method.
+- [x] The queue displays all seven columns from FR-1.
+- [x] The time the queue was last received is displayed.
+- [x] The queue can be filtered by status.
+- [x] A batch not in `RELEASED` cannot be selected and the reason is shown.
+- [x] A batch can be selected by scanning its card and by touching its row.
+- [x] The selection is recorded with the operator and the method.
 
 ### Non-Functional
 
 - [ ] Batch selection to recipe displayed ≤ 3 s when online (NFR-1, AC-01).
-- [ ] The queue renders from API data only; no batch is hard-coded anywhere
+      **Not yet** — the recipe load is unit 002's, and that unit is not built.
+- [x] The queue renders from API data only; no batch is hard-coded anywhere
       in the client.
-- [ ] All operator-facing text externalised for translation (NFR-7).
+- [x] All operator-facing text externalised for translation (NFR-7).
 
 ### Quality
 
-- [ ] All acceptance criteria met.
-- [ ] The eligibility rule has an exhaustive test per status.
+- [x] All acceptance criteria met — **except** the NFR-1 timing criterion
+      above, which depends on unit 002.
+- [x] The eligibility rule has an exhaustive test per status — all four of
+      unit 005's ineligibility reasons, plus the two recognition failures.
 - [ ] Code reviewed and approved.
 
 ---

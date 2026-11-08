@@ -25,6 +25,7 @@
  */
 import { BatchQueueReader } from '../domain/services/batch-queue-reader.js';
 import { RecipeReader } from '../domain/services/recipe-reader.js';
+import { DyestuffMasterReader } from '../domain/services/dyestuff-master-reader.js';
 import { SnapshotCache } from '../domain/services/snapshot-cache.js';
 import { ConsumptionPostingService } from '../domain/services/consumption-posting-service.js';
 import { BatchStatusWriteService } from '../domain/services/batch-status-write-service.js';
@@ -60,6 +61,14 @@ export interface OrgatexModule {
   readonly cache: SnapshotCache;
   readonly queueReader: BatchQueueReader;
   readonly recipeReader: RecipeReader;
+  /**
+   * The narrow dyestuff-master read — the lot the MES holds for a
+   * component (BRD IR-03/IR-04).
+   *
+   * It is a **reader**, so it is bound here beside the other two, and
+   * unit `002` declares the port it is read through (ADR-032).
+   */
+  readonly dyestuffMasterReader: DyestuffMasterReader;
   readonly postingService: ConsumptionPostingService;
   readonly statusWriteService: BatchStatusWriteService;
   readonly linkStateService: LinkStateService;
@@ -189,6 +198,16 @@ export function buildOrgatexModule(
 
   const recipeReader = new RecipeReader(shared);
 
+  // The narrow master read. It asks ONE question — "does the MES hold a
+  // lot for this component?" — over the SAME adapter, so it is not a
+  // second contact and a second cache for one component's facts
+  // (ADR-032). It holds no cache of its own: the lot is captured once, and
+  // the capture is what is durable (ADR-034).
+  const dyestuffMasterReader = new DyestuffMasterReader({
+    adapter,
+    source: config.sourceName,
+  });
+
   // The attempt and write ids are generated here rather than in the
   // domain, because they are storage identifiers — not business
   // identity. The KEY is the business identity, and that is derived in
@@ -261,6 +280,7 @@ export function buildOrgatexModule(
     cache,
     queueReader,
     recipeReader,
+    dyestuffMasterReader,
     postingService,
     statusWriteService,
     linkStateService,

@@ -3,17 +3,27 @@ id: 013-003-weighing-station
 unit: 003-weighing-station
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 001-select-scale-automatically
   - 002-consume-live-weight-stream
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-06T02:20:00Z
+completed: 2026-11-05T19:41:29Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-06T02:35:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-06T02:50:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-06T03:05:00Z
+    artifact: adr-036-the-session-is-the-live-state-and-it-is-persisted.md
+  - name: implement
+    completed: 2026-11-06T03:20:00Z
+    artifact: source code
 requires_bolts:
   - 012-002-recipe-material-management
   - 004-004-scale-integration
@@ -26,8 +36,6 @@ requires_units:
   - 002-recipe-material-management
   - 004-scale-integration
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 3
   avg_uncertainty: 2
@@ -57,10 +65,10 @@ Open the weighing session: select the scale automatically from the component’s
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-036
+- [x] **4. implement**: Implement - Complete → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
 ## Expected Outputs

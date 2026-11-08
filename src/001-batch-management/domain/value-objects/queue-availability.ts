@@ -31,6 +31,7 @@
  * MES is unreachable". `UNAVAILABLE` is what keeps those apart.
  */
 import type { StationBatchQueue } from '../entities/station-batch-queue.js';
+import type { FilterableStatuses } from './queue-filter.js';
 
 /**
  * Why there is no queue to show.
@@ -55,6 +56,15 @@ export type QueueAvailability =
   | {
       readonly kind: 'AVAILABLE';
       readonly queue: StationBatchQueue;
+      /**
+       * The statuses **present in the queue**, and therefore the statuses
+       * the operator may filter to (ADR-030).
+       *
+       * Carried on the availability rather than computed at the call site,
+       * so every caller publishes the same option set and no caller can
+       * forget it.
+       */
+      readonly statuses: FilterableStatuses;
     }
   | {
       readonly kind: 'UNAVAILABLE';

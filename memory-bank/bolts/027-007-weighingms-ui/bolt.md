@@ -3,16 +3,23 @@ id: 027-007-weighingms-ui
 unit: 007-weighingms-ui
 intent: 001-assisted-dyestuff-weighing-station
 type: simple-construction-bolt
-status: planned
+status: complete
 stories:
   - 004-review-and-print-ticket
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-07T00:40:00Z
+completed: 2026-11-06T16:10:11Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: plan
+    completed: 2026-11-07T01:00:00Z
+    artifact: implementation-plan.md
+  - name: implement
+    completed: 2026-11-07T01:30:00Z
+    artifact: implementation-walkthrough.md
+  - name: test
+    completed: 2026-11-07T02:00:00Z
+    artifact: test-walkthrough.md
 requires_bolts:
   - 026-007-weighingms-ui
   - 019-006-ticket-printing
@@ -21,8 +28,6 @@ enables_bolts:
 requires_units:
   - 006-ticket-printing
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 2
   avg_uncertainty: 1
@@ -51,9 +56,9 @@ Build the completion view, the ticket preview and the print controls, including 
 
 ## Stages
 
-- [ ] **1. plan**: Plan - Pending → implementation-plan.md
-- [ ] **2. implement**: Implement - Pending → source code + implementation-walkthrough.md
-- [ ] **3. test**: Test - Pending → test-walkthrough.md
+- [x] **1. plan**: Plan - Complete → implementation-plan.md
+- [x] **2. implement**: Implement - Complete → source code + implementation-walkthrough.md
+- [x] **3. test**: Test - Complete → test-walkthrough.md
 
 ## Expected Outputs
 

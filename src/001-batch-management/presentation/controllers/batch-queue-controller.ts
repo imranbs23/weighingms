@@ -7,8 +7,8 @@
  *
  * `/api/orgatex/batches` is unit 005's surface — *"what did the MES say?"*
  * This one answers *"what work is on offer at this station?"*, and by bolt
- * 009 it will carry the selection and by unit 002 the recipe context.
- * The two are allowed to diverge (ADR-028).
+ * 009 it carries the selection and by unit 002 the recipe context. The two
+ * are allowed to diverge (ADR-028).
  *
  * WHY NOT `/api/batches/queue`
  * ---------------------------
@@ -45,9 +45,12 @@
 import { Router, type Request, type Response } from 'express';
 import type { BatchManagementModule } from '../../infrastructure/composition-root.js';
 import type { SnapshotFreshness } from '../../../005-orgatex-integration/domain/value-objects/snapshot-freshness.js';
+import { isBatchWeighingStatus } from '../../../005-orgatex-integration/domain/value-objects/batch-weighing-status.js';
+import type { BatchWeighingStatus } from '../../../005-orgatex-integration/domain/value-objects/batch-weighing-status.js';
 
 export const BATCH_QUEUE_UNAVAILABLE = 'BATCH_QUEUE_UNAVAILABLE';
 export const UNAUTHENTICATED = 'UNAUTHENTICATED';
+export const VALIDATION_ERROR = 'VALIDATION_ERROR';
 
 export function createBatchQueueRouter(batches: BatchManagementModule): Router {
   const router = Router();
@@ -56,6 +59,7 @@ export function createBatchQueueRouter(batches: BatchManagementModule): Router {
    * GET /api/batch-queue — the released batch queue.
    *
    * 200 — the queue, with its receipt time, its source and its freshness.
+   * 400 — the `status` parameter is not a status the MES knows.
    * 401 — no operator session.
    * 503 — there is no queue to show.
    *
@@ -70,7 +74,29 @@ export function createBatchQueueRouter(batches: BatchManagementModule): Router {
       return;
     }
 
-    const availability = await batches.retrieveBatchQueue.execute();
+    // THE FILTER IS VALIDATED, NOT GUESSED.
+    //
+    // An absent parameter means "All" — and that is the ONLY way to say
+    // "All". An unknown status is a `400`, because silently ignoring it
+    // would show the operator rows they did not ask for and tell them
+    // nothing (ADR-030).
+    const raw = req.query['status'];
+    const filter = parseFilter(raw);
+
+    if (filter === undefined) {
+      res.status(400).json({
+        error: VALIDATION_ERROR,
+        fields: [
+          {
+            path: 'status',
+            message: 'must be one of QUEUED, RELEASED, WEIGHING, WEIGHED, CANCELLED',
+          },
+        ],
+      });
+      return;
+    }
+
+    const availability = await batches.retrieveBatchQueue.execute(filter);
 
     if (availability.kind === 'UNAVAILABLE') {
       // The reason code and nothing else. The diagnostic went to the log
@@ -98,9 +124,17 @@ export function createBatchQueueRouter(batches: BatchManagementModule): Router {
         componentCount: batch.componentCount,
         weighingStatus: batch.weighingStatus,
       })),
+      // The queue's receipt time — UNCHANGED by the filter. The filtered
+      // view is a view of the same queue, so the operator can still see
+      // how old the underlying data is.
       receivedAt: queue.receivedAt.toISOString(),
       source: queue.source,
       freshness: serialiseFreshness(queue.freshness),
+      // The filter that was applied. `null` means "All".
+      filter: filter === null ? null : { status: filter },
+      // The statuses the operator may filter TO — the statuses present in
+      // the queue, not the MES's whole vocabulary (ADR-030).
+      statuses: availability.statuses,
     });
   });
 
@@ -108,10 +142,29 @@ export function createBatchQueueRouter(batches: BatchManagementModule): Router {
 }
 
 /**
+ * Parse the `status` query parameter.
+ *
+ * @returns The status, `null` for "All" (the parameter was absent), or
+ *          `undefined` when the parameter was present but is not a status
+ *          the MES knows.
+ */
+function parseFilter(raw: unknown): BatchWeighingStatus | null | undefined {
+  // ABSENT means "All". The empty string is NOT "All" — it is a client
+  // that sent a status and it was not one.
+  if (raw === undefined) return null;
+
+  // A repeated parameter arrives as an array. It is not a status, so it is
+  // refused — a filter has exactly one status.
+  if (typeof raw !== 'string') return undefined;
+
+  return isBatchWeighingStatus(raw) ? raw : undefined;
+}
+
+/**
  * Serialise the freshness marker.
  *
- * It is **always present** — a consumer must never have to infer whether
- * a queue is stale from its absence.
+ * It is **always present** — a consumer must never have to infer whether a
+ * queue is stale from its absence.
  */
 function serialiseFreshness(freshness: SnapshotFreshness): unknown {
   if (freshness.kind === 'CURRENT') {

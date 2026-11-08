@@ -3,17 +3,27 @@ id: 014-003-weighing-station
 unit: 003-weighing-station
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 003-evaluate-tolerance-zone
   - 004-gate-confirmation-on-zone
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-06T04:00:00Z
+completed: 2026-11-05T20:11:21Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-06T04:20:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-06T04:40:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-06T05:05:00Z
+    artifact: adr-037-the-zone-boundaries-and-the-fixed-point-threshold.md
+  - name: implement
+    completed: 2026-11-06T05:30:00Z
+    artifact: source code
 requires_bolts:
   - 013-003-weighing-station
 enables_bolts:
@@ -21,8 +31,6 @@ enables_bolts:
   - 017-003-weighing-station
 requires_units: []
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 3
   avg_uncertainty: 1
@@ -52,10 +60,10 @@ Evaluate the tolerance zone and gate confirmation on it: the zone is computed on
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-037
+- [x] **4. implement**: Implement - Complete → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
 ## Expected Outputs

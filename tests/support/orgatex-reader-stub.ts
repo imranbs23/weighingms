@@ -25,10 +25,12 @@ import {
   type RawBatch,
   type RawComponent,
   type RawConsumption,
+  type RawDyestuffLot,
   type RawQueue,
   type RawRecipe,
 } from '../../src/005-orgatex-integration/domain/ports/orgatex-adapter.js';
 import { BatchId } from '../../src/005-orgatex-integration/domain/value-objects/identifiers.js';
+import type { ComponentId } from '../../src/005-orgatex-integration/domain/value-objects/identifiers.js';
 
 /** A batch, valid unless a test says otherwise. */
 export function batch(overrides: Partial<RawBatch> = {}): RawBatch {
@@ -86,6 +88,26 @@ export class StubAdapter implements OrgatexAdapter {
       throw new AdapterError('NOT_FOUND', 'no such batch');
     }
     return this.recipe;
+  }
+
+  /**
+   * The lot the MES holds for a component.
+   *
+   * The stub holds **no** lot unless a test sets one — so the default is
+   * the "the MES holds no lot" answer, which is the normal case for the
+   * station's scan and keyed-in paths.
+   */
+  lot: string | null = null;
+
+  async readDyestuffLot(
+    _batchId: BatchId,
+    _componentId: ComponentId,
+  ): Promise<RawDyestuffLot> {
+    if (this.failure !== null) throw this.failure;
+    if (this.lot === null) {
+      throw new AdapterError('NOT_FOUND', 'the MES holds no lot');
+    }
+    return { lotNumber: this.lot };
   }
 
   // The write path belongs to bolt `006`. These are here so the stub

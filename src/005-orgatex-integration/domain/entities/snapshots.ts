@@ -107,7 +107,30 @@ export class RecipeComponent {
     readonly dyestuffCode: DyestuffCode,
     readonly target: WeightValue,
     readonly tolerance: Tolerance | null,
-    readonly scaleClass: DemandedScaleClass,
+    /**
+     * The class the component demands of a scale, or `null` when the MES
+     * supplied none.
+     *
+     * `null` means **absent** — the component cannot be weighed until the
+     * value is supplied. It is **not** a class of any device.
+     */
+    readonly scaleClass: DemandedScaleClass | null,
+    /**
+     * The material's display name, or `null` when the MES supplied none.
+     *
+     * `null` means **absent**, never "unknown" and never an empty string.
+     * The BRD puts `name` on the DYESTUFF master, so whether it arrives on
+     * the recipe payload is A-01's unanswered question (ADR-032).
+     */
+    readonly name: string | null = null,
+    /**
+     * The material's colour, or `null` when the MES supplied none.
+     *
+     * Same rule as the name: absent is absent. The colour ends up in a CSS
+     * `background` declaration, so unit `002` validates its shape before it
+     * becomes a colour — the seam only carries what the MES gave.
+     */
+    readonly swatchColour: string | null = null,
   ) {}
 }
 

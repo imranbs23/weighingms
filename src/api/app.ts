@@ -27,7 +27,48 @@ import type { OrgatexModule } from '../005-orgatex-integration/infrastructure/co
 import {
   createBatchQueueRouter,
 } from '../001-batch-management/presentation/controllers/batch-queue-controller.js';
+import {
+  createBatchSelectionRouter,
+} from '../001-batch-management/presentation/controllers/batch-selection-controller.js';
 import type { BatchManagementModule } from '../001-batch-management/infrastructure/composition-root.js';
+import {
+  createRecipeRouter,
+} from '../002-recipe-material-management/presentation/controllers/recipe-controller.js';
+import type { RecipeMaterialModule } from '../002-recipe-material-management/infrastructure/composition-root.js';
+import type { WeighingStationModule } from '../003-weighing-station/infrastructure/composition-root.js';
+import {
+  createSessionRouter,
+} from '../003-weighing-station/presentation/controllers/session-controller.js';
+import {
+  createSurplusRouter,
+} from '../003-weighing-station/presentation/controllers/surplus-controller.js';
+import {
+  createEscalationRouter,
+} from '../003-weighing-station/presentation/controllers/escalation-controller.js';
+import {
+  createBatchSummaryRouter,
+} from '../003-weighing-station/presentation/controllers/batch-summary-controller.js';
+import {
+  createMaterialRouter,
+} from '../002-recipe-material-management/presentation/controllers/material-controller.js';
+import {
+  createContainerRouter,
+} from '../002-recipe-material-management/presentation/controllers/container-controller.js';
+import {
+  createTicketRouter,
+  createPrintJobRouter,
+} from '../006-ticket-printing/presentation/controllers/ticket-controller.js';
+import {
+  createAuditRouter,
+} from '../006-ticket-printing/presentation/controllers/audit-controller.js';
+import {
+  createConfigurationRouter,
+  createLocaleRouter,
+} from '../006-ticket-printing/presentation/controllers/configuration-controller.js';
+import {
+  createReportRouter,
+} from '../006-ticket-printing/presentation/controllers/report-controller.js';
+import type { TicketModule } from '../006-ticket-printing/infrastructure/composition-root.js';
 
 export interface AppOptions {
   readonly identity: IdentityModule;
@@ -41,6 +82,27 @@ export interface AppOptions {
    * it out. When it IS present, its endpoint is mounted.
    */
   readonly batches?: BatchManagementModule;
+  /**
+   * The station's recipe (unit 002).
+   *
+   * Optional so that a test which does not care about the recipe can leave
+   * it out. When it IS present, its endpoint is mounted.
+   */
+  readonly recipes?: RecipeMaterialModule;
+  /**
+   * The weighing session (unit 003).
+   *
+   * Optional so that a test which does not care about the session can leave
+   * it out. When it IS present, its endpoints are mounted.
+   */
+  readonly station?: WeighingStationModule;
+  /**
+   * The ticket printing (unit 006).
+   *
+   * Optional so that a test which does not care about tickets can leave it
+   * out. When it IS present, its endpoints are mounted.
+   */
+  readonly tickets?: TicketModule;
   /** Allowed CORS origins. Empty means same-origin only. */
   readonly corsOrigins?: readonly string[];
 }
@@ -114,6 +176,78 @@ export function createApp(options: AppOptions): Express {
   // route (ADR-028).
   if (options.batches !== undefined) {
     app.use('/api/batch-queue', createBatchQueueRouter(options.batches));
+    // The selection is a resource of its own, NOT a view of the queue: it
+    // is a record the station made, and it outlives the queue — which may
+    // be re-fetched or unreachable. So it has its own path, and it does
+    // not live under the queue's path where a client would expect it to
+    // disappear when the queue did.
+    app.use('/api/selection', createBatchSelectionRouter(options.batches));
+  }
+
+  // ── Recipe ──
+  // The STATION's recipe (unit 002), not the MES's. It lives under its own
+  // prefix because `/api/batches/*` belongs to the Dummy MES, whose router
+  // owns `/api/batches/:batchId/recipe` — a route under that prefix would
+  // be silently captured by it (ADR-032).
+  if (options.recipes !== undefined) {
+    app.use('/api/recipe', createRecipeRouter(options.recipes));
+    // The identity and the lot are SEPARATE RESOURCES, not part of the
+    // recipe: they are different facts with different evidence, and a
+    // single "material" endpoint would force one into the other's shape
+    // (ADR-034).
+    app.use('/api', createMaterialRouter(options.recipes));
+    // The container assignment is its own resource: it belongs to a
+    // component's dispense, and it changes as the operator moves between
+    // components (ADR-035).
+    app.use('/api/container', createContainerRouter(options.recipes));
+  }
+
+  // ── Weighing session ──
+  // The session (unit 003) is the pivot of the product. It has its own
+  // prefix because the session is a RESOURCE of its own — it is the
+  // station's live state, and it outlives any one component's weighing.
+  if (options.station !== undefined) {
+    app.use('/api/session', createSessionRouter(options.station));
+    // The surplus is its own resource — the over-dose is a property of a
+    // component's dispense, and the proposal is a record of what was
+    // offered and decided (ADR-038).
+    app.use('/api/surplus', createSurplusRouter(options.station));
+    // The escalation is the over-dose's own awaiting state, and the
+    // supervisor's authorisation of it (ADR-039).
+    app.use('/api/escalation', createEscalationRouter(options.station));
+    // The batch's completion and its summary — the last of unit 003's
+    // endpoints.
+    app.use('/api/batch', createBatchSummaryRouter(options.station));
+  }
+
+  // The ticket and its print job (unit 006).
+  //
+  // AND THE PRINT PATH HAS NO WEIGHING-RECORD REPOSITORY — so a printer
+  // failure cannot cost a weighing (B-7, ADR-042).
+  if (options.tickets !== undefined) {
+    app.use('/api/tickets', createTicketRouter(options.tickets));
+    app.use('/api/print-jobs', createPrintJobRouter(options.tickets));
+    // THE AUDIT TRAIL. Reading it is a SUPERVISOR's act — the trail holds
+    // every privileged action (ADR-044).
+    app.use('/api/audit', createAuditRouter(options.tickets));
+    // THE CONFIGURATION. A change is a supervisor's act, and it is audited
+    // through the same append-only API (ADR-045).
+    app.use('/api/configuration', createConfigurationRouter(options.tickets));
+    // THE LOCALE. The bundles are files, read at runtime — so a language
+    // is changeable without a redeployment (BRD NFR-11).
+    app.use('/api/locale', createLocaleRouter(options.tickets));
+    // THE REPORT. A READ MODEL — it reads the recorded zone and mutates
+    // nothing (ADR-046).
+    app.use('/api/report', createReportRouter(options.tickets));
+  }
+
+  // The ticket and its print job (unit 006).
+  //
+  // AND THE PRINT PATH HAS NO WEIGHING-RECORD REPOSITORY — so a printer
+  // failure cannot cost a weighing (B-7, ADR-042).
+  if (options.tickets !== undefined) {
+    app.use('/api/tickets', createTicketRouter(options.tickets));
+    app.use('/api/print-jobs', createPrintJobRouter(options.tickets));
   }
 
   // ── Dummy OrgaTEX ──

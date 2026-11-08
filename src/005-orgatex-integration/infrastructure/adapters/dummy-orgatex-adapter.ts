@@ -37,10 +37,11 @@ import {
   type BatchStatusToWrite,
   type OrgatexAdapter,
   type RawConsumption,
+  type RawDyestuffLot,
   type RawQueue,
   type RawRecipe,
 } from '../../domain/ports/orgatex-adapter.js';
-import type { BatchId } from '../../domain/value-objects/identifiers.js';
+import type { BatchId, ComponentId } from '../../domain/value-objects/identifiers.js';
 import { RejectionReason } from '../../domain/value-objects/rejection-reason.js';
 import { DummyOrgatexWorld } from './dummy-orgatex-data.js';
 
@@ -76,6 +77,32 @@ export class DummyOrgatexAdapter implements OrgatexAdapter {
     }
 
     return recipe;
+  }
+
+  /**
+   * The lot the MES holds for a component.
+   *
+   * The Dummy holds the prototype's own lots — `2026-0341`, `2026-0298` and
+   * so on — so the training artefact teaches the right thing (Rule 5).
+   */
+  async readDyestuffLot(
+    batchId: BatchId,
+    componentId: ComponentId,
+  ): Promise<RawDyestuffLot> {
+    this.assertReachable();
+
+    const lot = this.world.readLot(batchId.value, componentId.value);
+    if (lot === null) {
+      // The MES was REACHED and holds no lot for this component. That is a
+      // `NOT_FOUND` — a successful contact with a negative answer, and the
+      // "404 only from a successful contact" rule.
+      throw new AdapterError(
+        'NOT_FOUND',
+        `The MES holds no lot for component ${componentId.value}`,
+      );
+    }
+
+    return { lotNumber: lot };
   }
 
   /**

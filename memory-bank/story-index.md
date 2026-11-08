@@ -19,8 +19,8 @@
 #### `001-batch-management` — Batch Management
 
 - [x] **001-retrieve-released-batch-queue** (001): Retrieve released batch queue - Must - ✅ COMPLETED
-- [x] **002-filter-batch-queue-by-status** (001): Filter batch queue by status - Must - ✅ GENERATED
-- [x] **003-select-batch-and-record-identity** (001): Select batch and record identity - Must - ✅ GENERATED
+- [x] **002-filter-batch-queue-by-status** (001): Filter batch queue by status - Must - ✅ COMPLETED
+- [x] **003-select-batch-and-record-identity** (001): Select batch and record identity - Must - ✅ COMPLETED
 
 #### `002-recipe-material-management` — Recipe & Material Management
 

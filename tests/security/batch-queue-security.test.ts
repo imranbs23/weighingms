@@ -145,16 +145,50 @@ describe('the station\'s batch queue — security', () => {
 
   // ── S7 ──
 
-  it('takes no input — there is no parameter to inject', async () => {
-    // A path parameter, a query parameter and a body are all ignored: the
-    // endpoint reads the queue and nothing else.
+  it('refuses an unknown status instead of silently showing everything', async () => {
+    // Bolt 009 gave the endpoint a `status` parameter, so the endpoint
+    // now HAS an input — and the input is validated against the MES's
+    // closed status set. An unrecognised status is a `400`, never a
+    // silently widened answer: the story forbids mapping a status the
+    // MES does not know onto "All" (ADR-030).
     const response = await request(harness.app)
-      .get('/api/batch-queue?status=RELEASED')
+      .get('/api/batch-queue?status=NOT_A_STATUS')
       .set('Authorization', `Bearer ${token}`);
 
-    expect(response.status).toBe(200);
-    // The filter is bolt 009's story, so this bolt's endpoint ignores it
-    // rather than honouring it — and the queue is the MES's whole queue.
-    expect(response.body.batches.length).toBeGreaterThan(0);
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('VALIDATION_ERROR');
+    expect(response.body).not.toHaveProperty('batches');
+  });
+
+  it('refuses an EMPTY status rather than reading it as "All"', async () => {
+    // "All" has exactly one spelling: an ABSENT parameter. An empty
+    // string is a client that sent a status, and it was not one.
+    const response = await request(harness.app)
+      .get('/api/batch-queue?status=')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body).not.toHaveProperty('batches');
+  });
+
+  it('refuses a REPEATED status — a filter holds exactly one', async () => {
+    const response = await request(harness.app)
+      .get('/api/batch-queue?status=RELEASED&status=QUEUED')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body).not.toHaveProperty('batches');
+  });
+
+  it('does not let a query parameter reach the seam unvalidated', async () => {
+    // The parameter is compared against a CLOSED SET before it is used.
+    // It is never interpolated into a query, a log line or a path — so
+    // there is no injection surface, and nothing to sanitise.
+    const response = await request(harness.app)
+      .get("/api/batch-queue?status=RELEASED'; DROP TABLE batch_selections;--")
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(400);
+    expect(JSON.stringify(response.body)).not.toContain('DROP TABLE');
   });
 });

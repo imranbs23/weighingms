@@ -3,16 +3,26 @@ id: 016-003-weighing-station
 unit: 003-weighing-station
 intent: 001-assisted-dyestuff-weighing-station
 type: ddd-construction-bolt
-status: planned
+status: complete
 stories:
   - 007-escalate-non-compensable-overdose
 created: 2026-10-30T09:00:00Z
-started: null
-completed: null
+started: 2026-11-06T08:10:00Z
+completed: 2026-11-06T06:04:17Z
 current_stage: null
-stages_completed: []
-
-# Bolt Dependencies (for execution ordering)
+stages_completed:
+  - name: model
+    completed: 2026-11-06T08:30:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-11-06T08:50:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr
+    completed: 2026-11-06T09:05:00Z
+    artifact: adr-039-this-bolt-implements-no-authorisation-mechanism.md
+  - name: implement
+    completed: 2026-11-06T09:40:00Z
+    artifact: source code
 requires_bolts:
   - 015-003-weighing-station
   - 002-008-operator-identity
@@ -22,8 +32,6 @@ enables_bolts:
 requires_units:
   - 008-operator-identity
 blocks: false
-
-# Complexity Assessment (aggregate of included stories)
 complexity:
   avg_complexity: 3
   avg_uncertainty: 1
@@ -52,10 +60,10 @@ Escalate a non-compensable over-dose to a supervisor and consume a valid authori
 
 ## Stages
 
-- [ ] **1. model**: Domain Model - Pending → ddd-01-domain-model.md
-- [ ] **2. design**: Technical Design - Pending → ddd-02-technical-design.md
-- [ ] **3. adr**: ADR Analysis (optional) - Pending → adr-{n}-{slug}.md
-- [ ] **4. implement**: Implement - Pending → source code
+- [x] **1. model**: Domain Model - Complete → ddd-01-domain-model.md
+- [x] **2. design**: Technical Design - Complete → ddd-02-technical-design.md
+- [x] **3. adr**: ADR Analysis (optional) - Complete → adr-039
+- [x] **4. implement**: Implement - Complete → source code
 - [ ] **5. test**: Test - Pending → ddd-03-test-report.md
 
 ## Expected Outputs

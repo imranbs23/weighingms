@@ -18,8 +18,98 @@ import { loadOrgatexConfig } from '../005-orgatex-integration/infrastructure/con
 import {
   buildBatchManagementModule,
 } from '../001-batch-management/infrastructure/composition-root.js';
+import {
+  openBatchManagementDatabase,
+} from '../001-batch-management/infrastructure/persistence/batch-selection-database.js';
+import {
+  SqliteBatchSelectionRepository,
+} from '../001-batch-management/infrastructure/persistence/sqlite-batch-selection-repository.js';
+import {
+  DummyBatchScanner,
+} from '../001-batch-management/infrastructure/adapters/dummy-batch-scanner.js';
+import {
+  buildRecipeMaterialModule,
+} from '../002-recipe-material-management/infrastructure/composition-root.js';
+import {
+  RecipeWorkingCopy,
+} from '../002-recipe-material-management/domain/services/recipe-working-copy.js';
+import {
+  OrgatexDyestuffMasterAdapter,
+} from '../002-recipe-material-management/infrastructure/adapters/orgatex-dyestuff-master-adapter.js';
+import {
+  openMaterialDatabase,
+} from '../002-recipe-material-management/infrastructure/persistence/material-database.js';
+import {
+  SqliteMaterialIdentityRepository,
+} from '../002-recipe-material-management/infrastructure/persistence/sqlite-material-identity-repository.js';
+import {
+  SqliteMaterialLotRepository,
+} from '../002-recipe-material-management/infrastructure/persistence/sqlite-material-lot-repository.js';
+import {
+  openContainerDatabase,
+} from '../002-recipe-material-management/infrastructure/persistence/container-database.js';
+import {
+  SqliteContainerAssignmentRepository,
+} from '../002-recipe-material-management/infrastructure/persistence/sqlite-container-assignment-repository.js';
+import {
+  SqliteContainerMasterRepository,
+} from '../002-recipe-material-management/infrastructure/persistence/sqlite-container-master-repository.js';
+import {
+  ScaleTareAdapter,
+} from '../002-recipe-material-management/infrastructure/adapters/scale-tare-adapter.js';
+import {
+  buildWeighingStationModule,
+} from '../003-weighing-station/infrastructure/composition-root.js';
+import {
+  ScaleSelectionAdapter,
+} from '../003-weighing-station/infrastructure/adapters/scale-selection-adapter.js';
+import {
+  openSessionDatabase,
+} from '../003-weighing-station/infrastructure/persistence/session-database.js';
+import {
+  SqliteWeighingSessionRepository,
+} from '../003-weighing-station/infrastructure/persistence/sqlite-weighing-session-repository.js';
+import {
+  openRecordDatabase,
+} from '../003-weighing-station/infrastructure/persistence/record-database.js';
+import {
+  SqliteWeighingRecordRepository,
+} from '../003-weighing-station/infrastructure/persistence/sqlite-weighing-record-repository.js';
+import {
+  openProposalDatabase,
+} from '../003-weighing-station/infrastructure/persistence/proposal-database.js';
+import {
+  SqliteSurplusProposalRepository,
+} from '../003-weighing-station/infrastructure/persistence/sqlite-surplus-proposal-repository.js';
+import {
+  openOverrideDatabase,
+} from '../003-weighing-station/infrastructure/persistence/override-database.js';
+import {
+  SqliteOverrideRecordRepository,
+} from '../003-weighing-station/infrastructure/persistence/sqlite-override-record-repository.js';
+import {
+  ScaleStreamAdapter,
+} from '../003-weighing-station/infrastructure/adapters/scale-stream-adapter.js';
+import {
+  OrgatexWriteBackAdapter,
+  OrgatexBatchFactsAdapter,
+} from '../003-weighing-station/infrastructure/adapters/orgatex-write-back-adapter.js';
+import {
+  buildTicketModule,
+} from '../006-ticket-printing/infrastructure/composition-root.js';
+import {
+  OrgatexBatchIdentityAdapter,
+  DefaultTicketConfiguration,
+} from '../006-ticket-printing/infrastructure/adapters/batch-identity-adapter.js';
+import {
+  loadTicketConfig,
+} from '../006-ticket-printing/infrastructure/config/ticket-config.js';
+import { ContainerId } from '../002-recipe-material-management/domain/value-objects/container-id.js';
 
 const PORT = Number(process.env['PORT'] ?? 3000);
+
+// The ticket unit's configuration — where the locale bundles live.
+const ticketConfig = loadTicketConfig();
 
 const config = loadIdentityConfig();
 const identity = buildIdentityModule({ config });
@@ -44,12 +134,230 @@ const orgatex = buildOrgatexModule({
 // The station's own batch queue (unit 001). It reads the MES ONLY through
 // unit 005's reader — bound here, in the one place the two units meet
 // (ADR-028). There is no second reader of the seam and no second cache.
+//
+// The selection IS persisted, unlike the queue: a selection cannot be
+// re-derived — the MES has no idea the operator chose a batch — and it is
+// a traceability record (ADR-029). It shares the identity unit's database
+// file and its migration table, so all four units can share one file.
+// THE SCANNER IS ONE DEVICE, AND IT IS SHARED.
+//
+// One physical barcode scanner serves the batch card, the dyestuff code and
+// the lot code. Unit 001 reads it through its own port, unit 002 through
+// its own — and both ports are bound to **this instance**, so there is one
+// device state and one training artefact behind `POST /api/scan` (ADR-033).
+const scanner = new DummyBatchScanner();
+
 const batches = buildBatchManagementModule({
   source: orgatex.queueReader,
+  scanner,
+  selections: new SqliteBatchSelectionRepository(
+    openBatchManagementDatabase(config.databasePath, identity.db),
+  ),
   onError: (detail) => console.error(detail),
 });
 
-const app = createApp({ identity, scales, orgatex, batches });
+// The station's recipe and materials (unit 002). The recipe reads the MES
+// ONLY through unit 005's recipe reader — bound here, in the one place the
+// two units meet (ADR-032). There is no second reader of the seam and no
+// second cache.
+//
+// The scanner is the SAME instance unit 001 uses — one physical device,
+// one state, one training artefact behind `POST /api/scan` (ADR-033).
+//
+// The recipe persists NOTHING (ADR-031): it is the MES's truth. The
+// identity and the lot capture DO persist (ADR-034): they are the
+// station's own acts, and the MES has no idea they happened.
+const recipesWorkingCopy = new RecipeWorkingCopy();
+
+// The container master — WeighingMS's own reference data (BRD §9.3).
+const containerMaster = new SqliteContainerMasterRepository(
+  openContainerDatabase(config.databasePath, identity.db),
+);
+
+const recipes = buildRecipeMaterialModule({
+  source: orgatex.recipeReader,
+  scanner,
+  workingCopy: recipesWorkingCopy,
+  master: new OrgatexDyestuffMasterAdapter(
+    orgatex.dyestuffMasterReader,
+    recipesWorkingCopy,
+  ),
+  identities: new SqliteMaterialIdentityRepository(
+    openMaterialDatabase(config.databasePath, identity.db),
+  ),
+  lots: new SqliteMaterialLotRepository(
+    openMaterialDatabase(config.databasePath, identity.db),
+  ),
+  containers: containerMaster,
+  scaleTare: new ScaleTareAdapter(scales.registry, scales.adapters),
+  assignments: new SqliteContainerAssignmentRepository(
+    openContainerDatabase(config.databasePath, identity.db),
+  ),
+  onError: (detail) => console.error(detail),
+});
+
+// The container master is WeighingMS's OWN data (BRD §9.3), so it is
+// seeded rather than read from the MES.
+containerMaster.seedSync();
+
+// The weighing session (unit 003). The rule is UNIT 004's — bound here, in
+// the one place the two units meet — and the threshold stays unit 004's
+// configuration (ADR-019). The session is the station's LIVE state, and it
+// is persisted so the work can be resumed (NFR-06, ADR-036).
+const station = buildWeighingStationModule({
+  workingCopy: recipesWorkingCopy,
+  selection: new ScaleSelectionAdapter(scales.registry),
+  sessions: new SqliteWeighingSessionRepository(
+    openSessionDatabase(config.databasePath, identity.db),
+  ),
+  records: new SqliteWeighingRecordRepository(
+    openRecordDatabase(config.databasePath, identity.db),
+  ),
+  proposals: new SqliteSurplusProposalRepository(
+    openProposalDatabase(config.databasePath, identity.db),
+  ),
+  // UNIT 008's authorisation service — bound DIRECTLY, with no adapter
+  // and no second implementation of any check (ADR-039). Its
+  // `PrivilegedAction` already names `CONFIRM_COMPONENT` for this story.
+  authorisations: identity.authorisation,
+  overrides: new SqliteOverrideRecordRepository(
+    openOverrideDatabase(config.databasePath, identity.db),
+  ),
+  // THE STREAM — the session subscribes to the device it is bound to, so
+  // the weight is pushed rather than polled (NFR-01).
+  stream: new ScaleStreamAdapter(scales.streams, scales.registry, scales.adapters),
+  // UNIT 005's write path — bound through a shim that adds NO guard, so
+  // unit 005's idempotency ledger stays the atomic duplicate guard
+  // (ADR-041).
+  writeBack: new OrgatexWriteBackAdapter(
+    orgatex.postingService,
+    orgatex.statusWriteService,
+  ),
+  batchFacts: new OrgatexBatchFactsAdapter(orgatex.queueReader),
+  onError: (detail) => console.error(detail),
+});
+
+// The ticket printing (unit 006). Its ticket is a READ MODEL over the
+// session's confirmed records — and the PRINT PATH HAS NO WEIGHING-RECORD
+// REPOSITORY, so a printer failure cannot cost a weighing (B-7, ADR-042).
+const ticketModule = buildTicketModule({
+  sessions: {
+    current: async () => {
+      const session = await station.sessions.current();
+      if (session === null) return null;
+      return {
+        sessionId: session.sessionId,
+        batchId: session.batchId,
+        state: session.state,
+        operatorId: session.operatorId,
+        completedCount: session.completedCount,
+        componentCount: session.componentCount,
+      };
+    },
+  },
+  records: {
+    confirmedFor: (sessionId) => station.records.allFor(sessionId),
+  },
+  batchIdentity: new OrgatexBatchIdentityAdapter(orgatex.queueReader),
+  configuration: new DefaultTicketConfiguration(),
+  databasePath: config.databasePath,
+  db: identity.db,
+  // THE LOCALE BUNDLES. They are FILES, read at runtime — so a language
+  // is changeable without a redeployment (BRD NFR-11, NFR-14).
+  localeDirectory: ticketConfig.localeDirectory,
+  defaultLocale: ticketConfig.defaultLocale,
+  // Whether a scope exists — an override applied to a scope that does not
+  // exist is REFUSED, and no version is bumped (ADR-045).
+  scopeExists: (scope) => scopeExists(scope),
+  // THE REPORT'S READS. The records' period-scoped read, the trail's, and
+  // the station's own batch progress — all READS, and the report writes
+  // nothing (ADR-046).
+  reportRecords: {
+    between: (from, to) => station.records.between(from, to),
+  },
+  reportAudit: {
+    filter: (filter) => reportAuditFilter(filter),
+  },
+  reportProgress: {
+    progressFor: async (period) => batchProgressFor(period),
+  },
+  shifts: [
+    { name: 'DAY', startHour: 6, endHour: 14 },
+    { name: 'NIGHT', startHour: 14, endHour: 22 },
+  ],
+  onError: (detail) => console.error(detail),
+});
+
+/**
+ * Whether a scope exists.
+ *
+ * **The station's own check** — a scope is a container in WeighingMS's own
+ * reference data, so the station knows which scopes exist. An override
+ * applied to a scope that does not exist is REFUSED, and **no version is
+ * bumped** (ADR-045).
+ */
+async function scopeExists(scope: string): Promise<boolean> {
+  const container = await containerMaster.read(
+    ContainerId.create(scope),
+  );
+  return container.kind === 'FOUND';
+}
+
+/**
+ * The trail's period-scoped read — the report's second read.
+ *
+ * **A READ.** And the report's use case never calls `record` — so the
+ * report cannot write (ADR-046).
+ */
+async function harnessAuditFilter(filter: {
+  from?: Date | null;
+  to?: Date | null;
+  action?: string | null;
+}) {
+  return ticketModule.audit.filter(filter);
+}
+
+/**
+ * The trail's period-scoped read — the report's second read.
+ *
+ * **A READ.** And the report's use case never calls `record` — so the
+ * report cannot write (ADR-046).
+ */
+async function reportAuditFilter(filter: {
+  from?: Date | null;
+  to?: Date | null;
+  action?: string | null;
+}) {
+  return ticketModule.audit.filter(filter);
+}
+
+/**
+ * The station's own batch progress — the report's third read.
+ *
+ * **The station's batches**, not the MES's — where the station's batches
+ * ARE is the report's subject (BRD BR-22).
+ */
+async function batchProgressFor(period: { from: Date; to: Date }) {
+  const snapshot = await orgatex.queueReader.read();
+  if (snapshot.kind === 'FAILED') return [];
+
+  return snapshot.snapshot.batches.map((batch) => ({
+    batchId: batch.batchId.value,
+    weighed: 0,
+    total: batch.componentCount,
+    state: batch.weighingStatus,
+  }));
+}
+
+const app = createApp({
+  identity,
+  scales,
+  orgatex,
+  batches,
+  recipes,
+  station,
+  tickets: ticketModule,
+});
 
 const server = app.listen(PORT, () => {
   console.log(`[api] WeighingMS API listening on http://localhost:${PORT}`);
