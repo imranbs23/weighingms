@@ -2,7 +2,8 @@
  * The surplus panel and the escalation panel — the component tests.
  *
  * ══════════════════════════════════════════════════════════════════════
- * THE FACTOR IS RENDERED. AND BOTH WAYS FORWARD ARE OFFERED.
+ * THE SURPLUS IS SHOWN FOR INFORMATION. THE SUPERVISOR SIGNS OFF WITH A
+ * BADGE, A PIN AND A REASON (bolt 030, ADR-047).
  * ══════════════════════════════════════════════════════════════════════
  */
 import { describe, it, expect, vi } from 'vitest';
@@ -10,168 +11,73 @@ import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { SurplusPanel } from '../../src/007-weighingms-ui/screens/weigh/SurplusPanel.js';
 import { EscalationPanel } from '../../src/007-weighingms-ui/screens/weigh/EscalationPanel.js';
-import type { SurplusProposal } from '../../src/007-weighingms-ui/api/endpoints.js';
+import type {
+  EscalationReport,
+  SurplusReport,
+} from '../../src/007-weighingms-ui/api/endpoints.js';
 
 /** A translator that returns the key — so the test asserts on keys. */
 const t = (key: string): string => key;
 
-function proposal(
-  overrides: Partial<SurplusProposal> = {},
-): SurplusProposal {
+function surplus(overrides: Partial<SurplusReport> = {}): SurplusReport {
   return {
-    proposalId: 'PROP-1',
     componentId: 'DYE-4471-Y',
-    sessionId: 'WS-1',
+    overshoot: '1.9000',
     surplusAmount: '2.4000',
     unit: 'g',
-    overshoot: '1.9000',
     surplusPercent: '2.5532',
-    // The factor is the RULE's — and the client renders it.
-    factor: '1.025532',
-    status: 'PROPOSED',
-    operatorId: 'OP-001',
-    createdAt: '2026-11-06T10:00:00.000Z',
-    decidedAt: null,
-    reason: null,
-    recalculated: [
-      {
-        componentId: 'AUX-0101',
-        originalTarget: '24.0000',
-        revisedTarget: '24.6128',
-      },
-    ],
     ...overrides,
   };
 }
 
 describe('the surplus panel', () => {
   it('is NOT rendered when the API reports no surplus', () => {
-    const { container } = render(
-      <SurplusPanel
-        proposal={null}
-        t={t}
-        onAccept={() => undefined}
-        onDecline={() => undefined}
-      />,
-    );
+    const { container } = render(<SurplusPanel surplus={null} t={t} />);
     expect(container.innerHTML).toBe('');
   });
 
   it('shows the surplus as an absolute quantity AND a percentage', () => {
-    render(
-      <SurplusPanel
-        proposal={proposal()}
-        t={t}
-        onAccept={() => undefined}
-        onDecline={() => undefined}
-      />,
-    );
+    render(<SurplusPanel surplus={surplus()} t={t} />);
 
-    expect(screen.getByTestId('surplus-amount').textContent).toContain(
-      '2.4',
-    );
+    expect(screen.getByTestId('surplus-amount').textContent).toContain('2.4');
+    expect(screen.getByTestId('surplus-amount').textContent).toContain('g');
     expect(screen.getByTestId('surplus-percent').textContent).toContain(
-      '2.5532',
+      '2.5532 %',
     );
   });
 
-  it('shows the factor AS REPORTED — never a derived one', () => {
-    render(
-      <SurplusPanel
-        proposal={proposal()}
-        t={t}
-        onAccept={() => undefined}
-        onDecline={() => undefined}
-      />,
-    );
+  it('shows no percentage at a zero target, rather than a wrong one', () => {
+    render(<SurplusPanel surplus={surplus({ surplusPercent: null })} t={t} />);
 
-    // The factor is the API's, verbatim.
-    expect(screen.getByTestId('surplus-factor').textContent).toContain(
-      '1.025532',
+    expect(screen.getByTestId('surplus-percent').textContent).toContain(
+      'weigh.readout.noValue',
     );
   });
 
-  it('shows each affected component’s ORIGINAL and REVISED target', () => {
-    render(
-      <SurplusPanel
-        proposal={proposal()}
-        t={t}
-        onAccept={() => undefined}
-        onDecline={() => undefined}
-      />,
-    );
+  it('states the two recovery actions', () => {
+    render(<SurplusPanel surplus={surplus()} t={t} />);
 
-    expect(
-      screen.getByTestId('surplus-entry-AUX-0101').textContent,
-    ).toContain('24.0000');
-    expect(
-      screen.getByTestId('surplus-revised-AUX-0101').textContent,
-    ).toContain('24.6128');
+    expect(screen.getByTestId('surplus-recovery').textContent).toBe(
+      'weigh.surplus.recovery',
+    );
   });
 
-  it('offers BOTH accept and decline — equally', async () => {
-    const accepted = vi.fn();
-    const declined = vi.fn();
+  it('is INFORMATION ONLY — no proposal, no factor, no accept or decline', () => {
+    render(<SurplusPanel surplus={surplus()} t={t} />);
 
-    render(
-      <SurplusPanel
-        proposal={proposal()}
-        t={t}
-        onAccept={accepted}
-        onDecline={declined}
-      />,
-    );
-
-    // A panel that only offers one way forward is a nudge dressed as a
-    // control.
-    const accept = screen.getByTestId('surplus-accept');
-    const decline = screen.getByTestId('surplus-decline');
-    expect(accept).toBeTruthy();
-    expect(decline).toBeTruthy();
-
-    // And both are live.
-    await userEvent.click(accept);
-    await userEvent.click(decline);
-    expect(accepted).toHaveBeenCalled();
-    expect(declined).toHaveBeenCalled();
-  });
-
-  it('states the shade-ratio footnote', () => {
-    render(
-      <SurplusPanel
-        proposal={proposal()}
-        t={t}
-        onAccept={() => undefined}
-        onDecline={() => undefined}
-      />,
-    );
-
-    expect(screen.getByTestId('surplus-footnote')).toBeTruthy();
-  });
-
-  it('every action’s touch target is AT LEAST 15 mm', () => {
-    render(
-      <SurplusPanel
-        proposal={proposal()}
-        t={t}
-        onAccept={() => undefined}
-        onDecline={() => undefined}
-      />,
-    );
-
-    for (const button of screen.getAllByRole('button')) {
-      const styles = window.getComputedStyle(button);
-      expect(
-        Number.parseFloat(styles.minHeight || '0'),
-      ).toBeGreaterThanOrEqual(56);
-    }
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    expect(screen.queryByTestId('surplus-factor')).toBeNull();
+    expect(screen.queryByTestId('surplus-recalculated')).toBeNull();
+    expect(screen.queryByTestId('surplus-accept')).toBeNull();
+    expect(screen.queryByTestId('surplus-decline')).toBeNull();
   });
 });
 
 describe('the escalation panel', () => {
-  const escalation = {
+  const escalation: EscalationReport = {
     componentId: 'AUX-0107',
     sessionId: 'WS-1',
+    subject: 'WS-1/AUX-0107',
     surplusAmount: '2.4000',
     unit: 'g',
     state: 'ESCALATED',
@@ -229,7 +135,7 @@ describe('the escalation panel', () => {
     ).toBe(true);
   });
 
-  it('the authorise action ENABLES once a reason is given', async () => {
+  it('the authorise action ENABLES once badge, PIN and reason are given', async () => {
     const authorise = vi.fn();
     render(
       <EscalationPanel
@@ -242,22 +148,100 @@ describe('the escalation panel', () => {
       />,
     );
 
+    const button = screen.getByTestId(
+      'escalation-authorise',
+    ) as HTMLButtonElement;
+
     await userEvent.type(
       screen.getByTestId('escalation-reason'),
       'the client accepted the excess',
     );
+    // A reason alone does not complete the override.
+    expect(button.disabled).toBe(true);
 
-    const button = screen.getByTestId(
-      'escalation-authorise',
-    ) as HTMLButtonElement;
+    await userEvent.type(screen.getByTestId('escalation-supervisor-id'), 'SUP-001');
+    expect(button.disabled).toBe(true);
+
+    await userEvent.type(screen.getByTestId('escalation-secret'), '9164');
     expect(button.disabled).toBe(false);
 
     await userEvent.click(button);
-    expect(authorise).toHaveBeenCalled();
-    // And the reason went with it.
+    expect(authorise).toHaveBeenCalledWith({
+      supervisorId: 'SUP-001',
+      secret: '9164',
+      reason: 'the client accepted the excess',
+    });
+  });
+
+  it('asks for NO authorisation id — the terminal requests it itself', () => {
+    render(
+      <EscalationPanel
+        escalation={escalation}
+        awaitingSupervisor={false}
+        failure={null}
+        t={t}
+        onAuthorise={() => undefined}
+        onDiscard={() => undefined}
+      />,
+    );
+
+    expect(screen.queryByTestId('escalation-authorisation-id')).toBeNull();
+  });
+
+  it('a refusal shows the ONE message and clears the PIN', async () => {
+    const { rerender } = render(
+      <EscalationPanel
+        escalation={escalation}
+        awaitingSupervisor={true}
+        failure={null}
+        t={t}
+        onAuthorise={() => undefined}
+        onDiscard={() => undefined}
+      />,
+    );
+    await userEvent.type(screen.getByTestId('escalation-secret'), '0000');
+
+    rerender(
+      <EscalationPanel
+        escalation={escalation}
+        awaitingSupervisor={true}
+        failure="weigh.escalation.refused"
+        t={t}
+        onAuthorise={() => undefined}
+        onDiscard={() => undefined}
+      />,
+    );
+
+    expect(screen.getByTestId('escalation-failure').textContent).toBe(
+      'weigh.escalation.refused',
+    );
     expect(
-      (authorise.mock.calls[0]?.[0] as { reason: string }).reason,
-    ).toBe('the client accepted the excess');
+      (screen.getByTestId('escalation-secret') as HTMLInputElement).value,
+    ).toBe('');
+  });
+
+  it('once AUTHORISED, says by whom — and asks for nothing more', () => {
+    render(
+      <EscalationPanel
+        escalation={{
+          ...escalation,
+          state: 'AUTHORISED',
+          authorisationId: 'AUTH-1',
+          supervisorId: 'SUP-001',
+        }}
+        awaitingSupervisor={false}
+        failure={null}
+        t={t}
+        onAuthorise={() => undefined}
+        onDiscard={() => undefined}
+      />,
+    );
+
+    expect(screen.getByTestId('escalation-authorised').textContent).toContain(
+      'SUP-001',
+    );
+    expect(screen.queryByTestId('escalation-secret')).toBeNull();
+    expect(screen.queryByTestId('escalation-authorise')).toBeNull();
   });
 
   it('asks for a DISTINCT supervisor — never the operator’s own', () => {

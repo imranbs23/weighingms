@@ -11,12 +11,13 @@
  * over-dosed; a client that could assert the scope could present an
  * authorisation issued for something else (ADR-039).
  *
- * AND THE ESCALATION IS ONLY RAISED WHEN IT IS THE RIGHT ONE
- * -------------------------------------------------------
- * The surplus must be **not compensable** — a compensable surplus gets a
- * **proposal** (bolt `015`), and the operator accepts it there. Raising an
- * escalation for a compensable surplus would offer the supervisor a choice
- * that the proportional rule has already made.
+ * AND THE ESCALATION IS RAISED FOR EVERY OVER-DOSE
+ * -------------------------------------------------
+ * Bolt `016` raised it only for a **non-compensable** surplus, leaving a
+ * compensable one to the proposal. The Step 24 decision (ADR-047) withdrew
+ * the proposal from the operator, so the supervisor override is the one
+ * recovery besides re-tare — and it must be available whenever the zone is
+ * `OVER`.
  */
 import { randomUUID } from 'node:crypto';
 import { Instant } from '../../../004-scale-integration/domain/value-objects/instant.js';
@@ -30,8 +31,8 @@ export type EscalateOutcome =
       readonly escalation: Escalation;
     }
   | {
-      /** The surplus is compensable — the proposal path applies, not this one. */
-      readonly kind: 'COMPENSABLE';
+      /** The zone is not `OVER` — nothing has been over-dosed. */
+      readonly kind: 'NOT_OVER';
       readonly message: string;
     }
   | {
@@ -46,21 +47,13 @@ export interface EscalateOverdoseOptions {
   /** The active component — the scope's component half. */
   readonly activeComponentId: () => ComponentId | null;
   /**
-   * The over-dose's surplus — the domain's, not the client's.
+   * The over-tolerance weight — the domain's, not the client's.
    *
-   * It is `null` when the zone is not `OVER` or the surplus is compensable,
-   * and the caller then does not escalate.
+   * It is `null` when the zone is not `OVER`, and the caller then does not
+   * escalate. The escalation keeps it as the weight the supervisor
+   * authorises; a heavier pour needs a new authorisation (ADR-047).
    */
   readonly surplusAmount: () => { readonly text: string; readonly unit: string } | null;
-  /**
-   * Whether the surplus can be absorbed by the remaining components.
-   *
-   * **The escalation is for the NOT-compensable case.** A compensable
-   * surplus gets a **proposal** (bolt `015`), and the operator accepts it
-   * there — offering the supervisor a choice that the proportional rule has
-   * already made would be offering the wrong question.
-   */
-  readonly isCompensable: () => boolean;
   /** The clock. */
   readonly clock: () => Date;
 }
@@ -82,18 +75,11 @@ export class EscalateOverdose {
       // The zone is not `OVER`. The escalation is **not** the right
       // response — nothing has been over-dosed.
       return {
-        kind: 'COMPENSABLE',
+        kind: 'NOT_OVER',
         message: 'The zone is not OVER, so there is no over-dose',
       };
     }
 
-    // A COMPENSABLE surplus gets a proposal, not an escalation.
-    if (this.options.isCompensable()) {
-      return {
-        kind: 'COMPENSABLE',
-        message: 'The surplus is compensable, so a proposal applies',
-      };
-    }
     // THE SCOPE — derived from the session's own ids. Never supplied.
     const scope = AuthorisationScope.of(
       this.options.sessionId(),

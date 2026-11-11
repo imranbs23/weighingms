@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-11-06T18:05:00Z
-total_decisions: 46
+last_updated: 2026-11-11T09:00:00Z
+total_decisions: 47
 ---
 
 # Decision Index
@@ -30,6 +30,14 @@ Use this to find relevant prior decisions when working on related features.
 - **Read when**: {Agent guidance - domain keywords and scenarios when this ADR is relevant}
 
 -->
+
+### ADR-047: OVER is confirmed only through a scoped, single-use supervisor override, and nothing is recalculated
+- **Status**: accepted
+- **Date**: 2026-11-11
+- **Bolt**: 030-003-weighing-station (003-weighing-station)
+- **Path**: `bolts/030-003-weighing-station/adr-047-over-is-confirmed-only-through-a-supervisor-override.md`
+- **Summary**: The workbook's Step 24 asks for a defined overshoot rule, chosen by a human; the project owner chose option C, supervisor-gated. An OVER weighing is confirmed only through a supervisor override that is authorised for that component in that session, used once, and recorded; no recipe is recalculated, the surplus is shown for information only, and the compensation proposal is withdrawn from the operator UI until FCI answers Q25/Q26.
+- **Read when**: Changing the confirmation gate, the OVER zone, the escalation, the supervisor override, the surplus panel, or the compensation proposal; working on BRD FR-18, FR-19, FR-20, FR-23, FR-24 or assumption A-08; deciding whether OVER may be confirmed, whether a recipe is recalculated after an over-dose, or how an override is marked on a record or ticket; reviewing a proposal to re-enable the compensation proposal or to let the client assert an override.
 
 ### ADR-046: The report READS the recorded zone and MUTATES NOTHING — including its own audit trail
 - **Status**: accepted

@@ -85,6 +85,11 @@ export interface WeighingStationModule {
   /** Hold the raised escalation, so the supervisor's call can decide it. */
   readonly rememberEscalation: (escalation: Escalation) => void;
   /**
+   * Drop the escalation once its component is confirmed, so an override
+   * opens the gate exactly once (ADR-047).
+   */
+  readonly clearEscalation: (componentId: string) => void;
+  /**
    * The over-dose's two quantities.
    *
    * The detector is **pure**, so it is exposed on the module — the
@@ -369,6 +374,17 @@ export function buildWeighingStationModule(
     evaluator,
   });
 
+  // THE ESCALATION — the live state of an over-dose waiting for a
+  // supervisor.
+  //
+  // It is held HERE rather than in the session, because it is the
+  // escalation's own state and the session's state machine belongs to unit
+  // 003's progression (bolt 017). The session's component and the
+  // over-dose's weight are READ from the session and the zone. The gate
+  // reads it too: an AUTHORISED escalation is the only way past OVER
+  // (ADR-047).
+  let currentEscalation: Escalation | null = null;
+
   const confirmWeighing = new ConfirmWeighing({
     workingCopy: options.workingCopy,
     records: options.records,
@@ -384,6 +400,29 @@ export function buildWeighingStationModule(
       const scaleId = sessionOf(options)?.selectedScaleId ?? null;
       if (scaleId === null) return false;
       return options.selection.canWeigh(scaleId).allowed;
+    },
+    // THE OVERRIDE — authorised for the ACTIVE component in the CURRENT
+    // session, and only up to the weight the supervisor saw. A heavier pour
+    // needs a new authorisation (ADR-047).
+    authorisedOverride: (componentId, weight) => {
+      const escalation = currentEscalation;
+      if (escalation === null || escalation.state !== 'AUTHORISED') {
+        return false;
+      }
+      if (escalation.componentId !== componentId.value) return false;
+      if (escalation.sessionId !== (sessionOf(options)?.sessionId ?? '')) {
+        return false;
+      }
+      try {
+        const authorised = WeightValue.of(
+          escalation.surplusAmount.text,
+          escalation.surplusAmount.unit,
+        );
+        return weight.compareTo(authorised) <= 0;
+      } catch {
+        // A different unit is not silently converted — no override.
+        return false;
+      }
     },
     clock,
   });
@@ -413,14 +452,6 @@ export function buildWeighingStationModule(
     ...(options.onError === undefined ? {} : { onError: options.onError }),
   });
 
-  // THE ESCALATION — the live state of a non-compensable over-dose waiting
-  // for a supervisor.
-  //
-  // It is held HERE rather than in the session, because it is the
-  // escalation's own state and the session's state machine belongs to unit
-  // 003's progression (bolt 017). The session's component and the
-  // over-dose's surplus are READ from the session and the zone.
-  let currentEscalation: Escalation | null = null;
 
   const escalateOverdose = new EscalateOverdose({
     sessionId: () => sessionOf(options)?.sessionId ?? '',
@@ -429,49 +460,6 @@ export function buildWeighingStationModule(
       const zone = evaluateZone.execute();
       if (zone.kind !== 'ZONED' || zone.zone !== 'OVER') return null;
       return { text: zone.value.text, unit: zone.value.unit };
-    },
-    // The escalation is for the NOT-compensable case — a compensable
-    // surplus gets a proposal (bolt 015).
-    isCompensable: () => {
-      const zone = evaluateZone.execute();
-      if (zone.kind !== 'ZONED' || zone.zone !== 'OVER') return true;
-
-      const recipe = options.workingCopy.current();
-      if (recipe === null) return true;
-
-      const active = sessionOf(options)?.activeComponentId ?? null;
-      const activeEntry =
-        active === null
-          ? undefined
-          : recipe.components.find(
-              (entry) => entry.componentId.value === active.value,
-            );
-
-      // THE REMAINING COMPONENTS — the ones AFTER the active one in
-      // recipe sequence.
-      //
-      // Not "all the others": the components BEFORE the active one have
-      // already been weighed, and their target cannot absorb a surplus.
-      // So the remaining set is the tail of the sequence — and the LAST
-      // component has none, which is the case the story names: *"no
-      // remaining components (last component over-dosed) → the surplus
-      // cannot be absorbed — no proposal; escalate."*
-      const remaining =
-        activeEntry === undefined
-          ? recipe.components
-          : recipe.components.filter(
-              (entry) => entry.sequence > activeEntry.sequence,
-            );
-
-      const outcome = new CompensationCalculator().calculate(
-        zone.value,
-        remaining.map((entry) => ({
-          componentId: entry.componentId.value,
-          target: entry.target,
-        })),
-      );
-
-      return outcome.kind === 'COMPENSABLE';
     },
     clock,
   });
@@ -615,6 +603,11 @@ export function buildWeighingStationModule(
         : null,
     rememberEscalation: (escalation: Escalation) => {
       currentEscalation = escalation;
+    },
+    clearEscalation: (componentId: string) => {
+      if (currentEscalation?.componentId === componentId) {
+        currentEscalation = null;
+      }
     },
     selection: options.selection,
     sessions: options.sessions,

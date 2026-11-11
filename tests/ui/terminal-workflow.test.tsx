@@ -510,67 +510,204 @@ describe('the weigh view', () => {
     expect(screen.getByTestId('live-weight-value').textContent).not.toContain('23995');
   });
 
-  it('an OVER reading that comes to REST gets ONE surplus proposal — and the panel shows it', async () => {
-    const proposal = {
-      proposalId: 'P-1',
-      componentId: 'DYE-4471-Y',
-      sessionId: 'WS-1',
-      surplusAmount: '2.4000',
-      unit: 'g',
-      overshoot: '1.9000',
-      surplusPercent: '2.5532',
-      factor: '0.025532',
-      status: 'PROPOSED',
-      operatorId: 'OP-001',
-      createdAt: '2026-11-11T07:00:00.000Z',
-      decidedAt: null,
-      reason: null,
-      recalculated: [
-        { componentId: 'AUX-0101', originalTarget: '24.0000', revisedTarget: '24.6128' },
-      ],
-    };
-    const fetchMock = stubFetch((url, init) =>
-      url.includes('/api/session/zone')
-        ? {
-            status: 200,
-            // The SAME value on every poll — the reading has come to rest.
-            body: {
-              zone: 'OVER',
-              value: '96.4000',
-              unit: 'g',
-              target: '94.0000',
-              bounds: { nearThreshold: '84.6000', okLower: '93.5000', okUpper: '94.5000' },
-              stillToWeigh: '0.0000',
-            },
-          }
-        : url.endsWith('/api/session')
-          ? { status: 200, body: { session: SESSION } }
-          : url.endsWith('/api/surplus') && init?.method === 'POST'
-            ? { status: 201, body: { proposal } }
-            : url.includes('/api/recipe/')
-              ? { status: 200, body: RECIPE }
-              : url.includes('/api/scales')
-                ? { status: 200, body: { scales: [scale('DUMMY')] } }
-                : url.includes('/api/material-lot/')
-                  ? { status: 200, body: { capture: null } }
-                  : url.includes('/api/container/')
-                    ? { status: 200, body: { assignment: null } }
-                    : { status: 200, body: { value: 'x' } },
+  /** The weigh view's API while the reading is OVER and at rest. */
+  function overAtRest(
+    extra: (url: string, init?: RequestInit) => { status: number; body: unknown } | null = () => null,
+  ): ReturnType<typeof vi.fn> {
+    return stubFetch(
+      (url, init) =>
+        extra(url, init) ??
+        (url.includes('/api/session/zone')
+          ? {
+              status: 200,
+              // The SAME value on every poll — the reading has come to rest.
+              body: {
+                zone: 'OVER',
+                value: '96.4000',
+                unit: 'g',
+                target: '94.0000',
+                bounds: { nearThreshold: '84.6000', okLower: '93.5000', okUpper: '94.5000' },
+                stillToWeigh: '0.0000',
+              },
+            }
+          : url.endsWith('/api/session')
+            ? { status: 200, body: { session: SESSION } }
+            : url.endsWith('/api/surplus') && (init?.method ?? 'GET') === 'GET'
+              ? {
+                  status: 200,
+                  body: {
+                    surplus: {
+                      componentId: 'DYE-4471-Y',
+                      overshoot: '1.9000',
+                      surplusAmount: '2.4000',
+                      unit: 'g',
+                      surplusPercent: '2.5532',
+                    },
+                  },
+                }
+              : url.includes('/api/recipe/')
+                ? { status: 200, body: RECIPE }
+                : url.includes('/api/scales')
+                  ? { status: 200, body: { scales: [scale('DUMMY')] } }
+                  : url.includes('/api/material-lot/')
+                    ? { status: 200, body: { capture: null } }
+                    : url.includes('/api/container/')
+                      ? { status: 200, body: { assignment: null } }
+                      : { status: 200, body: { value: 'x' } }),
     );
+  }
+
+  const ESCALATION = {
+    componentId: 'DYE-4471-Y',
+    sessionId: 'WS-1',
+    subject: 'WS-1/DYE-4471-Y',
+    surplusAmount: '96.4000',
+    unit: 'g',
+    state: 'ESCALATED',
+    authorisationId: null,
+    supervisorId: null,
+  };
+
+  /** Open the override and fill in the supervisor's badge, PIN and reason. */
+  async function supervisorSignsOff(pin: string): Promise<void> {
+    await waitFor(() => {
+      expect(
+        (screen.getByTestId('override-action') as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
+    fireEvent.click(screen.getByTestId('override-action'));
+    await waitFor(() => {
+      expect(screen.getByTestId('escalation-panel')).toBeTruthy();
+    });
+    expect(
+      (screen.getByTestId('confirm-action') as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    fireEvent.change(screen.getByTestId('escalation-supervisor-id'), {
+      target: { value: 'SUP-001' },
+    });
+    fireEvent.change(screen.getByTestId('escalation-secret'), {
+      target: { value: pin },
+    });
+    fireEvent.change(screen.getByTestId('escalation-reason'), {
+      target: { value: 'Client accepts the stronger shade' },
+    });
+    fireEvent.click(screen.getByTestId('escalation-authorise'));
+  }
+
+  it('an OVER reading at REST shows the surplus FOR INFORMATION — no proposal is ever made', async () => {
+    const fetchMock = overAtRest();
 
     render(<WeighScreen batchId="B-24187" />);
 
     await waitFor(() => {
       expect(screen.getByTestId('surplus-panel')).toBeTruthy();
     });
-    // Let several more polls pass — still ONE proposal.
+    // Let several more polls pass — the surplus is read ONCE for this
+    // weight, and never proposed (ADR-047).
     await new Promise((resolve) => setTimeout(resolve, 800));
-    const proposals = fetchMock.mock.calls.filter(
-      (call) =>
-        String(call[0]).endsWith('/api/surplus') &&
-        (call[1] as RequestInit | undefined)?.method === 'POST',
+    const surplusCalls = fetchMock.mock.calls.filter((call) =>
+      String(call[0]).endsWith('/api/surplus'),
     );
-    expect(proposals).toHaveLength(1);
+    expect(surplusCalls).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.filter(
+        (call) =>
+          String(call[0]).includes('/api/surplus') &&
+          (call[1] as RequestInit | undefined)?.method === 'POST',
+      ),
+    ).toHaveLength(0);
+    expect(screen.queryByTestId('surplus-accept')).toBeNull();
+    expect(
+      (screen.getByTestId('confirm-action') as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it('the supervisor override: badge, PIN and reason → authorised → confirm ENABLED while OVER', async () => {
+    const fetchMock = overAtRest((url, init) =>
+      init?.method !== 'POST'
+        ? null
+        : url.endsWith('/api/escalation')
+          ? { status: 201, body: { escalation: ESCALATION } }
+          : url.endsWith('/api/identity/authorisations')
+            ? { status: 201, body: { authorisationId: 'AUTH-77' } }
+            : url.endsWith('/api/escalation/authorise')
+              ? {
+                  status: 200,
+                  body: {
+                    escalation: {
+                      ...ESCALATION,
+                      state: 'AUTHORISED',
+                      authorisationId: 'AUTH-77',
+                      supervisorId: 'SUP-001',
+                    },
+                    recordId: 'OVR-1',
+                  },
+                }
+              : null,
+    );
+
+    render(<WeighScreen batchId="B-24187" />);
+    await supervisorSignsOff('9164');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('escalation-authorised')).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(
+        (screen.getByTestId('confirm-action') as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
+
+    // The authorisation was requested for the ESCALATION's subject, and
+    // its id was passed straight on.
+    const authorisation = fetchMock.mock.calls.find((call) =>
+      String(call[0]).endsWith('/api/identity/authorisations'),
+    );
+    expect(JSON.parse(String((authorisation?.[1] as RequestInit).body))).toEqual({
+      supervisorId: 'SUP-001',
+      secret: '9164',
+      action: 'CONFIRM_COMPONENT',
+      subject: 'WS-1/DYE-4471-Y',
+      reason: 'Client accepts the stronger shade',
+    });
+    const consumed = fetchMock.mock.calls.find((call) =>
+      String(call[0]).endsWith('/api/escalation/authorise'),
+    );
+    expect(
+      JSON.parse(String((consumed?.[1] as RequestInit).body)).authorisationId,
+    ).toBe('AUTH-77');
+  });
+
+  it('a REFUSED supervisor leaves confirm disabled, clears the PIN and shows the one message', async () => {
+    const fetchMock = overAtRest((url, init) =>
+      init?.method !== 'POST'
+        ? null
+        : url.endsWith('/api/escalation')
+          ? { status: 201, body: { escalation: ESCALATION } }
+          : url.endsWith('/api/identity/authorisations')
+            ? { status: 403, body: { error: 'AUTHORISATION_REFUSED' } }
+            : null,
+    );
+
+    render(<WeighScreen batchId="B-24187" />);
+    await supervisorSignsOff('0000');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('escalation-failure')).toBeTruthy();
+    });
+    expect(
+      (screen.getByTestId('escalation-secret') as HTMLInputElement).value,
+    ).toBe('');
+    expect(
+      (screen.getByTestId('confirm-action') as HTMLButtonElement).disabled,
+    ).toBe(true);
+    // The escalation was never asked to consume anything.
+    expect(
+      fetchMock.mock.calls.some((call) =>
+        String(call[0]).endsWith('/api/escalation/authorise'),
+      ),
+    ).toBe(false);
   });
 
   it('the training bar is NEVER shown for a real device', async () => {

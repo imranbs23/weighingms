@@ -18,3 +18,23 @@
 | memory-bank\intents\001-assisted-dyestuff-weighing-station\requirements.md | inception-complete | units-defined | Intent has 8 units (0/8 complete) |
 
 ---
+
+## 2026-11-11T07:58:49.052Z - Status Sync
+
+**Triggered by**: status-integrity script
+
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| memory-bank\intents\001-assisted-dyestuff-weighing-station\units\003-weighing-station\unit-brief.md | complete | in-progress | Unit has 7 bolts (6/7 complete) |
+
+---
+
+## 2026-11-11T07:58:59.239Z - Status Sync
+
+**Triggered by**: status-integrity script
+
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| memory-bank\intents\001-assisted-dyestuff-weighing-station\requirements.md | complete | construction | Intent has 8 units (7/8 complete) |
+
+---

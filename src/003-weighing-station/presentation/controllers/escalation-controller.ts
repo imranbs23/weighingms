@@ -84,7 +84,7 @@ export function createEscalationRouter(
    * 201 — the escalation was raised.
    * 400 — the body is not a request.
    * 401 — no operator session.
-   * 409 — the surplus is compensable, or the zone is not `OVER`.
+   * 409 — the zone is not `OVER`, or no component is active.
    */
   router.post('/', (req: Request, res: Response) => {
     if (req.currentOperator === undefined) {
@@ -177,13 +177,18 @@ export function createEscalationRouter(
 /**
  * Serialise an escalation for the wire.
  *
- * The state, the component, the session, the surplus it covers and the
- * scope. Every quantity is a **string**.
+ * The state, the component, the session, the weight it covers and the
+ * subject. Every quantity is a **string**.
+ *
+ * The `subject` is the scope's own, DERIVED on the server. The terminal
+ * presents it to unit `008` so the supervisor's authorisation is issued for
+ * exactly this component; the client never composes it (ADR-047).
  */
 function serialiseEscalation(escalation: {
   readonly componentId: string;
   readonly sessionId: string;
   readonly surplusAmount: { toJSON(): string; readonly unit: string };
+  readonly scope: { toSubject(): string };
   readonly state: string;
   readonly authorisationId: string | null;
   readonly supervisorId: string | null;
@@ -191,6 +196,7 @@ function serialiseEscalation(escalation: {
   return {
     componentId: escalation.componentId,
     sessionId: escalation.sessionId,
+    subject: escalation.scope.toSubject(),
     surplusAmount: escalation.surplusAmount.toJSON(),
     unit: escalation.surplusAmount.unit,
     state: escalation.state,

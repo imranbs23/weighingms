@@ -316,6 +316,12 @@ export async function declineSurplus(
 export interface EscalationReport {
   readonly componentId: string;
   readonly sessionId: string;
+  /**
+   * The subject the supervisor's authorisation must name — the station's
+   * own, derived on the server. The client passes it on and never composes
+   * it (ADR-047).
+   */
+  readonly subject: string;
   readonly surplusAmount: string;
   readonly unit: string;
   readonly state: string;
@@ -813,6 +819,31 @@ export async function fetchScannerStatus(): Promise<
   return call('/api/scanner/status');
 }
 
+/**
+ * The supervisor authenticates at the terminal, and unit `008` issues an
+ * authorisation for exactly this escalation's subject.
+ *
+ * Every refusal is the same `403` (ADR-004): a wrong PIN, an operator's
+ * badge and a mismatched subject cannot be told apart.
+ */
+export async function requestSupervisorAuthorisation(
+  supervisorId: string,
+  secret: string,
+  subject: string,
+  reason: string,
+): Promise<ApiResult<{ authorisationId: string }>> {
+  return call('/api/identity/authorisations', {
+    method: 'POST',
+    body: JSON.stringify({
+      supervisorId,
+      secret,
+      action: 'CONFIRM_COMPONENT',
+      subject,
+      reason,
+    }),
+  });
+}
+
 export async function fetchPrinterStatus(): Promise<
   ApiResult<PeripheralReport>
 > {
@@ -822,8 +853,8 @@ export async function fetchPrinterStatus(): Promise<
 /**
  * Raise the supervisor override for the active component's over-dose.
  *
- * 409 when there is nothing to escalate — the zone is not OVER, or the
- * surplus is compensable (the surplus proposal is the path then).
+ * 409 when there is nothing to escalate — the zone is not OVER, or no
+ * component is active.
  */
 export async function raiseEscalation(
   componentId: string,

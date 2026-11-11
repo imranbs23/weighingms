@@ -22,18 +22,17 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import {
-  acceptSurplus,
   authoriseEscalation,
   confirmComponent,
-  declineSurplus,
   fetchContainer,
   fetchLot,
   fetchRecipe,
   fetchScales,
   fetchSession,
   fetchZone,
-  proposeSurplus,
+  fetchSurplus,
   raiseEscalation,
+  requestSupervisorAuthorisation,
   reTare,
   selectComponent,
   trainingDispense,
@@ -41,7 +40,7 @@ import {
   type RecipeComponentReport,
   type ScaleReport,
   type SessionSnapshot,
-  type SurplusProposal,
+  type SurplusReport,
 } from '../../api/endpoints.js';
 import { useStrings } from '../../i18n/useStrings.js';
 import { useWeightStream } from '../../stream/use-weight-stream.js';
@@ -98,6 +97,7 @@ export const WEIGH_KEYS = [
   'weigh.confirm.disconnected',
   'weigh.confirm.calibration',
   'weigh.confirm.overrideRequired',
+  'weigh.confirm.overridden',
   'weigh.confirm.unreachable',
   'weigh.confirm.noComponent',
   'weigh.confirm.refused',
@@ -111,18 +111,12 @@ export const WEIGH_KEYS = [
   'weigh.surplus.heading',
   'weigh.surplus.amount',
   'weigh.surplus.percent',
-  'weigh.surplus.factor',
-  'weigh.surplus.component',
-  'weigh.surplus.originalTarget',
-  'weigh.surplus.revisedTarget',
-  'weigh.surplus.footnote',
-  'weigh.surplus.accept',
-  'weigh.surplus.decline',
+  'weigh.surplus.recovery',
   'weigh.escalation.heading',
   'weigh.escalation.amount',
   'weigh.escalation.reasonRequired',
   'weigh.escalation.awaitingSupervisor',
-  'weigh.escalation.authorisationId',
+  'weigh.escalation.authorised',
   'weigh.escalation.supervisorId',
   'weigh.escalation.secret',
   'weigh.escalation.reason',
@@ -168,7 +162,7 @@ export function WeighScreen({
 
   const [session, setSession] = useState<SessionSnapshot | null>(null);
   const [zone, setZone] = useState<ZoneView | null>(null);
-  const [proposal, setProposal] = useState<SurplusProposal | null>(null);
+  const [surplus, setSurplus] = useState<SurplusReport | null>(null);
   const [escalation, setEscalation] = useState<EscalationReport | null>(null);
   const [awaitingSupervisor, setAwaitingSupervisor] = useState(false);
   const [recipe, setRecipe] = useState<RecipeView | null>(null);
@@ -204,6 +198,15 @@ export function WeighScreen({
   // a ref as well — the interval was created with the first render's value.
   const awaitingRef = useRef(awaitingSupervisor);
   awaitingRef.current = awaitingSupervisor;
+  // The same for the override: an AUTHORISED escalation for the active
+  // component enables confirm while OVER — the station's gate still decides
+  // (ADR-047).
+  const overrideAuthorised =
+    escalation !== null &&
+    escalation.state === 'AUTHORISED' &&
+    escalation.componentId === (session?.activeComponentId ?? null);
+  const overrideRef = useRef(overrideAuthorised);
+  overrideRef.current = overrideAuthorised;
 
   const reload = async (): Promise<void> => {
     const [sessionResult, zoneResult] = await Promise.all([
@@ -240,6 +243,7 @@ export function WeighScreen({
       noComponent: active === null,
       unreachable: zoneResult.kind === 'UNREACHABLE',
       awaitingSupervisor: awaitingRef.current,
+      overrideAuthorised: overrideRef.current,
     });
   };
 
@@ -307,40 +311,42 @@ export function WeighScreen({
 
   // A NEW COMPONENT — the previous one's surplus and escalation are over.
   useEffect(() => {
-    setProposal(null);
+    setSurplus(null);
     setProposalState(null);
     setEscalation(null);
     setEscalationState(null);
     setAwaitingSupervisor(false);
   }, [activeComponentId, setProposalState, setEscalationState]);
 
-  // OVER TOLERANCE — the station is asked for its surplus proposal, once
-  // per component, when the reading has come to rest: a pour still moving
-  // through OVER would be proposed against a weight it is about to leave.
+  // OVER TOLERANCE — the station is asked for its surplus, FOR
+  // INFORMATION, when the reading has come to rest: a pour still moving
+  // through OVER would be reported against a weight it is about to leave.
   // It re-runs on EVERY poll (the zone is a new object each time), because
-  // "at rest" is precisely the value NOT changing between two polls.
-  const proposedFor = useRef<string | null>(null);
+  // "at rest" is precisely the value NOT changing between two polls. And it
+  // only READS — no proposal is made and nothing is recalculated (ADR-047).
   const lastOverValue = useRef<string | null>(null);
+  const reportedAt = useRef<string | null>(null);
   useEffect(() => {
     if (zone?.zone !== 'OVER' || activeComponentId === null) {
       lastOverValue.current = null;
+      reportedAt.current = null;
+      setSurplus(null);
       return;
     }
-    if (proposedFor.current === activeComponentId) return;
     if (lastOverValue.current !== zone.value) {
       lastOverValue.current = zone.value;
       return;
     }
-    proposedFor.current = activeComponentId;
+    if (reportedAt.current === zone.value) return;
+    reportedAt.current = zone.value;
 
     void (async () => {
-      const result = await proposeSurplus();
+      const result = await fetchSurplus();
       if (result.kind === 'OK') {
-        setProposal(result.body.proposal);
-        setProposalState(result.body.proposal);
+        setSurplus(result.body.surplus);
       }
     })();
-  }, [zone, activeComponentId, setProposalState]);
+  }, [zone, activeComponentId]);
 
   const displayable = displayableReading(reading, receivedAt);
   const age = streamAge(receivedAt);
@@ -415,11 +421,10 @@ export function WeighScreen({
       return;
     }
 
-    // A re-tared platform starts the component again: the old surplus
-    // proposal no longer describes it.
-    proposedFor.current = null;
-    setProposal(null);
-    setProposalState(null);
+    // A re-tared platform starts the component again: the old surplus no
+    // longer describes it. An authorised override stays — it still covers a
+    // pour no heavier than the one the supervisor saw (ADR-047).
+    setSurplus(null);
     await reload();
   };
 
@@ -446,64 +451,59 @@ export function WeighScreen({
 
     setEscalation(result.body.escalation);
     setEscalationState(result.body.escalation);
-  };
-
-  const onAcceptSurplus = async (): Promise<void> => {
-    const componentId = proposal?.componentId ?? activeComponentId ?? '';
-    if (componentId === '') return;
-
-    begin();
-    const result = await acceptSurplus(componentId);
-    if (result.kind === 'OK') {
-      setProposal(result.body.proposal);
-      setProposalState(result.body.proposal);
-    }
-    end();
-    await reload();
-  };
-
-  const onDeclineSurplus = async (): Promise<void> => {
-    const componentId = proposal?.componentId ?? activeComponentId ?? '';
-    if (componentId === '') return;
-
-    begin();
-    const result = await declineSurplus(componentId);
-    if (result.kind === 'OK') {
-      setProposal(result.body.proposal);
-      setProposalState(result.body.proposal);
-    }
-    end();
+    setAwaitingSupervisor(true);
   };
 
   const onAuthorise = async (input: {
-    readonly authorisationId: string;
     readonly supervisorId: string;
     readonly secret: string;
     readonly reason: string;
   }): Promise<void> => {
-    if (input.reason.trim().length === 0) {
+    if (escalation === null || input.reason.trim().length === 0) {
       fail('weigh.escalation.refused');
       return;
     }
 
     begin();
-    const result = await authoriseEscalation(
-      input.authorisationId,
+
+    // 1. THE SUPERVISOR AUTHENTICATES — unit 008 issues an authorisation
+    //    for exactly this escalation's subject.
+    const granted = await requestSupervisorAuthorisation(
       input.supervisorId,
       input.secret,
+      escalation.subject,
       input.reason,
     );
-
-    if (result.kind !== 'OK') {
+    if (granted.kind !== 'OK') {
+      // ONE message for every refusal (ADR-004). Still awaiting.
       fail('weigh.escalation.refused');
       setAwaitingSupervisor(true);
       end();
       return;
     }
 
+    // 2. THE ESCALATION CONSUMES IT — once — and the override is recorded.
+    const result = await authoriseEscalation(
+      granted.body.authorisationId,
+      input.supervisorId,
+      input.secret,
+      input.reason,
+    );
+
+    if (result.kind !== 'OK' || result.body.escalation === undefined) {
+      fail('weigh.escalation.refused');
+      setAwaitingSupervisor(true);
+      end();
+      return;
+    }
+
+    // AUTHORISED — confirm is the next step. The refs are set now, so the
+    // reload below already enables it rather than the next poll.
+    awaitingRef.current = false;
+    overrideRef.current = result.body.escalation.state === 'AUTHORISED';
     setAwaitingSupervisor(false);
-    setEscalation(null);
-    setEscalationState(null);
+    setEscalation(result.body.escalation);
+    setEscalationState(result.body.escalation);
     end();
     await reload();
   };
@@ -620,17 +620,8 @@ export function WeighScreen({
           </div>
         )}
 
-        {/* THE SURPLUS PANEL — shown only when the station proposed one. */}
-        <SurplusPanel
-          proposal={proposal}
-          t={t}
-          onAccept={() => {
-            void onAcceptSurplus();
-          }}
-          onDecline={() => {
-            void onDeclineSurplus();
-          }}
-        />
+        {/* THE SURPLUS — shown, for information, while OVER at rest. */}
+        <SurplusPanel surplus={surplus} t={t} />
 
         {/* THE ESCALATION PANEL — the supervisor override. */}
         <EscalationPanel
@@ -653,6 +644,9 @@ export function WeighScreen({
           confirm={confirm}
           busy={busy}
           canReTare={scaleId !== null}
+          // The override is for an over-dose: offered only while OVER, and
+          // not again once one is pending or authorised.
+          canOverride={zone?.zone === 'OVER' && escalation === null}
           t={t}
           onConfirm={() => {
             void onConfirm();

@@ -13,6 +13,8 @@
  *   - the gate reads the **CURRENT** zone, not a cached one
  *   - a replayed confirmation is **idempotent** — no second record
  *   - the record **snapshots** the target, the band and the scale's class
+ *   - bolt 030 (ADR-047): `OVER` passes ONLY with an authorised override,
+ *     and the override never opens `UNDER` or `NEAR`
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Instant } from '../../src/004-scale-integration/domain/value-objects/instant.js';
@@ -132,7 +134,9 @@ describe('the confirmation gate', () => {
     canWeigh = true;
   });
 
-  function gate() {
+  function gate(
+    authorisedOverride?: (componentId: ComponentId, weight: WeightValue) => boolean,
+  ) {
     return new ConfirmWeighing({
       workingCopy: workingCopy(),
       records,
@@ -146,6 +150,7 @@ describe('the confirmation gate', () => {
       sessionId: () => 'WS-1',
       canWeigh: () => canWeigh,
       clock: () => new Date('2026-11-06T09:14:22.000Z'),
+      ...(authorisedOverride === undefined ? {} : { authorisedOverride }),
     });
   }
 
@@ -280,6 +285,60 @@ describe('the confirmation gate', () => {
     if (outcome.kind !== 'REFUSED') return;
     expect(outcome.reason).toBe('NO_ACTIVE_COMPONENT');
     expect(records.saved).toHaveLength(0);
+  });
+
+  describe('the supervisor override (bolt 030, ADR-047)', () => {
+    it('ALLOWS an OVER reading with an authorised override — and the zone stays OVER', async () => {
+      read('120.0000');
+
+      const outcome = await gate(() => true).execute(OPERATOR);
+
+      expect(outcome.kind).toBe('ALLOWED');
+      if (outcome.kind !== 'ALLOWED') return;
+      expect(outcome.zoneAtConfirm).toBe('OVER');
+      expect(records.saved).toHaveLength(0);
+    });
+
+    it('asks about THIS component at THIS weight', async () => {
+      read('120.0000');
+      const asked: string[] = [];
+
+      await gate((componentId, weight) => {
+        asked.push(`${componentId.value} ${weight.text} ${weight.unit}`);
+        return false;
+      }).execute(OPERATOR);
+
+      expect(asked).toEqual(['DYE-4471-Y 120.0000 g']);
+    });
+
+    it('REFUSES OVER when the override is not authorised', async () => {
+      read('120.0000');
+
+      const outcome = await gate(() => false).execute(OPERATOR);
+
+      expect(outcome.kind).toBe('REFUSED');
+      if (outcome.kind !== 'REFUSED') return;
+      expect(outcome.reason).toBe('ZONE_OVER');
+    });
+
+    it('never opens UNDER or NEAR — an override is for an over-dose only', async () => {
+      const cases = [
+        { value: '80.0000', zone: 'UNDER' },
+        { value: '90.0000', zone: 'NEAR' },
+      ];
+      for (const [index, entry] of cases.entries()) {
+        session.offerReading(
+          SCALE,
+          WeightValue.of(entry.value, 'g'),
+          true,
+          ReadingSequence.of(index + 10),
+        );
+        const outcome = await gate(() => true).execute(OPERATOR);
+        expect(outcome.kind).toBe('REFUSED');
+        if (outcome.kind !== 'REFUSED') return;
+        expect(outcome.zone).toBe(entry.zone);
+      }
+    });
   });
 
   it('the bounds are the same three numbers the zone was computed against', () => {

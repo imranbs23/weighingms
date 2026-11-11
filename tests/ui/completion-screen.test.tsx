@@ -236,10 +236,11 @@ describe('the completion view', () => {
     expect(row.textContent).toContain('2026-0387');
     expect(row.textContent).toContain('C-12');
     expect(row.textContent).toContain('SCALE-A');
-    // And the zone AT CONFIRMATION — `OVER` for an overridden component.
+    // And the zone AT CONFIRMATION — an `OVER` record exists only through
+    // a supervisor override, so it reads "OVER · overridden" (ADR-047).
     expect(
       screen.getByTestId('detail-zone-DYE-4471-Y').textContent,
-    ).toBe('OVER');
+    ).toBe('completion.zone.overridden');
   });
 
   it('shows the ticket preview — the API’s ticket, with its template', async () => {

@@ -2,7 +2,8 @@
  * ConfirmWeighing — the gate, and the record.
  *
  * ══════════════════════════════════════════════════════════════════════
- * CONFIRMATION IS IMPOSSIBLE UNLESS THE ZONE IS `OK`.
+ * CONFIRMATION IS IMPOSSIBLE UNLESS THE ZONE IS `OK` — OR `OVER` WITH AN
+ * AUTHORISED SUPERVISOR OVERRIDE (BRD FR-18, ADR-047).
  * ══════════════════════════════════════════════════════════════════════
  *
  * There is **no other path** to a `WeighingRecord` (invariant 3, BRD FR-10,
@@ -17,7 +18,8 @@
  * 4. Has this component already been confirmed in this session? — yes →
  *    **idempotent**: return the existing record, write nothing.
  * 5. Is the **current** zone `OK`? — no → refuse, with the zone and the
- *    reason.
+ *    reason. The one exception: `OVER` for which the station holds an
+ *    authorised override covering this component and this weight.
  * 6. Otherwise: write the record.
  *
  * **STEP 5 READS THE CURRENT ZONE, NOT A CACHED ONE.** A reading that
@@ -110,6 +112,17 @@ export interface ConfirmWeighingOptions {
   readonly sessionId: () => string;
   /** Whether the scale may still weigh — unit 004's gate. */
   readonly canWeigh: () => boolean;
+  /**
+   * Whether a supervisor has authorised confirming this component at this
+   * weight while it is `OVER` (ADR-047).
+   *
+   * The station answers from its own escalation state; a client never
+   * asserts it. Absent, `OVER` is always refused.
+   */
+  readonly authorisedOverride?: (
+    componentId: ComponentId,
+    weight: WeightValue,
+  ) => boolean;
   /** The clock. */
   readonly clock: () => Date;
 }
@@ -181,7 +194,11 @@ export class ConfirmWeighing {
       bounds,
     );
 
-    if (zone !== 'OK') {
+    const overridden =
+      zone === 'OVER' &&
+      this.options.authorisedOverride?.(componentId, weight) === true;
+
+    if (zone !== 'OK' && !overridden) {
       return this.refuse(
         zone === 'UNDER'
           ? 'ZONE_UNDER'
@@ -212,8 +229,8 @@ export class ConfirmWeighing {
     // component unwritten rather than losing a confirmed weighing.
     //
     // And `zoneAtConfirm` is the zone **in force at confirmation** — which
-    // is the **over-dose** zone when an authorised escalation was applied,
-    // so the exception is visible in the record (BRD FR-11, FR-23).
+    // is `OVER` when an authorised override was applied, so the exception
+    // is visible in the record (BRD FR-11, FR-23, ADR-047).
     return { kind: 'ALLOWED', zoneAtConfirm: zone, componentId };
   }
 

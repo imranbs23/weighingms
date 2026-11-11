@@ -58,6 +58,7 @@ export function ActionRow({
   onReTare,
   onAbandon,
   onOverride,
+  canOverride,
 }: {
   readonly confirm: ConfirmAction;
   readonly busy: boolean;
@@ -67,6 +68,8 @@ export function ActionRow({
   readonly onReTare?: () => void;
   readonly onAbandon: () => void;
   readonly onOverride?: () => void;
+  /** Whether the supervisor override may be raised — only while OVER. */
+  readonly canOverride?: boolean;
 }): React.JSX.Element {
   const confirmEnabled = confirm.enabled && !busy;
   const reTareEnabled = canReTare === true && !busy && onReTare !== undefined;
@@ -128,7 +131,7 @@ export function ActionRow({
           type="button"
           className="key ghost"
           data-testid="override-action"
-          disabled={busy}
+          disabled={busy || canOverride !== true}
           onClick={onOverride}
           style={{ ...keyStyle, marginLeft: 'auto' }}
         >

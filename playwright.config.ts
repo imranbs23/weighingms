@@ -40,7 +40,9 @@ export default defineConfig({
   // leaves the released queue once the suite has weighed it.
   // ... and the Step 30 failure scenarios have theirs too
   // (`playwright.failures.config.ts`): a fresh world and a short sync backoff.
-  testIgnore: ['**/step28-capture.spec.ts', '**/failures/**'],
+  // ... and so does the Step 24 overshoot rule (`playwright.step24.config.ts`):
+  // it completes B-24187 through a supervisor override.
+  testIgnore: ['**/step28-capture.spec.ts', '**/failures/**', '**/step24/**'],
   // The specs share ONE running product and ONE database — so they run in
   // order, one at a time. A parallel suite would have two batches fighting
   // over one MES world.

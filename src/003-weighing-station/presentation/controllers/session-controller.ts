@@ -261,9 +261,9 @@ export function createSessionRouter(
     // THE GATE FIRST, THEN THE TRANSITION.
     //
     // The gate decides whether the weighing may be confirmed at all — the
-    // zone must be `OK`, or an authorised escalation must have been
-    // consumed (bolt `016`). And only then does the record get written
-    // and the session advance (bolt `017`).
+    // zone must be `OK`, or `OVER` with an authorised supervisor override
+    // (ADR-047). And only then does the record get written and the session
+    // advance (bolt `017`).
     const gate = await station.confirmWeighing.execute(req.currentOperator.id);
 
     if (gate.kind === 'REFUSED') {
@@ -294,6 +294,10 @@ export function createSessionRouter(
 
     switch (outcome.kind) {
       case 'CONFIRMED':
+        // THE OVERRIDE IS SPENT. One authorisation, one confirmation
+        // (ADR-047) — and an unused one is moot once the component is done.
+        station.clearEscalation(parsed.data.componentId);
+
         // THE NEXT COMPONENT'S SCALE. The domain advanced the active
         // component and released the scale; the station binds the next
         // one, so the operator lands on a component ready to weigh.

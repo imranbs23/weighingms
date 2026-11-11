@@ -65,6 +65,7 @@ export const COMPLETION_KEYS = [
   'completion.detail.container',
   'completion.detail.scale',
   'completion.detail.zone',
+  'completion.zone.overridden',
   'completion.ticket.template',
   'completion.print.caption',
   'completion.print.state',

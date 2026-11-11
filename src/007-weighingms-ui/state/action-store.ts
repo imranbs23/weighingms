@@ -48,6 +48,7 @@ export const CONFIRM_REASON_UNDER = 'weigh.confirm.under';
 export const CONFIRM_REASON_DISCONNECTED = 'weigh.confirm.disconnected';
 export const CONFIRM_REASON_CALIBRATION = 'weigh.confirm.calibration';
 export const CONFIRM_REASON_OVERRIDE_REQUIRED = 'weigh.confirm.overrideRequired';
+export const CONFIRM_REASON_OVERRIDDEN = 'weigh.confirm.overridden';
 export const CONFIRM_REASON_UNREACHABLE = 'weigh.confirm.unreachable';
 export const CONFIRM_REASON_NO_COMPONENT = 'weigh.confirm.noComponent';
 
@@ -63,6 +64,12 @@ export function confirmActionFor(
     readonly unreachable?: boolean;
     readonly noComponent?: boolean;
     readonly awaitingSupervisor?: boolean;
+    /**
+     * A supervisor has authorised confirming this component while OVER —
+     * as the station reported it, never assumed (ADR-047). The station's
+     * gate still decides; this only stops the button being dead.
+     */
+    readonly overrideAuthorised?: boolean;
   } = {},
 ): ConfirmAction {
   if (extras.unreachable === true) {
@@ -70,6 +77,9 @@ export function confirmActionFor(
   }
   if (extras.noComponent === true) {
     return { enabled: false, reason: CONFIRM_REASON_NO_COMPONENT };
+  }
+  if (zone === 'OVER' && extras.overrideAuthorised === true) {
+    return { enabled: true, reason: CONFIRM_REASON_OVERRIDDEN };
   }
   if (extras.awaitingSupervisor === true) {
     // The override is required — and the weighing is NOT confirmed.
@@ -110,6 +120,7 @@ export interface ActionStore {
       readonly unreachable?: boolean;
       readonly noComponent?: boolean;
       readonly awaitingSupervisor?: boolean;
+      readonly overrideAuthorised?: boolean;
     },
   ) => void;
   /** Set the proposal. */

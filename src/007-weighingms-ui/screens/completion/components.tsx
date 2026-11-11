@@ -132,13 +132,23 @@ export function ComponentDetail({
             <td>{line.scaleId}</td>
             {/* THE ZONE AT CONFIRMATION — and it is the API's. */}
             <td data-testid={`detail-zone-${line.componentId}`}>
-              {line.zoneAtConfirm}
+              {zoneLabel(line.zoneAtConfirm, t)}
             </td>
           </tr>
         ))}
       </tbody>
     </table>
   );
+}
+
+/**
+ * The zone at confirmation, as the operator reads it.
+ *
+ * An `OVER` record exists only through an authorised supervisor override
+ * (ADR-047), so the zone alone is the marking: "OVER · overridden".
+ */
+function zoneLabel(zone: string, t: Translate): string {
+  return zone === 'OVER' ? t('completion.zone.overridden') : zone;
 }
 
 /** The ticket as paper — the prototype's, from the API's ticket. */
@@ -199,6 +209,11 @@ export function TicketPreview({
                 <td>{formatQuantity(line.targetQuantity, line.targetUnit)}</td>
                 <td>
                   {formatQuantity(line.actualQuantity, line.actualUnit)} {line.actualUnit}
+                  {line.zoneAtConfirm === 'OVER' && (
+                    <div data-testid={`ticket-overridden-${line.componentId}`}>
+                      {zoneLabel(line.zoneAtConfirm, t)}
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

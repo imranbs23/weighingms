@@ -1,0 +1,178 @@
+{
+  "config": {
+    "argv": [
+      "C:\\nvm4w\\nodejs\\node.exe",
+      "C:\\Personal\\weighingms\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "-c",
+      "playwright.step24.config.ts"
+    ],
+    "configFile": "C:\\Personal\\weighingms\\playwright.step24.config.ts",
+    "rootDir": "C:/Personal/weighingms/playwright/step24",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Personal/weighingms/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Personal/weighingms/playwright/step24",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "evidence/STEP-24-playwright-report",
+          "open": "never"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "evidence/STEP-24-playwright-report/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "overshoot-override.spec.ts",
+      "file": "overshoot-override.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Over tolerance — supervisor override confirms the weight as poured, marked overridden",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [
+                {
+                  "type": "report.overrideCount",
+                  "description": "0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 41039,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "The pour lands OVER: never confirmed automatically",
+                      "duration": 7353
+                    },
+                    {
+                      "title": "The surplus is shown FOR INFORMATION — no proposal",
+                      "duration": 890
+                    },
+                    {
+                      "title": "A wrong PIN is refused, and confirm stays disabled",
+                      "duration": 486
+                    },
+                    {
+                      "title": "The supervisor signs off: confirm is enabled, and says why",
+                      "duration": 394
+                    },
+                    {
+                      "title": "Confirmed AS POURED, zone OVER",
+                      "duration": 81
+                    },
+                    {
+                      "title": "The rest of the batch, in tolerance — no target was recalculated",
+                      "duration": 29250
+                    },
+                    {
+                      "title": "Completion and ticket mark the component \"OVER · overridden\"",
+                      "duration": 434
+                    },
+                    {
+                      "title": "The supervisor’s report lists the OVER weighing, as poured",
+                      "duration": 114
+                    }
+                  ],
+                  "startTime": "2026-11-11T08:57:28.299Z",
+                  "annotations": [
+                    {
+                      "type": "report.overrideCount",
+                      "description": "0"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "C:\\Personal\\weighingms\\test-results\\overshoot-override-Over-to-80e2a-as-poured-marked-overridden-chromium\\video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "825d8d8be63e8091dc67-767b91d611a8e65028e9",
+          "file": "overshoot-override.spec.ts",
+          "line": 30,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-11T08:57:21.945Z",
+    "duration": 48671.706,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
