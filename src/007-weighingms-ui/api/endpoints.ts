@@ -132,6 +132,55 @@ export interface SessionSnapshot {
     readonly state: string;
   }[];
   readonly counter: { readonly weighed: number; readonly total: number };
+  /**
+   * The active component's lot and container, as captured IN THIS SESSION
+   * — the station's answer, so a capture from an earlier batch never shows
+   * (bolt 031). Absent from an older API.
+   */
+  readonly activeCaptures?: ComponentCaptures;
+}
+
+/** A component's lot and container, as the station reports them. */
+export interface ComponentCaptures {
+  readonly lot: { readonly lotNumber: string; readonly method: string } | null;
+  readonly container: {
+    readonly containerId: string;
+    readonly tareWeight: string;
+    readonly tareUnit: string;
+    readonly tareSource: string;
+  } | null;
+}
+
+/**
+ * Capture the lot for a component (unit 002).
+ *
+ * A **scan** sends `code`, a typed value sends `lotNumber`: the method is
+ * derived from the request's shape on the server, never asserted (ADR-030).
+ */
+export async function captureLot(
+  componentId: string,
+  input: { readonly code: string } | { readonly lotNumber: string },
+): Promise<ApiResult<{ capture: { lotNumber: string } }>> {
+  return call('/api/material-lot', {
+    method: 'POST',
+    body: JSON.stringify({ componentId, ...input }),
+  });
+}
+
+/**
+ * Assign the container for a component, on the scale the session is bound
+ * to (unit 002). Its tare is the container master's, or the empty
+ * container weighed on that scale — the server's, never the client's.
+ */
+export async function assignContainer(
+  componentId: string,
+  input: { readonly code: string } | { readonly containerId: string },
+  scaleId: string,
+): Promise<ApiResult<{ assignment: { containerId: string } }>> {
+  return call('/api/container', {
+    method: 'POST',
+    body: JSON.stringify({ componentId, scaleId, ...input }),
+  });
 }
 
 /**

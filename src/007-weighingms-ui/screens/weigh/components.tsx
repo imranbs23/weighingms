@@ -25,6 +25,7 @@ export function WeighHead({
   componentId,
   lotNumber,
   containerId,
+  tare = null,
   scaleLabel,
   t,
 }: {
@@ -33,6 +34,8 @@ export function WeighHead({
   readonly componentId: string;
   readonly lotNumber: string | null;
   readonly containerId: string | null;
+  /** The container's tare, as the station recorded it (bolt 031). */
+  readonly tare?: { readonly value: string; readonly unit: string } | null;
   readonly scaleLabel: string | null;
   readonly t: Translate;
 }): React.JSX.Element {
@@ -44,8 +47,17 @@ export function WeighHead({
         <div className="nm" data-testid="weigh-name">
           {name ?? t('weigh.head.noName')}
         </div>
+        {/* THE PROTOTYPE'S LINE — code · Lot · Container · Tare — with only
+            the parts this session has captured (bolt 031). */}
         <div className="meta" data-testid="weigh-meta">
-          {[dyestuffCode ?? componentId, lotNumber, containerId]
+          {[
+            dyestuffCode ?? componentId,
+            lotNumber === null ? null : `${t('weigh.head.lot')} ${lotNumber}`,
+            containerId === null ? null : `${t('weigh.head.container')} ${containerId}`,
+            tare === null
+              ? null
+              : `${t('weigh.head.tare')} ${formatQuantity(tare.value, tare.unit)} ${tare.unit}`,
+          ]
             .filter((part): part is string => part !== null && part.length > 0)
             .join(' · ')}
         </div>

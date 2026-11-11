@@ -15,6 +15,10 @@
  * original is untouched.
  */
 import { WeighingRecord } from '../../domain/entities/weighing-record.js';
+import {
+  isRecordedTareSource,
+  type RecordedTare,
+} from '../../domain/value-objects/recorded-tare.js';
 import type { WeighingRecordRepository } from '../../domain/ports/weighing-record-repository.js';
 import { isToleranceZone } from '../../domain/value-objects/tolerance-zone.js';
 import {
@@ -45,6 +49,9 @@ interface RecordRow {
   weighed_at: string;
   recorded_at: string;
   corrects_record_id: string | null;
+  tare_weight: string | null;
+  tare_unit: string | null;
+  tare_source: string | null;
 }
 
 export class SqliteWeighingRecordRepository
@@ -69,8 +76,9 @@ export class SqliteWeighingRecordRepository
            (record_id, session_id, component_id, actual_quantity, unit,
             target_at_weighing, tolerance_at_weighing, zone_at_confirm,
             scale_id, scale_class, lot_number, container_id, operator_id,
-            weighed_at, recorded_at, corrects_record_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            weighed_at, recorded_at, corrects_record_id,
+            tare_weight, tare_unit, tare_source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         record.recordId,
@@ -91,6 +99,9 @@ export class SqliteWeighingRecordRepository
         record.weighedAt.toString(),
         this.clock().toISOString(),
         record.correctsRecordId,
+        record.tare?.weight.toJSON() ?? null,
+        record.tare?.weight.unit ?? null,
+        record.tare?.source ?? null,
       );
   }
 
@@ -232,5 +243,20 @@ function toRecord(row: RecordRow): WeighingRecord {
     OperatorId.create(row.operator_id),
     Instant.of(new Date(row.weighed_at)),
     row.corrects_record_id,
+    tareFrom(row),
   );
+}
+
+/**
+ * The record's tare, or `null` — a row written before migration 037 has
+ * none, and the source is read back through the domain's guard.
+ */
+function tareFrom(row: RecordRow): RecordedTare | null {
+  if (row.tare_weight === null || row.tare_unit === null || row.tare_source === null) {
+    return null;
+  }
+  if (!isRecordedTareSource(row.tare_source)) {
+    throw new Error(`The stored tare source "${row.tare_source}" is not one this product records`);
+  }
+  return { weight: WeightValue.of(row.tare_weight, row.tare_unit), source: row.tare_source };
 }

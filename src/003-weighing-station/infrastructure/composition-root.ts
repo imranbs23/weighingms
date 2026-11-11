@@ -58,6 +58,10 @@ import type { Tolerance } from '../../005-orgatex-integration/domain/value-objec
 import type { ToleranceZone } from '../domain/value-objects/tolerance-zone.js';
 import type { ScaleClass } from '../../004-scale-integration/domain/value-objects/scale-capability.js';
 import type { RecipeWorkingCopy } from '../../002-recipe-material-management/domain/services/recipe-working-copy.js';
+import type { MaterialLotRepository } from '../../002-recipe-material-management/domain/ports/material-lot-repository.js';
+import type { ContainerAssignmentRepository } from '../../002-recipe-material-management/domain/ports/container-ports.js';
+import type { ComponentId } from '../../005-orgatex-integration/domain/value-objects/identifiers.js';
+import { isRecordedTareSource } from '../domain/value-objects/recorded-tare.js';
 
 export interface WeighingStationModule {
   /** The selection use case. */
@@ -89,6 +93,12 @@ export interface WeighingStationModule {
    * opens the gate exactly once (ADR-047).
    */
   readonly clearEscalation: (componentId: string) => void;
+  /**
+   * The active component's lot and container, as captured IN THIS SESSION
+   * (bolt 031). A capture from before the session started is not this
+   * weighing's, and is not reported.
+   */
+  readonly capturesFor: (componentId: ComponentId) => Promise<ComponentCaptures>;
   /**
    * The over-dose's two quantities.
    *
@@ -160,6 +170,17 @@ export type StartSessionOutcome =
   | { readonly kind: 'OTHER_BATCH_IN_PROGRESS'; readonly batchId: string }
   | { readonly kind: 'REFUSED'; readonly reason: string };
 
+/** A component's lot and container, as captured in the current session. */
+export interface ComponentCaptures {
+  readonly lot: { readonly lotNumber: string; readonly method: string } | null;
+  readonly container: {
+    readonly containerId: string;
+    readonly tareWeight: string;
+    readonly tareUnit: string;
+    readonly tareSource: string;
+  } | null;
+}
+
 export interface BuildWeighingStationOptions {
   /**
    * The working copy — where the recipe being worked is held.
@@ -200,6 +221,18 @@ export interface BuildWeighingStationOptions {
   readonly writeBack: OrgatexWriteBackPort;
   /** The batch's facts — the MES's, read through a port. */
   readonly batchFacts: BatchFactsPort;
+  /**
+   * Unit 002's lot captures and container assignments — READ, never
+   * written here. Bound directly, like the write-back (ADR-041).
+   */
+  readonly lots: Pick<MaterialLotRepository, 'latestFor'>;
+  readonly assignments: Pick<ContainerAssignmentRepository, 'latestFor'>;
+  /**
+   * Retrieve the component's lot from the MES, when it holds one (story
+   * 002-003, method `SOURCE`). Called when the station binds a component;
+   * a component the MES holds no lot for is left to the operator.
+   */
+  readonly sourceLot?: (componentId: string, operatorId: string) => Promise<unknown>;
   /** The clock. */
   readonly clock?: () => Date;
   /** Where a failure's diagnostic goes. */
@@ -385,6 +418,41 @@ export function buildWeighingStationModule(
   // (ADR-047).
   let currentEscalation: Escalation | null = null;
 
+  // THE LOT AND THE CONTAINER — unit 002's, as captured IN THIS SESSION.
+  //
+  // Unit 002 keeps every capture, keyed by component id, and a component id
+  // comes back in a later batch. So a capture made before the current
+  // session started is NOT this weighing's: it is neither shown nor
+  // recorded (bolt 031).
+  const capturesFor = async (componentId: ComponentId): Promise<ComponentCaptures> => {
+    const session = sessionOf(options);
+    if (session === null) return { lot: null, container: null };
+    const since = session.startedAt.epochMillis;
+    const [lot, container] = await Promise.all([
+      options.lots.latestFor(componentId),
+      options.assignments.latestFor(componentId),
+    ]);
+    return {
+      lot:
+        lot !== null && lot.capturedAt.epochMillis >= since
+          ? { lotNumber: lot.lotNumber.value, method: lot.captureMethod }
+          : null,
+      container:
+        container !== null && container.assignedAt.epochMillis >= since
+          ? {
+              containerId: container.containerId.value,
+              tareWeight: container.tareWeight.toJSON(),
+              tareUnit: container.tareWeight.unit,
+              tareSource: container.tareSource,
+            }
+          : null,
+    };
+  };
+  const activeCaptures = async (): Promise<ComponentCaptures> => {
+    const active = sessionOf(options)?.activeComponentId ?? null;
+    return active === null ? { lot: null, container: null } : capturesFor(active);
+  };
+
   const confirmWeighing = new ConfirmWeighing({
     workingCopy: options.workingCopy,
     records: options.records,
@@ -482,8 +550,22 @@ export function buildWeighingStationModule(
     currentWeight: () => sessionOf(options)?.currentWeight ?? null,
     selectedScaleId: () => sessionOf(options)?.selectedScaleId ?? null,
     selectedScaleClass: () => scaleClassOf(options, sessionOf(options)),
-    lotNumber: () => null,
-    containerId: () => null,
+    // THE RECORD CARRIES THIS SESSION'S LOT, CONTAINER AND TARE (bolts
+    // 031, 032) — one read, so the container and its tare match (ADR-048).
+    captures: async () => {
+      const { lot, container } = await activeCaptures();
+      return {
+        lotNumber: lot?.lotNumber ?? null,
+        containerId: container?.containerId ?? null,
+        tare:
+          container === null || !isRecordedTareSource(container.tareSource)
+            ? null
+            : {
+                weight: WeightValue.of(container.tareWeight, container.tareUnit),
+                source: container.tareSource,
+              },
+      };
+    },
     clock,
     ...(options.onError === undefined ? {} : { onError: options.onError }),
   });
@@ -548,6 +630,21 @@ export function buildWeighingStationModule(
     if (outcome.kind !== 'SELECTED') {
       return { kind: 'REFUSED', reason: outcome.kind };
     }
+
+    // THE MES'S LOT — retrieved as the component is prepared, once per
+    // session (bolt 031). A failure here never blocks the weighing: the
+    // operator can still scan or key the lot.
+    const active = outcome.session.activeComponentId;
+    if (options.sourceLot !== undefined && active !== null) {
+      const captured = await capturesFor(active);
+      if (captured.lot === null) {
+        try {
+          await options.sourceLot(active.value, operatorId);
+        } catch (error) {
+          options.onError?.(`[weighing-station] the MES lot could not be read: ${String(error)}`);
+        }
+      }
+    }
     return { kind: 'READY', session: outcome.session };
   };
 
@@ -604,6 +701,7 @@ export function buildWeighingStationModule(
     rememberEscalation: (escalation: Escalation) => {
       currentEscalation = escalation;
     },
+    capturesFor,
     clearEscalation: (componentId: string) => {
       if (currentEscalation?.componentId === componentId) {
         currentEscalation = null;

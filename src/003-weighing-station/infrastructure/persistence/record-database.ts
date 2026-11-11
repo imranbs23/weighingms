@@ -117,6 +117,20 @@ const MIGRATIONS: readonly { id: string; sql: string }[] = [
       END;
     `,
   },
+  {
+    id: '037-weighing-records-carry-tare',
+    sql: `
+      -- THE RECORD CARRIES ITS TARE (bolt 032, ADR-048).
+      --
+      -- Nullable columns, added without rewriting a row: the no-update and
+      -- no-delete triggers stay, and a record written before this reads
+      -- back with no tare — which is the truth. Nothing is back-filled.
+      ALTER TABLE weighing_records ADD COLUMN tare_weight TEXT NULL;
+      ALTER TABLE weighing_records ADD COLUMN tare_unit TEXT NULL;
+      ALTER TABLE weighing_records ADD COLUMN tare_source TEXT NULL
+        CHECK (tare_source IS NULL OR tare_source IN ('CONTAINER_MASTER','WEIGHED_EMPTY_CONTAINER'));
+    `,
+  },
 ];
 
 /**

@@ -144,6 +144,12 @@ body {
   border-color: var(--ok);
   color: #07240f;
 }
+/* The confirm stays GREEN under the pointer: the generic hover grey above
+   outranks `.key.ok`, and an enabled confirm then looked disabled. */
+.key.ok:hover:not(:disabled) {
+  background: var(--ok);
+  filter: brightness(1.08);
+}
 .key.ghost {
   background: transparent;
 }

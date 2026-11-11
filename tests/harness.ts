@@ -369,6 +369,10 @@ export function createHarness(options?: {
   // through unit 002's working copy.
   const station = buildWeighingStationModule({
     workingCopy: recipes.workingCopy,
+    lots: recipes.lots,
+    assignments: recipes.assignments,
+    sourceLot: (componentId, operatorId) =>
+      recipes.captureMaterialLot.captureFromSource(componentId, OperatorId.create(operatorId)),
     selection: new ScaleSelectionAdapter(scales.registry),
     sessions: new SqliteWeighingSessionRepository(
       openSessionDatabase(':memory:', identity.db),

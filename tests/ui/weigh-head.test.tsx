@@ -57,6 +57,45 @@ describe('the weigh-head', () => {
     expect(meta).toContain('C-12');
   });
 
+  it('reads like the prototype: code · Lot · Container · Tare (bolt 031)', () => {
+    render(
+      <WeighHead
+        name="Remazol Yellow RGB"
+        dyestuffCode="DYE-4471"
+        componentId="DYE-4471-Y"
+        lotNumber="2026-0387"
+        containerId="C-12"
+        tare={{ value: '214.0000', unit: 'g' }}
+        scaleLabel={null}
+        t={t}
+      />,
+    );
+
+    expect(screen.getByTestId('weigh-meta').textContent).toBe(
+      'DYE-4471 · weigh.head.lot 2026-0387 · weigh.head.container C-12 · weigh.head.tare 214.0 g',
+    );
+  });
+
+  it('shows ONLY what was captured — no empty "Lot" or "Tare" placeholders', () => {
+    render(
+      <WeighHead
+        name="Sodium Sulphate"
+        dyestuffCode="AUX-0101"
+        componentId="AUX-0101"
+        lotNumber={null}
+        containerId="D-03"
+        tare={{ value: '1.8500', unit: 'kg' }}
+        scaleLabel={null}
+        t={t}
+      />,
+    );
+
+    const meta = screen.getByTestId('weigh-meta').textContent ?? '';
+    expect(meta).not.toContain('weigh.head.lot');
+    expect(meta).toContain('weigh.head.container D-03');
+    expect(meta).toContain('weigh.head.tare 1.850 kg');
+  });
+
   it('a name the MES did NOT supply renders the client’s placeholder — never a fabricated one', () => {
     render(
       <WeighHead

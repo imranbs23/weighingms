@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-11-11T09:00:00Z
-total_decisions: 47
+last_updated: 2026-11-11T13:20:00Z
+total_decisions: 48
 ---
 
 # Decision Index
@@ -30,6 +30,14 @@ Use this to find relevant prior decisions when working on related features.
 - **Read when**: {Agent guidance - domain keywords and scenarios when this ADR is relevant}
 
 -->
+
+### ADR-048: The weighing record snapshots its tare, and old records are not back-filled
+- **Status**: accepted
+- **Date**: 2026-11-11
+- **Bolt**: 032-003-weighing-station (003-weighing-station)
+- **Path**: `bolts/032-003-weighing-station/adr-048-the-record-snapshots-its-tare.md`
+- **Summary**: ADR-035 records the tare on the container assignment "because the weighing record carries it", but the record never did, and reading it back from the assignment means a fragile match by component id and time. The weighing record carries the tare that applied to it (weight and source), copied at confirmation from this session's container assignment and read in the same call as the container, so both are present or both null; old records are not back-filled and read `tare: null`, and the pairing is enforced in the application because SQLite cannot add a table-level CHECK to an existing table.
+- **Read when**: Changing the weighing record, its migrations, the tare, the container on a record, or the record's API shape; working on BRD FR-11, FR-25, BR-11, BR-14 or the workbook's Step 25; deciding whether to back-fill old records, whether the client may supply a tare, or whether the record should reference rather than copy the assignment.
 
 ### ADR-047: OVER is confirmed only through a scoped, single-use supervisor override, and nothing is recalculated
 - **Status**: accepted

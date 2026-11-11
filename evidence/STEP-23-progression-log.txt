@@ -1,0 +1,16 @@
+Remazol Brill. Blue RSPL: before a valid weight → confirm disabled, API 409 ZONE_UNDER
+Remazol Brill. Blue RSPL: within tolerance → confirmed
+  → the station advanced to Remazol Red RB (1/5 weighed)
+Remazol Red RB: before a valid weight → confirm disabled, API 409 ZONE_UNDER
+Remazol Red RB: within tolerance → confirmed
+  → the station advanced to Remazol Yellow RGB (2/5 weighed)
+Remazol Yellow RGB: before a valid weight → confirm disabled, API 409 ZONE_UNDER
+Remazol Yellow RGB: within tolerance → confirmed
+  → the station advanced to Sodium Sulphate (3/5 weighed)
+Sodium Sulphate: before a valid weight → confirm disabled, API 409 ZONE_UNDER
+Sodium Sulphate: within tolerance → confirmed
+  → the station advanced to Soda Ash (4/5 weighed)
+Soda Ash: before a valid weight → confirm disabled, API 409 ZONE_UNDER
+Batch complete requested with 4/5 weighed → API 409 BATCH_NOT_COMPLETE
+Soda Ash: within tolerance → confirmed
+All five weighed → batch complete (summary 5/5)

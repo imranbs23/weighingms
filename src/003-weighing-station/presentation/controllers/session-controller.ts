@@ -67,9 +67,21 @@ export function createSessionRouter(
     }
 
     const session = await station.sessions.current();
+    if (session === null) {
+      res.status(200).json({ session: null });
+      return;
+    }
+
+    // THE ACTIVE COMPONENT'S LOT AND CONTAINER — this session's only
+    // (bolt 031). The terminal's header reads these, not unit 002's
+    // unscoped reads.
+    const captures =
+      session.activeComponentId === null
+        ? { lot: null, container: null }
+        : await station.capturesFor(session.activeComponentId);
 
     res.status(200).json({
-      session: session === null ? null : serialiseSession(session),
+      session: { ...(serialiseSession(session) as object), activeCaptures: captures },
     });
   });
 
@@ -443,6 +455,10 @@ function serialiseRecord(record: {
   readonly operatorId: { readonly value: string };
   readonly weighedAt: { toString(): string };
   readonly correctsRecordId: string | null;
+  readonly tare?: {
+    readonly weight: { toJSON(): string; readonly unit: string };
+    readonly source: string;
+  } | null;
 }): unknown {
   return {
     recordId: record.recordId,
@@ -457,6 +473,15 @@ function serialiseRecord(record: {
         : {
             min: record.toleranceAtWeighing.min.toJSON(),
             max: record.toleranceAtWeighing.max.toJSON(),
+          },
+    // THE TARE THE WEIGHING USED (ADR-048) — a string, like every quantity.
+    tare:
+      record.tare === undefined || record.tare === null
+        ? null
+        : {
+            weight: record.tare.weight.toJSON(),
+            unit: record.tare.weight.unit,
+            source: record.tare.source,
           },
     zoneAtConfirm: record.zoneAtConfirm,
     scaleId: record.scaleId.value,

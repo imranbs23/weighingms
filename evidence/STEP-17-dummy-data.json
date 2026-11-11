@@ -1,0 +1,110 @@
+{
+  "_evidence": {
+    "step": 17,
+    "captured": "2026-11-11",
+    "backfill": true,
+    "source": "live answers of the Dummy APIs at http://localhost:3000",
+    "seededFrom": "src/005-orgatex-integration/infrastructure/adapters/dummy-orgatex-data.ts",
+    "note": "Training data from the supplied prototype; not a claim about the real OrgaTEX data.",
+    "matchesPrototype": true
+  },
+  "batch": {
+    "batchId": "B-24187",
+    "orderRef": "SO-9931",
+    "machineRef": "JET-04",
+    "fabricDescription": "100% CTN knit · 480 kg",
+    "shadeCode": "Teal 4C",
+    "componentCount": 5,
+    "weighingStatus": "RELEASED"
+  },
+  "recipe": {
+    "batchId": "B-24187",
+    "shadeCode": "Teal 4C",
+    "components": [
+      {
+        "sequence": 1,
+        "componentId": "DYE-4471-B",
+        "dyestuffCode": "DYE-1180",
+        "target": "1240.0000",
+        "unit": "g",
+        "toleranceMin": "1234.0000",
+        "toleranceMax": "1246.0000",
+        "scaleClass": "PRECISION",
+        "name": "Remazol Brill. Blue RSPL",
+        "swatchColour": "#1f4fa8"
+      },
+      {
+        "sequence": 2,
+        "componentId": "DYE-2204-R",
+        "dyestuffCode": "DYE-2204",
+        "target": "386.0000",
+        "unit": "g",
+        "toleranceMin": "384.0000",
+        "toleranceMax": "388.0000",
+        "scaleClass": "PRECISION",
+        "name": "Remazol Red RB",
+        "swatchColour": "#b8253a"
+      },
+      {
+        "sequence": 3,
+        "componentId": "DYE-4471-Y",
+        "dyestuffCode": "DYE-4471",
+        "target": "94.0000",
+        "unit": "g",
+        "toleranceMin": "93.5000",
+        "toleranceMax": "94.5000",
+        "scaleClass": "PRECISION",
+        "name": "Remazol Yellow RGB",
+        "swatchColour": "#d9a520"
+      },
+      {
+        "sequence": 4,
+        "componentId": "AUX-0101",
+        "dyestuffCode": "AUX-0101",
+        "target": "24.0000",
+        "unit": "kg",
+        "toleranceMin": "23.8800",
+        "toleranceMax": "24.1200",
+        "scaleClass": "FLOOR",
+        "name": "Sodium Sulphate",
+        "swatchColour": "#c9d2dc"
+      },
+      {
+        "sequence": 5,
+        "componentId": "AUX-0107",
+        "dyestuffCode": "AUX-0107",
+        "target": "9.6000",
+        "unit": "kg",
+        "toleranceMin": "9.5520",
+        "toleranceMax": "9.6480",
+        "scaleClass": "FLOOR",
+        "name": "Soda Ash",
+        "swatchColour": "#e4eaf0"
+      }
+    ]
+  },
+  "scales": [
+    {
+      "scaleId": "SCALE-A",
+      "label": "3 kg precision",
+      "class": "PRECISION",
+      "capacity": "3000",
+      "resolution": "1",
+      "unit": "g",
+      "status": "CONNECTED",
+      "link": "UP",
+      "source": "DUMMY"
+    },
+    {
+      "scaleId": "SCALE-B",
+      "label": "32 kg floor",
+      "class": "FLOOR",
+      "capacity": "32000",
+      "resolution": "10",
+      "unit": "g",
+      "status": "CONNECTED",
+      "link": "UP",
+      "source": "DUMMY"
+    }
+  ]
+}

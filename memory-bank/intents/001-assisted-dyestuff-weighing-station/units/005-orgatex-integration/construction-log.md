@@ -22,6 +22,7 @@ last_updated: 2026-11-02T22:40:00Z
 
 | Date | Action | Change | Reason | Approved |
 |------|--------|--------|--------|----------|
+| 2026-11-11T14:01:30Z | append | Added 033-005-orgatex-integration (story 003) | Workbook Step 26: the Dummy stores posted consumption but nothing reads it back | project owner (option 1) |
 
 ## Current Bolt Structure
 
@@ -51,6 +52,11 @@ last_updated: 2026-11-02T22:40:00Z
 - **2026-11-03T18:30:00Z**: `007-005-orgatex-integration` stage-complete - adr → implement (ADR-027)
 - **2026-11-04T18:00:00Z**: `007-005-orgatex-integration` stage-complete - implement → test
 - **2026-11-04T19:15:00Z**: `007-005-orgatex-integration` stage-complete - test → complete (1094 tests, 234 new)
+- **2026-11-11T14:01:30Z**: `033-005-orgatex-integration` started - Stage 1: plan
+- **2026-11-11T14:10:00Z**: `033-005-orgatex-integration` stage-complete - plan → implement (APPROVE PLAN)
+- **2026-11-11T14:20:00Z**: `033-005-orgatex-integration` implementation written - postings kept as received; GET /api/batches/:batchId/consumption
+- **2026-11-11T14:30:00Z**: `033-005-orgatex-integration` stage-complete - implement → test (APPROVE IMPLEMENTATION)
+- **2026-11-11T14:40:00Z**: `033-005-orgatex-integration` completed - All 3 stages done (Step 26 captured; 1969/1969)
 
 ## Verification
 

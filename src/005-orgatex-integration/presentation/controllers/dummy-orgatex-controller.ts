@@ -67,6 +67,29 @@ export function createDummyOrgatexRouter(world: DummyOrgatexWorld): Router {
     res.status(200).json(batch);
   });
 
+  /**
+   * GET /api/batches/:batchId/consumption — what the MES has stored for a
+   * batch: every posting, as received (bolt 033, workbook Step 26).
+   *
+   * A training contract, not a claim about the real OrgaTEX (A-01, Q-01).
+   * Not deduplicated: a duplicate posting is listed twice.
+   */
+  router.get('/batches/:batchId/consumption', (req: Request, res: Response) => {
+    if (!world.isReachable) {
+      res.status(503).json({ error: 'ORGATEX_UNAVAILABLE' });
+      return;
+    }
+
+    const batchId = String(req.params['batchId']);
+    if (world.readBatch(batchId) === null) {
+      res.status(404).json({ error: 'BATCH_NOT_FOUND' });
+      return;
+    }
+
+    const postings = world.readPostings(batchId);
+    res.status(200).json({ batchId, receivedCount: postings.length, postings });
+  });
+
   /** GET /api/batches/:batchId/recipe — the MES's recipe. */
   router.get('/batches/:batchId/recipe', (req: Request, res: Response) => {
     if (!world.isReachable) {

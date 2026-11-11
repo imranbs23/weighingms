@@ -1,0 +1,75 @@
+STEP 22 — Implement Tolerance
+Captured 2026-11-11T12:47:22.710Z (backfilled evidence; tolerance was built in bolt 014).
+Yellow RGB: target 94.0 g, tolerance ±0.5 g → band 93.5 g … 94.5 g, both ends inclusive.
+
+======================================================================
+PART 1 — the workbook's table, end to end on the terminal (Playwright)
+======================================================================
+$ EVIDENCE_STEP=22 npx playwright test -c playwright.evidence.config.ts step22
+
+Weight   Case              Expected         Zone   Confirm button   API confirm
+93.4 g   Below tolerance   cannot confirm   NEAR   disabled         409 ZONE_NEAR
+93.5 g   Lower boundary    can confirm      OK     enabled          not sent (it would record the weighing)
+94.0 g   Target            can confirm      OK     enabled          not sent (it would record the weighing)
+94.5 g   Upper boundary    can confirm      OK     enabled          not sent (it would record the weighing)
+94.6 g   Over              cannot confirm   OVER   disabled         409 ZONE_OVER
+
+An allowed weight is not sent to the API (it would record the weighing);
+the gate's ALLOWED answer for 93.5, 94.0 and 94.5 is proved in PART 2.
+93.4 g is refused in the NEAR zone (just short of the band); it cannot be
+confirmed, which is what the workbook asks.
+
+======================================================================
+PART 2 — the automated unit tests: the zone and the confirmation gate
+======================================================================
+$ npx vitest run tests/unit/tolerance-zone.test.ts tests/unit/confirmation-gate.test.ts --reporter=verbose
+
+RUN  v5.0.5 C:/Personal/weighingms
+
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > refuses an UNDER confirmation and writes NOTHING 4ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > refuses a NEAR confirmation and writes NOTHING 1ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > refuses an OVER confirmation and writes NOTHING 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > confirms an OK reading and REPORTS the zone — it writes nothing 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > reads the CURRENT zone — not the one last displayed 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > refuses while the scale has gone away 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > refuses when there is no reading 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > refuses when there is no active component 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > the workbook’s Step 22 table (Yellow RGB, 94.0 g ± 0.5 g) > 93.4 g (below tolerance) → CANNOT confirm 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > the workbook’s Step 22 table (Yellow RGB, 94.0 g ± 0.5 g) > 93.5 g (lower boundary) → CAN confirm 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > the workbook’s Step 22 table (Yellow RGB, 94.0 g ± 0.5 g) > 94.0 g (target) → CAN confirm 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > the workbook’s Step 22 table (Yellow RGB, 94.0 g ± 0.5 g) > 94.5 g (upper boundary) → CAN confirm 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > the workbook’s Step 22 table (Yellow RGB, 94.0 g ± 0.5 g) > 94.6 g (over) → CANNOT confirm 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > the supervisor override (bolt 030, ADR-047) > ALLOWS an OVER reading with an authorised override — and the zone stays OVER 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > the supervisor override (bolt 030, ADR-047) > asks about THIS component at THIS weight 1ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > the supervisor override (bolt 030, ADR-047) > REFUSES OVER when the override is not authorised 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > the supervisor override (bolt 030, ADR-047) > never opens UNDER or NEAR — an override is for an over-dose only 0ms
+ ✓ |server| tests/unit/confirmation-gate.test.ts > the confirmation gate > the bounds are the same three numbers the zone was computed against 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the near threshold > is `target × 0.9` EXACTLY — not the float approximation 2ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the near threshold > is `84.60000000000001` in a float — which is why it is decimal 1ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > a reading exactly at `target + tolerance` is OK — the bound is STRICT 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > one ULP above `target + tolerance` is OVER 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > one ULP below `target + tolerance` is OK 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > a reading exactly at `target − tolerance` is OK — the bound is INCLUSIVE 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > one ULP below `target − tolerance` is NEAR 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > one ULP above `target − tolerance` is OK 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > a reading exactly at `target × 0.9` is NEAR — the bound is INCLUSIVE 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > one ULP below `target × 0.9` is UNDER 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > one ULP above `target × 0.9` is NEAR 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > the story’s boundary readings land where the story says 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > the middle of the band is OK 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > a reading well below the band is UNDER 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zone boundaries — the exhaustive suite > a reading well above the band is OVER 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zero cases > a ZERO target: `target × 0.9` is zero, a positive reading is OVER 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zero cases > a ZERO tolerance: `OK` requires the value to equal the target exactly 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the zero cases > NO tolerance at all: the `OK` bounds are the target itself 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the still to weigh > is `target − current` 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the still to weigh > is NEVER negative — the clamp is in the DOMAIN 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the still to weigh > is zero when the target has been reached exactly 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the still to weigh > is computed in fixed-point, not in a float 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the bounds are computed once > the near threshold is the SAME number every time 0ms
+ ✓ |server| tests/unit/tolerance-zone.test.ts > the bounds are computed once > a revised target produces NEW bounds, not stale ones 0ms
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  18:46:44
+   Duration  436ms (import 45%, transform 29%, tests 16%, worker 9%)

@@ -1,0 +1,57 @@
+{
+  "_evidence": {
+    "step": 25,
+    "captured": "2026-11-11T13:16:05.782Z",
+    "backfill": true,
+    "source": "POST /api/session/confirm — the station's response, as given (Playwright, fresh product)",
+    "workbookFields": {
+      "actualWeight": "record.actualQuantity + unit",
+      "operator": "record.operatorId",
+      "component": "record.componentId",
+      "lot": "record.lotNumber",
+      "container": "record.containerId",
+      "tare": "record.tare",
+      "scale": "record.scaleId + scaleClass",
+      "timestamp": "record.weighedAt"
+    }
+  },
+  "request": {
+    "method": "POST",
+    "path": "/api/session/confirm",
+    "body": {
+      "componentId": "DYE-4471-B"
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "record": {
+        "recordId": "WR-mwc571m4-DYE-4471-B",
+        "sessionId": "WS-mwc56umc-99c3b8af",
+        "componentId": "DYE-4471-B",
+        "actualQuantity": "1242.4",
+        "unit": "g",
+        "targetAtWeighing": "1240.0000",
+        "toleranceAtWeighing": {
+          "min": "1234.0000",
+          "max": "1246.0000"
+        },
+        "tare": {
+          "weight": "214.0000",
+          "unit": "g",
+          "source": "CONTAINER_MASTER"
+        },
+        "zoneAtConfirm": "OK",
+        "scaleId": "SCALE-A",
+        "scaleClass": "PRECISION",
+        "lotNumber": "2026-0341",
+        "containerId": "C-09",
+        "operatorId": "OP-001",
+        "weighedAt": "2026-11-11T13:16:05.740Z",
+        "correctsRecordId": null
+      },
+      "advancedTo": "DYE-2204-R",
+      "batchComplete": false
+    }
+  }
+}

@@ -215,6 +215,14 @@ export class DummyOrgatexWorld {
   private readonly consumption = new Map<string, readonly RawComponent[]>();
 
   /**
+   * Every posting the MES received, per batch, AS RECEIVED (bolt 033) —
+   * lot, operator, weighing time and idempotency key included, so the
+   * write-back's result can be read back. Not deduplicated: a duplicate
+   * stays visible.
+   */
+  private readonly postings = new Map<string, readonly RawConsumption[]>();
+
+  /**
    * Whether the MES refuses consumptions.
    *
    * The **rejection** control, as distinct from the outage control. The
@@ -413,6 +421,11 @@ export class DummyOrgatexWorld {
     return this.consumption.get(batchId) ?? [];
   }
 
+  /** Every posting received for a batch, as received, in arrival order. */
+  readPostings(batchId: string): readonly RawConsumption[] {
+    return this.postings.get(batchId) ?? [];
+  }
+
   /** Record consumption against a batch. */
   addConsumption(batchId: string, components: readonly RawComponent[]): void {
     const existing = this.consumption.get(batchId) ?? [];
@@ -439,6 +452,10 @@ export class DummyOrgatexWorld {
    * prevent.
    */
   postConsumption(consumption: RawConsumption): void {
+    this.postings.set(consumption.batchId, [
+      ...(this.postings.get(consumption.batchId) ?? []),
+      { ...consumption },
+    ]);
     this.addConsumption(consumption.batchId, [
       {
         sequence: 0,

@@ -39,6 +39,7 @@ import type { ComponentId } from '../../../005-orgatex-integration/domain/value-
 import type { Tolerance } from '../../../005-orgatex-integration/domain/value-objects/tolerance.js';
 import type { OperatorId } from '../../../008-operator-identity/domain/value-objects/operator-id.js';
 import type { ToleranceZone } from '../value-objects/tolerance-zone.js';
+import type { RecordedTare } from '../value-objects/recorded-tare.js';
 
 export class WeighingRecord {
   constructor(
@@ -74,5 +75,12 @@ export class WeighingRecord {
      * The original is **untouched** — a correction is a new row (C-12).
      */
     readonly correctsRecordId: string | null = null,
+    /**
+     * The tare this weighing used — copied from this session's container
+     * assignment, and present exactly when `containerId` is (ADR-048).
+     * `null` for a weighing with no container, and for every record
+     * written before migration 037.
+     */
+    readonly tare: RecordedTare | null = null,
   ) {}
 }

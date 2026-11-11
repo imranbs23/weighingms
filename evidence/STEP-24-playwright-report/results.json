@@ -100,7 +100,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 41039,
+                  "duration": 41569,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
@@ -108,38 +108,38 @@
                   "steps": [
                     {
                       "title": "The pour lands OVER: never confirmed automatically",
-                      "duration": 7353
+                      "duration": 7859
                     },
                     {
                       "title": "The surplus is shown FOR INFORMATION — no proposal",
-                      "duration": 890
+                      "duration": 400
                     },
                     {
                       "title": "A wrong PIN is refused, and confirm stays disabled",
-                      "duration": 486
+                      "duration": 421
                     },
                     {
                       "title": "The supervisor signs off: confirm is enabled, and says why",
-                      "duration": 394
+                      "duration": 440
                     },
                     {
                       "title": "Confirmed AS POURED, zone OVER",
-                      "duration": 81
+                      "duration": 96
                     },
                     {
                       "title": "The rest of the batch, in tolerance — no target was recalculated",
-                      "duration": 29250
+                      "duration": 29802
                     },
                     {
                       "title": "Completion and ticket mark the component \"OVER · overridden\"",
-                      "duration": 434
+                      "duration": 444
                     },
                     {
                       "title": "The supervisor’s report lists the OVER weighing, as poured",
-                      "duration": 114
+                      "duration": 117
                     }
                   ],
-                  "startTime": "2026-11-11T08:57:28.299Z",
+                  "startTime": "2026-11-11T13:18:43.636Z",
                   "annotations": [
                     {
                       "type": "report.overrideCount",
@@ -168,8 +168,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-11T08:57:21.945Z",
-    "duration": 48671.706,
+    "startTime": "2026-11-11T13:18:37.334Z",
+    "duration": 49628.229,
     "expected": 1,
     "skipped": 0,
     "unexpected": 0,

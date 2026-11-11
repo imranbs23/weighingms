@@ -24,14 +24,14 @@ import { useEffect, useRef, useState } from 'react';
 import {
   authoriseEscalation,
   confirmComponent,
-  fetchContainer,
-  fetchLot,
   fetchRecipe,
   fetchScales,
   fetchSession,
   fetchZone,
   fetchSurplus,
   raiseEscalation,
+  captureLot,
+  assignContainer,
   requestSupervisorAuthorisation,
   reTare,
   selectComponent,
@@ -62,6 +62,7 @@ import {
 import { ActionRow } from './ActionRow.js';
 import { SurplusPanel } from './SurplusPanel.js';
 import { EscalationPanel } from './EscalationPanel.js';
+import { PreparePanel, type PrepareInput } from './PreparePanel.js';
 import { MIN_LABEL_PX, TOUCH_TARGET_PX } from '../batch-queue/tokens.js';
 
 /** Every locale key the weigh view uses. */
@@ -75,6 +76,20 @@ export const WEIGH_KEYS = [
   'weigh.rail.state.done',
   'weigh.head.noName',
   'weigh.head.scaleSelected',
+  'weigh.head.lot',
+  'weigh.head.container',
+  'weigh.head.tare',
+  'weigh.prepare.heading',
+  'weigh.prepare.lot',
+  'weigh.prepare.lotSubmit',
+  'weigh.prepare.container',
+  'weigh.prepare.containerSubmit',
+  'weigh.prepare.lotRequired',
+  'weigh.prepare.lotRefused',
+  'weigh.prepare.containerUnknown',
+  'weigh.prepare.tareRefused',
+  'weigh.prepare.noReading',
+  'weigh.prepare.containerRefused',
   'weigh.readout.noValue',
   'weigh.readout.weighedNow',
   'weigh.readout.stillToWeigh',
@@ -166,10 +181,6 @@ export function WeighScreen({
   const [escalation, setEscalation] = useState<EscalationReport | null>(null);
   const [awaitingSupervisor, setAwaitingSupervisor] = useState(false);
   const [recipe, setRecipe] = useState<RecipeView | null>(null);
-  const [lot, setLot] = useState<{ lotNumber: string } | null>(null);
-  const [container, setContainer] = useState<{ containerId: string } | null>(
-    null,
-  );
   const [scales, setScales] = useState<readonly ScaleReport[]>([]);
 
   const confirm = useActionStore((s) => s.confirm);
@@ -279,28 +290,6 @@ export function WeighScreen({
         setScales(scalesResult.body.scales);
       }
 
-      if (activeComponentId === null) {
-        setLot(null);
-        setContainer(null);
-        return;
-      }
-
-      const [lotResult, containerResult] = await Promise.all([
-        fetchLot(activeComponentId),
-        fetchContainer(activeComponentId),
-      ]);
-      if (cancelled) return;
-
-      setLot(
-        lotResult.kind === 'OK' && lotResult.body.capture !== null
-          ? lotResult.body.capture
-          : null,
-      );
-      setContainer(
-        containerResult.kind === 'OK' && containerResult.body.assignment !== null
-          ? containerResult.body.assignment
-          : null,
-      );
     };
 
     void load();
@@ -437,6 +426,54 @@ export function WeighScreen({
     }
   };
 
+  // THE LOT AND THE CONTAINER — this session's, as the station reports
+  // them; never unit 002's unscoped reads (bolt 031).
+  const captures = session?.activeCaptures ?? { lot: null, container: null };
+
+  const onCaptureLot = async (input: PrepareInput): Promise<void> => {
+    if (activeComponentId === null) return;
+    begin();
+    const result = await captureLot(
+      activeComponentId,
+      input.kind === 'SCAN' ? { code: input.value } : { lotNumber: input.value },
+    );
+    end();
+    if (result.kind !== 'OK') {
+      fail(
+        result.kind === 'FAILED' && result.error === 'VALIDATION_ERROR'
+          ? 'weigh.prepare.lotRequired'
+          : 'weigh.prepare.lotRefused',
+      );
+      return;
+    }
+    await reload();
+  };
+
+  const onAssignContainer = async (input: PrepareInput): Promise<void> => {
+    if (activeComponentId === null || scaleId === null) return;
+    begin();
+    const result = await assignContainer(
+      activeComponentId,
+      input.kind === 'SCAN' ? { code: input.value } : { containerId: input.value },
+      scaleId,
+    );
+    end();
+    if (result.kind !== 'OK') {
+      const error = result.kind === 'FAILED' ? result.error : '';
+      fail(
+        error === 'CONTAINER_NOT_FOUND' || error === 'VALIDATION_ERROR'
+          ? 'weigh.prepare.containerUnknown'
+          : error === 'TARE_REFUSED'
+            ? 'weigh.prepare.tareRefused'
+            : error === 'SCALE_UNAVAILABLE'
+              ? 'weigh.prepare.noReading'
+              : 'weigh.prepare.containerRefused',
+      );
+      return;
+    }
+    await reload();
+  };
+
   const onOverride = async (): Promise<void> => {
     if (activeComponentId === null) return;
 
@@ -545,11 +582,34 @@ export function WeighScreen({
           name={activeComponent?.name ?? null}
           dyestuffCode={activeComponent?.dyestuffCode ?? null}
           componentId={activeComponentId ?? ''}
-          lotNumber={lot?.lotNumber ?? null}
-          containerId={container?.containerId ?? null}
+          lotNumber={captures.lot?.lotNumber ?? null}
+          containerId={captures.container?.containerId ?? null}
+          tare={
+            captures.container === null
+              ? null
+              : { value: captures.container.tareWeight, unit: captures.container.tareUnit }
+          }
           scaleLabel={boundScale?.label ?? null}
           t={t}
         />
+
+        {/* THE LOT AND THE CONTAINER — prompted before the pour, not
+            required (bolt 031, option A). */}
+        {activeComponentId !== null && (
+          <PreparePanel
+            key={activeComponentId}
+            needsLot={captures.lot === null}
+            needsContainer={captures.container === null}
+            busy={busy}
+            t={t}
+            onLot={(input) => {
+              void onCaptureLot(input);
+            }}
+            onContainer={(input) => {
+              void onAssignContainer(input);
+            }}
+          />
+        )}
 
         <LiveReadout
           value={liveValue}

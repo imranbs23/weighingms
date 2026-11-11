@@ -38,3 +38,67 @@
 | memory-bank\intents\001-assisted-dyestuff-weighing-station\requirements.md | complete | construction | Intent has 8 units (7/8 complete) |
 
 ---
+
+## 2026-11-11T12:04:07.613Z - Status Sync
+
+**Triggered by**: status-integrity script
+
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| memory-bank\intents\001-assisted-dyestuff-weighing-station\units\007-weighingms-ui\unit-brief.md | complete | in-progress | Unit has 7 bolts (6/7 complete) |
+
+---
+
+## 2026-11-11T12:04:18.819Z - Status Sync
+
+**Triggered by**: status-integrity script
+
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| memory-bank\intents\001-assisted-dyestuff-weighing-station\requirements.md | complete | construction | Intent has 8 units (7/8 complete) |
+
+---
+- **2026-11-11T12:05:00Z**: status sync — unit 007 complete → in-progress, intent complete → construction (bolt 031 opened)
+- **2026-11-11T13:40:00Z**: UI fix (found by the Step 22 evidence capture) — an enabled OK · Confirm under the mouse pointer turned grey, because the generic `.key:hover` rule outranks `.key.ok`; added `.key.ok:hover:not(:disabled)` in `src/007-weighingms-ui/styles/terminal.css`
+
+## 2026-11-11T13:00:16.095Z - Status Sync
+
+**Triggered by**: status-integrity script
+
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| memory-bank\intents\001-assisted-dyestuff-weighing-station\units\003-weighing-station\unit-brief.md | complete | in-progress | Unit has 8 bolts (7/8 complete) |
+
+---
+
+## 2026-11-11T13:00:16.422Z - Status Sync
+
+**Triggered by**: status-integrity script
+
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| memory-bank\intents\001-assisted-dyestuff-weighing-station\requirements.md | complete | construction | Intent has 8 units (7/8 complete) |
+
+---
+- **2026-11-11T13:00:00Z**: status sync — unit 003 complete → in-progress, intent complete → construction (bolt 032 opened)
+
+## 2026-11-11T14:01:59.021Z - Status Sync
+
+**Triggered by**: status-integrity script
+
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| memory-bank\intents\001-assisted-dyestuff-weighing-station\units\005-orgatex-integration\unit-brief.md | complete | in-progress | Unit has 4 bolts (3/4 complete) |
+
+---
+
+## 2026-11-11T14:01:59.292Z - Status Sync
+
+**Triggered by**: status-integrity script
+
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| memory-bank\intents\001-assisted-dyestuff-weighing-station\requirements.md | complete | construction | Intent has 8 units (7/8 complete) |
+
+---
+- **2026-11-11T14:02:00Z**: status sync — unit 005 complete → in-progress, intent complete → construction (bolt 033 opened)

@@ -28,6 +28,7 @@
  * exactly the case the story names.
  */
 import { Instant } from '../../../004-scale-integration/domain/value-objects/instant.js';
+import type { RecordedTare } from '../../domain/value-objects/recorded-tare.js';
 import type { ScaleId } from '../../../004-scale-integration/domain/value-objects/scale-id.js';
 import type { ComponentId } from '../../../005-orgatex-integration/domain/value-objects/identifiers.js';
 import type { OperatorId } from '../../../008-operator-identity/domain/value-objects/operator-id.js';
@@ -72,10 +73,16 @@ export interface ConfirmComponentOptions {
   readonly selectedScaleId: () => ScaleId | null;
   /** The bound scale's class — the device's. */
   readonly selectedScaleClass: () => ScaleClassLike | null;
-  /** The captured lot, when there is one. */
-  readonly lotNumber: () => string | null;
-  /** The assigned container, when there is one. */
-  readonly containerId: () => string | null;
+  /**
+   * The lot, the container and its tare captured for the active component
+   * — read in ONE call, so the container and its tare always come from the
+   * same assignment: both present, or both null (ADR-048).
+   */
+  readonly captures: () => Promise<{
+    readonly lotNumber: string | null;
+    readonly containerId: string | null;
+    readonly tare: RecordedTare | null;
+  }>;
   /** The clock. */
   readonly clock: () => Date;
   /** Where a failure's diagnostic goes. */
@@ -166,6 +173,7 @@ export class ConfirmComponent {
     // Durable before the response is returned (BRD NFR-05), and the
     // duplicate is refused by the `UNIQUE` constraint rather than by a
     // check (ADR-040).
+    const captured = await this.options.captures();
     const record = new WeighingRecord(
       `WR-${this.options.clock().getTime().toString(36)}-${active.value}`,
       session.sessionId,
@@ -178,10 +186,12 @@ export class ConfirmComponent {
       zoneAtConfirm,
       scaleId,
       scaleClass,
-      this.options.lotNumber(),
-      this.options.containerId(),
+      captured.lotNumber,
+      captured.containerId,
       operatorId,
       Instant.of(this.options.clock()),
+      null,
+      captured.containerId === null ? null : captured.tare,
     );
 
     try {

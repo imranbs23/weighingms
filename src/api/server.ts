@@ -11,6 +11,7 @@ import {
   buildIdentityModule,
 } from '../008-operator-identity/infrastructure/composition-root.js';
 import { loadIdentityConfig } from '../008-operator-identity/infrastructure/config/identity-config.js';
+import { OperatorId } from '../008-operator-identity/domain/value-objects/operator-id.js';
 import { buildScaleModule } from '../004-scale-integration/infrastructure/composition-root.js';
 import { loadScaleConfig } from '../004-scale-integration/infrastructure/config/scale-config.js';
 import { buildOrgatexModule } from '../005-orgatex-integration/infrastructure/composition-root.js';
@@ -210,6 +211,12 @@ containerMaster.seedSync();
 // is persisted so the work can be resumed (NFR-06, ADR-036).
 const station = buildWeighingStationModule({
   workingCopy: recipesWorkingCopy,
+  // UNIT 002's captures — read, so the record carries this session's lot
+  // and container (bolt 031).
+  lots: recipes.lots,
+  assignments: recipes.assignments,
+  sourceLot: (componentId, operatorId) =>
+    recipes.captureMaterialLot.captureFromSource(componentId, OperatorId.create(operatorId)),
   selection: new ScaleSelectionAdapter(scales.registry),
   sessions: new SqliteWeighingSessionRepository(
     openSessionDatabase(config.databasePath, identity.db),

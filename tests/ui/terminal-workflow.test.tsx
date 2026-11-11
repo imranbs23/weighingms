@@ -710,6 +710,61 @@ describe('the weigh view', () => {
     ).toBe(false);
   });
 
+  it('the header shows THIS SESSION’s lot, container and tare — and a scanned container is sent with the bound scale (bolt 031)', async () => {
+    let captured = false;
+    const fetchMock = overAtRest((url, init) =>
+      url.endsWith('/api/session')
+        ? {
+            status: 200,
+            body: {
+              session: {
+                ...SESSION,
+                activeCaptures: {
+                  lot: { lotNumber: '2026-0387', method: 'SOURCE' },
+                  container: captured
+                    ? { containerId: 'C-12', tareWeight: '214.0000', tareUnit: 'g', tareSource: 'CONTAINER_MASTER' }
+                    : null,
+                },
+              },
+            },
+          }
+        : url.endsWith('/api/container') && init?.method === 'POST'
+          ? ((captured = true), { status: 201, body: { assignment: { containerId: 'C-12' } } })
+          : null,
+    );
+
+    render(<WeighScreen batchId="B-24187" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('weigh-meta').textContent).toContain('2026-0387');
+    });
+    // The lot is captured, so only the container is asked for.
+    expect(screen.queryByTestId('prepare-lot-input')).toBeNull();
+
+    const input = screen.getByTestId('prepare-container-input');
+    fireEvent.change(input, { target: { value: 'C-12' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('weigh-meta').textContent).toContain('C-12');
+    });
+    expect(screen.getByTestId('weigh-meta').textContent).toContain('214.0 g');
+    expect(screen.queryByTestId('prepare-panel')).toBeNull();
+
+    const post = fetchMock.mock.calls.find(
+      (call) => String(call[0]).endsWith('/api/container') && (call[1] as RequestInit | undefined)?.method === 'POST',
+    );
+    expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({
+      componentId: 'DYE-4471-Y',
+      scaleId: 'SCALE-A',
+      code: 'C-12',
+    });
+    // Unit 002's UNSCOPED reads are no longer used — the session's answer is.
+    expect(
+      fetchMock.mock.calls.some((call) => /\/api\/(material-lot|container)\//.test(String(call[0]))),
+    ).toBe(false);
+  });
+
   it('the training bar is NEVER shown for a real device', async () => {
     stubWeigh('DEVICE');
     render(<WeighScreen batchId="B-24187" />);

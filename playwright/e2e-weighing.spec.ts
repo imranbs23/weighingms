@@ -104,6 +104,16 @@ test('B-24187 is weighed end to end — batch, recipe, five components, write-ba
       await expect(page.getByTestId('confirm-action')).toBeDisabled();
       await expect(page.getByTestId('confirm-reason')).not.toBeEmpty();
 
+      // THE LOT AND THE CONTAINER (bolt 031), for the first component: the
+      // MES's lot arrives by itself, and the container is scanned.
+      if (index === 0) {
+        await expect(page.getByTestId('weigh-meta')).toContainText('2026-0341');
+        await page.getByTestId('prepare-container-input').fill('C-09');
+        await page.getByTestId('prepare-container-input').press('Enter');
+        await expect(page.getByTestId('weigh-meta')).toContainText('C-09');
+        await expect(page.getByTestId('weigh-meta')).toContainText('214.0 g');
+      }
+
       await page.getByTestId('training-dispense').click();
 
       // Into tolerance — the zone is the API's, and all three agree.
@@ -141,6 +151,9 @@ test('B-24187 is weighed end to end — batch, recipe, five components, write-ba
     await expect(page.getByTestId('summary-verdict')).toContainText('YES');
     await expect(page.getByTestId('summary-write-back')).toContainText('CONFIRMED');
     await expect(page.getByTestId('summary-release')).toContainText('JET-04');
+    // The record carried the lot and the container (bolt 031).
+    await expect(page.getByTestId('detail-DYE-4471-B')).toContainText('2026-0341');
+    await expect(page.getByTestId('detail-DYE-4471-B')).toContainText('C-09');
 
     // READ BACK — the station's own record of the write-back.
     const signIn = await request.post(`${API_URL}/api/identity/sign-in`, {

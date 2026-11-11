@@ -1,0 +1,355 @@
+STEP 18 — Test the Dummy APIs
+Captured 2026-11-11T09:54:20.201Z (backfilled evidence; the APIs were first tested during bolts 003–007).
+API: http://localhost:3000  — the actual port of this implementation (npm run dev:api).
+The token is OP-002's, from POST /api/identity/sign-in; it is not printed.
+
+======================================================================
+PART 1 — curl, as the workbook asks
+======================================================================
+
+$ curl http://localhost:3000/api/batches
+HTTP 200
+{
+  "batches": [
+    {
+      "batchId": "B-24187",
+      "orderRef": "SO-9931",
+      "machineRef": "JET-04",
+      "fabricDescription": "100% CTN knit · 480 kg",
+      "shadeCode": "Teal 4C",
+      "componentCount": 5,
+      "weighingStatus": "RELEASED"
+    },
+    {
+      "batchId": "B-24188",
+      "orderRef": "SO-9931",
+      "machineRef": "JET-07",
+      "fabricDescription": "100% CTN knit · 520 kg",
+      "shadeCode": "Teal 4C",
+      "componentCount": 5,
+      "weighingStatus": "QUEUED"
+    },
+    {
+      "batchId": "B-24190",
+      "orderRef": "SO-9944",
+      "machineRef": "JET-02",
+      "fabricDescription": "CVC fleece · 310 kg",
+      "shadeCode": "Navy 12",
+      "componentCount": 7,
+      "weighingStatus": "QUEUED"
+    },
+    {
+      "batchId": "B-24191",
+      "orderRef": "SO-9947",
+      "machineRef": "WINCH-01",
+      "fabricDescription": "Viscose jersey · 190 kg",
+      "shadeCode": "Rose 08",
+      "componentCount": 4,
+      "weighingStatus": "QUEUED"
+    }
+  ]
+}
+
+$ curl http://localhost:3000/api/batches/B-24187
+HTTP 200
+{
+  "batchId": "B-24187",
+  "orderRef": "SO-9931",
+  "machineRef": "JET-04",
+  "fabricDescription": "100% CTN knit · 480 kg",
+  "shadeCode": "Teal 4C",
+  "componentCount": 5,
+  "weighingStatus": "RELEASED"
+}
+
+$ curl http://localhost:3000/api/batches/B-24187/recipe
+HTTP 200
+{
+  "batchId": "B-24187",
+  "shadeCode": "Teal 4C",
+  "components": [
+    {
+      "sequence": 1,
+      "componentId": "DYE-4471-B",
+      "dyestuffCode": "DYE-1180",
+      "target": "1240.0000",
+      "unit": "g",
+      "toleranceMin": "1234.0000",
+      "toleranceMax": "1246.0000",
+      "scaleClass": "PRECISION",
+      "name": "Remazol Brill. Blue RSPL",
+      "swatchColour": "#1f4fa8"
+    },
+    {
+      "sequence": 2,
+      "componentId": "DYE-2204-R",
+      "dyestuffCode": "DYE-2204",
+      "target": "386.0000",
+      "unit": "g",
+      "toleranceMin": "384.0000",
+      "toleranceMax": "388.0000",
+      "scaleClass": "PRECISION",
+      "name": "Remazol Red RB",
+      "swatchColour": "#b8253a"
+    },
+    {
+      "sequence": 3,
+      "componentId": "DYE-4471-Y",
+      "dyestuffCode": "DYE-4471",
+      "target": "94.0000",
+      "unit": "g",
+      "toleranceMin": "93.5000",
+      "toleranceMax": "94.5000",
+      "scaleClass": "PRECISION",
+      "name": "Remazol Yellow RGB",
+      "swatchColour": "#d9a520"
+    },
+    {
+      "sequence": 4,
+      "componentId": "AUX-0101",
+      "dyestuffCode": "AUX-0101",
+      "target": "24.0000",
+      "unit": "kg",
+      "toleranceMin": "23.8800",
+      "toleranceMax": "24.1200",
+      "scaleClass": "FLOOR",
+      "name": "Sodium Sulphate",
+      "swatchColour": "#c9d2dc"
+    },
+    {
+      "sequence": 5,
+      "componentId": "AUX-0107",
+      "dyestuffCode": "AUX-0107",
+      "target": "9.6000",
+      "unit": "kg",
+      "toleranceMin": "9.5520",
+      "toleranceMax": "9.6480",
+      "scaleClass": "FLOOR",
+      "name": "Soda Ash",
+      "swatchColour": "#e4eaf0"
+    }
+  ]
+}
+
+$ curl -H "Authorization: Bearer <token>" http://localhost:3000/api/scales
+HTTP 200
+{
+  "scales": [
+    {
+      "scaleId": "SCALE-A",
+      "label": "3 kg precision",
+      "class": "PRECISION",
+      "capacity": "3000",
+      "resolution": "1",
+      "unit": "g",
+      "status": "CONNECTED",
+      "link": "UP",
+      "source": "DUMMY"
+    },
+    {
+      "scaleId": "SCALE-B",
+      "label": "32 kg floor",
+      "class": "FLOOR",
+      "capacity": "32000",
+      "resolution": "10",
+      "unit": "g",
+      "status": "CONNECTED",
+      "link": "UP",
+      "source": "DUMMY"
+    }
+  ]
+}
+
+$ curl -H "Authorization: Bearer <token>" http://localhost:3000/api/scales/SCALE-A/status
+HTTP 200
+{
+  "scaleId": "SCALE-A",
+  "label": "3 kg precision",
+  "class": "PRECISION",
+  "capacity": "3000",
+  "resolution": "1",
+  "unit": "g",
+  "status": "CONNECTED",
+  "link": "UP",
+  "calibration": {
+    "state": "IN_CALIBRATION",
+    "expiresAt": "2027-11-11T09:23:14.065Z"
+  },
+  "lastReadingAt": "2026-11-11T09:52:32.531Z",
+  "lastSequence": 423114,
+  "canWeigh": {
+    "allowed": true,
+    "reason": null
+  }
+}
+
+$ curl -H "Authorization: Bearer <token>" http://localhost:3000/api/scanner/status
+HTTP 200
+{
+  "state": "READY",
+  "source": "DUMMY"
+}
+
+$ curl -H "Authorization: Bearer <token>" http://localhost:3000/api/printer/status
+HTTP 200
+{
+  "state": "READY",
+  "reason": null,
+  "source": "DUMMY"
+}
+
+$ curl http://localhost:3000/api/batches/B-99999      # an unknown batch is a 404, not an empty 200
+HTTP 404
+{
+  "error": "BATCH_NOT_FOUND"
+}
+
+======================================================================
+PART 2 — the automated suites for the same APIs
+======================================================================
+$ npx vitest run tests/integration/orgatex-api.test.ts tests/integration/orgatex-write-api.test.ts tests/integration/scale-api.test.ts tests/integration/scale-stream.test.ts tests/integration/scale-tare-api.test.ts tests/integration/ticket-api.test.ts tests/integration/terminal-workflow-api.test.ts --reporter=verbose
+
+RUN  v5.0.5 C:/Personal/weighingms
+
+ ✓ |server| tests/integration/ticket-api.test.ts > the ticket and the print job > generates the ticket, and it carries the lines and the identity 9836ms
+ ✓ |server| tests/integration/ticket-api.test.ts > the ticket and the print job > the lines carry the RECORDS’ OWN quantities, and each keeps its own unit 9789ms
+ ✓ |server| tests/integration/ticket-api.test.ts > the ticket and the print job > a SECOND generation returns the SAME ticket — idempotent 9637ms
+ ✓ |server| tests/integration/ticket-api.test.ts > the ticket and the print job > the print job is created, completes, and is RETRIEVABLE by its id 9762ms
+ ✓ |server| tests/integration/ticket-api.test.ts > the ticket and the print job > B-7: a FAILING printer gives a FAILED job — and the weighing SURVIVES 9707ms
+ ✓ |server| tests/integration/ticket-api.test.ts > the ticket and the print job > B-7: the ticket prints AGAIN — without the weighing being re-entered 9647ms
+ ✓ |server| tests/integration/ticket-api.test.ts > the ticket and the print job > the ticket without a session is a 401 146ms
+ ✓ |server| tests/integration/ticket-api.test.ts > the ticket and the print job > printing a ticket that does not exist is a 404 109ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > starting a batch > the station selects the FIRST component in recipe order and binds its scale 124ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > starting a batch > starting AGAIN continues the same session — it is a resume, not a restart 58ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > starting a batch > a batch whose recipe is not loaded is REFUSED — the station starts nothing 55ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > starting a batch > requires an operator session 44ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the progression > a confirm that ADVANCES binds the next component — and Sodium Sulphate gets the 32 kg scale 5794ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the progression > a COMPLETED batch’s session is never continued — starting again starts a new one 9319ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the progression > a new component starts from an EMPTY platform — the last weight never shows against it 1841ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the write-back after an OrgaTEX outage > a batch completed OFFLINE is queued durably — and CONFIRMED once OrgaTEX is back 9490ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the training dispense > pours the RECIPE’s target — the client sends only the landing 1987ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the training dispense > OVERSHOOT lands OVER tolerance — and the confirm is refused 1835ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the training dispense > with no active component, there is nothing to pour 46ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the training dispense > a landing that is not one of the two is a 400 58ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the re-tare > zeroes the net reading against what is on the platform 1968ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the re-tare > after a re-tare, a dispense still lands the NET reading in tolerance 3491ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the re-tare > an unknown scale is a 404 58ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the peripherals > GET /api/scales says which devices are the training dummy 59ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the peripherals > an IDLE scale stays connected once the devices are kept alive 358ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the peripherals > the scanner reports READY, and DISCONNECTED when it is 59ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the peripherals > the printer reports READY, and UNAVAILABLE with its reason 61ms
+ ✓ |server| tests/integration/terminal-workflow-api.test.ts > the terminal workflow > the peripherals > the printer’s training control takes it out of service — and back 75ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > refuses a consumption posting without a session 124ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > refuses a status write without a session 52ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > takes the operator from the session, not from the body 56ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > ignores an operatorId sent in the body 55ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > refuses a quantity sent as a JSON number 56ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > refuses a malformed quantity 54ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > refuses a body with no component 52ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > refuses a weighedAt that is not an instant 53ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > accepts a consumption and reports it as accepted 58ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > records the consumption against the batch in the MES 50ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > records the key in the ledger 48ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > reports a duplicate as a 200 and adds nothing 49ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > treats a second weighing of the same component as a NEW posting 47ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > reports an unreachable MES as pending, not as posted 45ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > does not record a queued posting in the ledger 45ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > refuses a second enqueue of a queued key 51ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > reports a refusal from the MES as a 422 with a reason code 46ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > retains the rejected posting rather than discarding it 44ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > records the attempt history for a rejection 51ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > records the attempt history for an unreachable MES 60ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > advances the batch to WEIGHED when every posting is resolved 86ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > alters NO other OrgaTEX batch field 57ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > refuses the status write when a posting is unresolved 62ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > refuses a status other than WEIGHED 52ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > reports a refusal of the status write as a 422 57ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > reports an unreachable MES on a status write as pending 60ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the OrgaTEX write API > refuses a status write for an empty body 63ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the Dummy MES write API > accepts a consumption WITHOUT a session 81ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the Dummy MES write API > refuses a consumption with a quantity that is a number 34ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the Dummy MES write API > refuses a consumption for a batch the path does not name 30ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the Dummy MES write API > does NOT deduplicate — it accepts every consumption it is given 42ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the Dummy MES write API > accepts a status write WITHOUT a session 33ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the Dummy MES write API > refuses a status other than WEIGHED 29ms
+ ✓ |server| tests/integration/orgatex-write-api.test.ts > the Dummy MES write API > reports a 503 while the MES is unreachable 33ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > refuses the queue without a session 115ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > refuses the recipe without a session 58ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > refuses the queue with a session that is not an operator 61ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > returns the queue to a signed-in operator 53ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > carries a freshness marker on every response 52ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > carries the source and the received time 47ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > reports each batch’s eligibility 46ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > filters by status 48ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > refuses an UNKNOWN status filter with a 400 51ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > returns the recipe to a signed-in operator 52ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > emits every quantity as a decimal STRING 50ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > emits an ABSENT tolerance as null — never as zero 49ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > returns 404 for a batch the MES does not have 58ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > returns 400 for an EMPTY batch id 53ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > serves the last known-good, with an age, when the MES goes away 60ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > returns 503 with NO content when the MES is away and there is no snapshot 56ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the OrgaTEX API > does NOT leak the adapter’s internal message to the client 54ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy OrgaTEX — the training artefact > serves its queue WITHOUT a session — it is the external system 30ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy OrgaTEX — the training artefact > serves a batch 27ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy OrgaTEX — the training artefact > serves a recipe 27ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy OrgaTEX — the training artefact > returns 404 for a batch it does not have 26ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy OrgaTEX — the training artefact > is COHERENT with the product — one world, two views 55ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy OrgaTEX — the training artefact > emits every quantity as a decimal STRING 24ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy OrgaTEX — the training artefact > has a training control that makes the MES unreachable 24ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy OrgaTEX — the training artefact > accepts the training control WITH a session, and takes effect 58ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy OrgaTEX — the training artefact > refuses an invalid control state 55ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy OrgaTEX — the training artefact > starts reachable 22ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy MES release control > requires a session — it writes to the training world 57ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy MES release control > releases the batch — and the MES shows it as RELEASED 58ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy MES release control > makes the batch SELECTABLE — the eligibility rule still decides 68ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy MES release control > refuses a batch the MES does not hold 56ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy MES release control > refuses any status other than RELEASED 56ms
+ ✓ |server| tests/integration/orgatex-api.test.ts > the Dummy MES release control > refuses a body with no batch 59ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > serves the tare view WITHOUT a session 135ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > REFUSES to apply a tare without a session 61ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > applies a tare and records the value, unit, time and source 57ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > reports the tare in force on the subsequent GET 59ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > CONVERTS a kilogram tare into the device gram unit 56ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > records an EXPLICIT zero tare with its source, distinct from no tare 59ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > REPLACES the previous tare on a re-tare 67ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > serves the quantities as STRINGS, never as numbers 64ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > refuses a tare whose value is a NUMBER, not a string 61ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > refuses an unknown unit 58ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > refuses an unknown source 56ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > ignores a CLIENT-SUPPLIED appliedAt — the server stamps the time 53ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > returns 404 for an unknown scale 56ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the tare endpoint > names the refusal reason and states the previous tare is retained 53ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the selection endpoint > REFUSES to select without a session 53ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the selection endpoint > selects the PRECISION scale for a small target 53ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the selection endpoint > records the scale id, the component id, the time and the reason 49ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the selection endpoint > selects the FLOOR scale for a target beyond the precision capacity 50ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the selection endpoint > returns 200 with selected:false when NO device can weigh the target 58ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the selection endpoint > records the CONFLICT when the class cannot be satisfied 59ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the selection endpoint > refuses a target that is a NUMBER, not a string 50ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the selection endpoint > refuses an unknown demanded class 47ms
+ ✓ |server| tests/integration/scale-tare-api.test.ts > the selection endpoint > refuses an empty component id 47ms
+ ✓ |server| tests/integration/scale-stream.test.ts > Weight SSE stream > serves the stream with the event-stream content type 61ms
+ ✓ |server| tests/integration/scale-stream.test.ts > Weight SSE stream > opens with the CURRENT state, so a silent scale says so at once 77ms
+ ✓ |server| tests/integration/scale-stream.test.ts > Weight SSE stream > NEVER emits a reading event for a SILENCED device 245ms
+ ✓ |server| tests/integration/scale-stream.test.ts > Weight SSE stream > DOES emit a reading of zero for a device that is PRESENT and reading zero 47ms
+ ✓ |server| tests/integration/scale-stream.test.ts > Weight SSE stream > emits a reading whose value is a JSON STRING 77ms
+ ✓ |server| tests/integration/scale-stream.test.ts > Weight SSE stream > reports the disconnection as a status frame, not an error 76ms
+ ✓ |server| tests/integration/scale-stream.test.ts > Weight SSE stream > returns 404 for an unknown scale 25ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > lists the two scales from the prototype status strip 72ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > serves the quantities as STRINGS, never as numbers 29ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > returns the status view for a known scale 28ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > returns 404 for an unknown scale 24ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > answers the gate with 200 and a named reason when blocked 25ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > reports SCALE_DISCONNECTED once the device has gone silent 29ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > refuses the link control without a session 32ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > refuses the dispense control without a session 25ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > accepts the link control with an operator session 55ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > rejects a link control with an invalid state 51ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > rejects a dispense control whose target is a NUMBER, not a string 50ms
+ ✓ |server| tests/integration/scale-api.test.ts > Scale HTTP boundary > accepts a dispense control whose quantities are strings 49ms
+
+ Test Files  7 passed (7)
+      Tests  137 passed (137)
+   Start at  15:52:34
+   Duration  106.10s (tests 97%, import 3%)

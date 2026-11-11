@@ -287,6 +287,37 @@ describe('the confirmation gate', () => {
     expect(records.saved).toHaveLength(0);
   });
 
+  // THE WORKBOOK'S STEP 22 TABLE — Yellow RGB, 94.0 g ± 0.5 g, so the band
+  // is 93.5 g → 94.5 g, and both boundaries are INSIDE it.
+  describe('the workbook’s Step 22 table (Yellow RGB, 94.0 g ± 0.5 g)', () => {
+    const table = [
+      { case: 'below tolerance', weight: '93.4', allowed: false, zone: 'NEAR' },
+      { case: 'lower boundary', weight: '93.5', allowed: true, zone: 'OK' },
+      { case: 'target', weight: '94.0', allowed: true, zone: 'OK' },
+      { case: 'upper boundary', weight: '94.5', allowed: true, zone: 'OK' },
+      { case: 'over', weight: '94.6', allowed: false, zone: 'OVER' },
+    ] as const;
+
+    for (const row of table) {
+      it(`${row.weight} g (${row.case}) → ${row.allowed ? 'CAN' : 'CANNOT'} confirm`, async () => {
+        read(row.weight);
+
+        const outcome = await gate().execute(OPERATOR);
+
+        if (row.allowed) {
+          expect(outcome.kind).toBe('ALLOWED');
+          if (outcome.kind !== 'ALLOWED') return;
+          expect(outcome.zoneAtConfirm).toBe(row.zone);
+        } else {
+          expect(outcome.kind).toBe('REFUSED');
+          if (outcome.kind !== 'REFUSED') return;
+          expect(outcome.zone).toBe(row.zone);
+        }
+        expect(records.saved).toHaveLength(0);
+      });
+    }
+  });
+
   describe('the supervisor override (bolt 030, ADR-047)', () => {
     it('ALLOWS an OVER reading with an authorised override — and the zone stays OVER', async () => {
       read('120.0000');
