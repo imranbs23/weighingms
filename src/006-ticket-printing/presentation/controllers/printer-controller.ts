@@ -25,5 +25,38 @@ export function createPrinterRouter(tickets: TicketModule): Router {
     });
   });
 
+  /**
+   * POST /api/printer/control — TRAINING ONLY: take the dummy printer out
+   * of service ("out of paper") or put it back, the same way the scale's
+   * link and the Dummy MES's reachability have their controls.
+   *
+   * 200 — the printer's new state. 400 — not a control. 401 — no session.
+   */
+  router.post('/control', (req: Request, res: Response) => {
+    if (req.currentOperator === undefined) {
+      res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return;
+    }
+
+    const body = req.body as { available?: unknown; reason?: unknown };
+    if (
+      typeof body?.available !== 'boolean' ||
+      (body.reason !== undefined && typeof body.reason !== 'string')
+    ) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        fields: [{ path: 'available', message: 'must be a boolean' }],
+      });
+      return;
+    }
+
+    tickets.trainingPrinter.setAvailable(body.available, body.reason);
+    const status = tickets.trainingPrinter.status();
+    res.status(200).json({
+      state: status.available ? 'READY' : 'UNAVAILABLE',
+      reason: status.reason,
+    });
+  });
+
   return router;
 }

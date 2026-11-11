@@ -317,6 +317,8 @@ export function WeighScreen({
   // OVER TOLERANCE — the station is asked for its surplus proposal, once
   // per component, when the reading has come to rest: a pour still moving
   // through OVER would be proposed against a weight it is about to leave.
+  // It re-runs on EVERY poll (the zone is a new object each time), because
+  // "at rest" is precisely the value NOT changing between two polls.
   const proposedFor = useRef<string | null>(null);
   const lastOverValue = useRef<string | null>(null);
   useEffect(() => {
@@ -338,7 +340,7 @@ export function WeighScreen({
         setProposalState(result.body.proposal);
       }
     })();
-  }, [zone?.zone, zone?.value, activeComponentId, setProposalState]);
+  }, [zone, activeComponentId, setProposalState]);
 
   const displayable = displayableReading(reading, receivedAt);
   const age = streamAge(receivedAt);

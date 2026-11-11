@@ -129,6 +129,10 @@ const orgatexConfig = loadOrgatexConfig({
 const orgatex = buildOrgatexModule({
   config: orgatexConfig,
   db: identity.db,
+  // THE RETRY WORKER RUNS IN THE SERVER. A write queued while OrgaTEX was
+  // unreachable is re-driven from the durable queue once it is back; without
+  // the worker it would stay PENDING forever (found by workbook Step 30).
+  startRetryWorker: true,
 });
 
 // The station's own batch queue (unit 001). It reads the MES ONLY through
@@ -232,6 +236,7 @@ const station = buildWeighingStationModule({
   writeBack: new OrgatexWriteBackAdapter(
     orgatex.postingService,
     orgatex.statusWriteService,
+    orgatex.syncQueueService,
   ),
   batchFacts: new OrgatexBatchFactsAdapter(orgatex.queueReader),
   onError: (detail) => console.error(detail),

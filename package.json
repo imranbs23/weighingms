@@ -25,7 +25,8 @@
     "normalise:line-endings": "node scripts/normalise-line-endings.cjs",
     "normalise:timestamps": "node scripts/unquote-timestamps.cjs",
     "test:e2e": "playwright test",
-    "evidence:step28": "playwright test -c playwright.capture.config.ts"
+    "evidence:step28": "playwright test -c playwright.capture.config.ts",
+    "test:e2e:failures": "playwright test -c playwright.failures.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",

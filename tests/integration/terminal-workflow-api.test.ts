@@ -150,6 +150,37 @@ describe('the terminal workflow', () => {
     });
   });
 
+  describe('the write-back after an OrgaTEX outage', () => {
+    it('a batch completed OFFLINE is queued durably — and CONFIRMED once OrgaTEX is back', async () => {
+      await api('get', '/api/recipe/B-24187');
+      await api('post', '/api/session/start').send({ batchId: 'B-24187' });
+      await api('post', '/api/orgatex/control').send({ state: 'UNREACHABLE' });
+
+      // The weighing does not stop for the outage.
+      for (let index = 0; index < 5; index += 1) {
+        expect((await pourAndConfirm()).status).toBe(201);
+      }
+      const offline = await api('post', '/api/batch/B-24187/complete');
+      expect(offline.status).toBe(200);
+      expect(offline.body.summary.writeBack).toBe('PENDING');
+
+      // EVERY consumption is in the durable queue — none is lost.
+      const queued = await api('get', '/api/orgatex/sync-queue');
+      expect(queued.body.count).toBe(5);
+
+      // OrgaTEX comes back; the retry worker re-drives the queue.
+      await api('post', '/api/orgatex/control').send({ state: 'REACHABLE' });
+      for (let tick = 0; tick < 5; tick += 1) {
+        harness.clock.advance(60_000);
+        await harness.orgatex.syncRetryWorker.tick();
+      }
+
+      expect((await api('get', '/api/orgatex/sync-queue')).body.count).toBe(0);
+      const summary = await api('get', '/api/batch/B-24187/summary');
+      expect(summary.body.summary.writeBack).toBe('CONFIRMED');
+    });
+  });
+
   describe('the training dispense', () => {
     it('pours the RECIPE’s target — the client sends only the landing', async () => {
       await api('get', '/api/recipe/B-24187');
@@ -270,6 +301,29 @@ describe('the terminal workflow', () => {
       const status = await api('get', '/api/printer/status');
       expect(status.body.state).toBe('UNAVAILABLE');
       expect(status.body.reason).toBe('Out of paper');
+    });
+
+    it('the printer’s training control takes it out of service — and back', async () => {
+      const off = await api('post', '/api/printer/control').send({
+        available: false,
+        reason: 'Out of paper',
+      });
+      expect(off.status).toBe(200);
+      expect((await api('get', '/api/printer/status')).body).toMatchObject({
+        state: 'UNAVAILABLE',
+        reason: 'Out of paper',
+      });
+
+      await api('post', '/api/printer/control').send({ available: true });
+      expect((await api('get', '/api/printer/status')).body.state).toBe('READY');
+
+      expect(
+        (await api('post', '/api/printer/control').send({ available: 'no' })).status,
+      ).toBe(400);
+      expect(
+        (await request(harness.app).post('/api/printer/control').send({ available: true }))
+          .status,
+      ).toBe(401);
     });
   });
 });

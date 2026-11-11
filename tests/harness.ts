@@ -393,6 +393,7 @@ export function createHarness(options?: {
     writeBack: new OrgatexWriteBackAdapter(
       orgatex.postingService,
       orgatex.statusWriteService,
+      orgatex.syncQueueService,
     ),
     batchFacts: new OrgatexBatchFactsAdapter(orgatex.queueReader),
     clock: clock.now,

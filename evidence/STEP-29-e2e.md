@@ -13,7 +13,7 @@ Playwright report and a video of the run.
 
 | Command | What it runs | Result |
 |---|---|---|
-| `npm test` | Vitest: unit, integration, security and UI component tests | **126 files, 1914/1914 passed** (358 s): `STEP-29-unit-tests.txt` |
+| `npm test` | Vitest: unit, integration, security and UI component tests | **126 files, 1917/1917 passed** (re-run after Step 30): `STEP-29-unit-tests.txt` |
 | `npm run test:e2e` | Playwright against the real product: the Express API (:3100, its own fresh database, seeded operators) and the Vite SPA (:5174), two processes | **1/1 passed** (45 s) |
 
 The Step 28 screenshot capture has its own config (`npm run evidence:step28`)

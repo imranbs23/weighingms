@@ -25,6 +25,7 @@
 import { BatchId } from '../../../005-orgatex-integration/domain/value-objects/identifiers.js';
 import type { ConsumptionPostingService } from '../../../005-orgatex-integration/domain/services/consumption-posting-service.js';
 import type { BatchStatusWriteService } from '../../../005-orgatex-integration/domain/services/batch-status-write-service.js';
+import type { SyncQueueService } from '../../../005-orgatex-integration/domain/services/sync-queue-service.js';
 import type { BatchQueueReader } from '../../../005-orgatex-integration/domain/services/batch-queue-reader.js';
 import type {
   BatchFactsPort,
@@ -35,6 +36,13 @@ export class OrgatexWriteBackAdapter implements OrgatexWriteBackPort {
   constructor(
     private readonly postings: ConsumptionPostingService,
     private readonly statusWrites: BatchStatusWriteService,
+    /**
+     * Unit 005's durable sync queue. A posting the MES could not take is
+     * QUEUED by the posting service, and must also be ENQUEUED here — the
+     * same two steps the HTTP route takes — or the retry worker never sees
+     * it and the write-back stays PENDING for ever (found by Step 30).
+     */
+    private readonly syncQueue?: SyncQueueService,
   ) {}
 
   /**
@@ -48,7 +56,12 @@ export class OrgatexWriteBackAdapter implements OrgatexWriteBackPort {
   ): Promise<
     Awaited<ReturnType<ConsumptionPostingService['post']>>
   > {
-    return this.postings.post(request);
+    const outcome = await this.postings.post(request);
+    if (outcome.kind === 'QUEUED') {
+      // The queue's own enqueue guard refuses a second entry for one key.
+      await this.syncQueue?.enqueue(outcome.posting);
+    }
+    return outcome;
   }
 
   /**

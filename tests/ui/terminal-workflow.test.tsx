@@ -510,6 +510,69 @@ describe('the weigh view', () => {
     expect(screen.getByTestId('live-weight-value').textContent).not.toContain('23995');
   });
 
+  it('an OVER reading that comes to REST gets ONE surplus proposal — and the panel shows it', async () => {
+    const proposal = {
+      proposalId: 'P-1',
+      componentId: 'DYE-4471-Y',
+      sessionId: 'WS-1',
+      surplusAmount: '2.4000',
+      unit: 'g',
+      overshoot: '1.9000',
+      surplusPercent: '2.5532',
+      factor: '0.025532',
+      status: 'PROPOSED',
+      operatorId: 'OP-001',
+      createdAt: '2026-11-11T07:00:00.000Z',
+      decidedAt: null,
+      reason: null,
+      recalculated: [
+        { componentId: 'AUX-0101', originalTarget: '24.0000', revisedTarget: '24.6128' },
+      ],
+    };
+    const fetchMock = stubFetch((url, init) =>
+      url.includes('/api/session/zone')
+        ? {
+            status: 200,
+            // The SAME value on every poll — the reading has come to rest.
+            body: {
+              zone: 'OVER',
+              value: '96.4000',
+              unit: 'g',
+              target: '94.0000',
+              bounds: { nearThreshold: '84.6000', okLower: '93.5000', okUpper: '94.5000' },
+              stillToWeigh: '0.0000',
+            },
+          }
+        : url.endsWith('/api/session')
+          ? { status: 200, body: { session: SESSION } }
+          : url.endsWith('/api/surplus') && init?.method === 'POST'
+            ? { status: 201, body: { proposal } }
+            : url.includes('/api/recipe/')
+              ? { status: 200, body: RECIPE }
+              : url.includes('/api/scales')
+                ? { status: 200, body: { scales: [scale('DUMMY')] } }
+                : url.includes('/api/material-lot/')
+                  ? { status: 200, body: { capture: null } }
+                  : url.includes('/api/container/')
+                    ? { status: 200, body: { assignment: null } }
+                    : { status: 200, body: { value: 'x' } },
+    );
+
+    render(<WeighScreen batchId="B-24187" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('surplus-panel')).toBeTruthy();
+    });
+    // Let several more polls pass — still ONE proposal.
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const proposals = fetchMock.mock.calls.filter(
+      (call) =>
+        String(call[0]).endsWith('/api/surplus') &&
+        (call[1] as RequestInit | undefined)?.method === 'POST',
+    );
+    expect(proposals).toHaveLength(1);
+  });
+
   it('the training bar is NEVER shown for a real device', async () => {
     stubWeigh('DEVICE');
     render(<WeighScreen batchId="B-24187" />);
