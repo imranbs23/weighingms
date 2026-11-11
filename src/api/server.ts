@@ -357,7 +357,22 @@ const app = createApp({
   recipes,
   station,
   tickets: ticketModule,
+  corsOrigins: readCorsOrigins(),
 });
+
+// THE DEVICES STREAM FROM BOOT — a connected, idle scale reads READY, as a
+// real indicator would, rather than timing out to DISCONNECTED because no
+// session happens to be listening. BEFORE the resume, so the resumed
+// session subscribes to the pump that is already running.
+scales.keepDevicesAlive();
+
+// THE RESUME — and it happens BEFORE the server accepts a request.
+//
+// The session is persisted so the work can be resumed (NFR-06, ADR-036),
+// but the subscription to its device lives in memory and died with the
+// last process. **Without this the station would show a frozen weight
+// forever** — the device speaks, and nobody hears it.
+station.resume();
 
 const server = app.listen(PORT, () => {
   console.log(`[api] WeighingMS API listening on http://localhost:${PORT}`);
@@ -387,3 +402,42 @@ function shutdown(signal: string): void {
 
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+/**
+ * THE ALLOWED ORIGINS — and they are CONFIGURATION.
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * THE SPA'S ORIGIN IS NOT A CONSTANT. IT IS A DEPLOYMENT FACT.
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * The API's CORS allow-list is **the closed set of origins that may read
+ * its responses** — and the session token is a bearer credential, so a
+ * wildcard would hand it to any page the operator visits. That is why the
+ * list is explicit.
+ *
+ * **But an explicit list is still a LIST, and the list belongs to the
+ * deployment.** A development build serves the SPA on `:5173`; the e2e
+ * harness serves it on its own port; a site deployment serves it from a
+ * host. Hard-coding one of those into the composition root means the other
+ * two cannot work — and the symptom is a browser console full of CORS
+ * errors and a station that never signs in.
+ *
+ * So the list is read from the environment, comma-separated, and the
+ * **default** is the development pair. `WEIGHINGMS_CORS_ORIGINS` replaces
+ * it entirely — it does not extend it, because an allow-list that only
+ * ever grows is not an allow-list.
+ *
+ * **And an entry is an ORIGIN, not a prefix** — `http://localhost:5173`
+ * grants that exact origin and nothing else.
+ */
+function readCorsOrigins(): readonly string[] {
+  const raw = process.env['WEIGHINGMS_CORS_ORIGINS'];
+  if (raw === undefined || raw.trim() === '') {
+    return ['http://localhost:5173', 'http://127.0.0.1:5173'];
+  }
+
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}

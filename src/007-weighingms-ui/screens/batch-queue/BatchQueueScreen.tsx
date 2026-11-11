@@ -13,14 +13,17 @@
  * or empty-looking success"* (BRD FR-20) — and the API goes out of its
  * way to distinguish them, so the client must too.
  *
+ * An accepted selection opens the batch for weighing (the workflow store);
+ * a batch that cannot be opened says why, here, on the queue.
+ *
  * **AND NO OPERATOR-FACING LITERAL IS HERE.** Every string is a locale key.
  */
 import { useEffect, useState } from 'react';
 import { useStrings } from '../../i18n/useStrings.js';
 import { useQueueStore, visibleBatches } from '../../state/queue-store.js';
+import { useWorkflowStore } from '../../state/workflow-store.js';
 import { QueueHeader, QueueRow } from './QueueRow.js';
 import {
-  COLOURS,
   MIN_LABEL_PX,
   QUEUE_KEYS,
   SPACING,
@@ -30,11 +33,16 @@ import {
 export function BatchQueueScreen(): React.JSX.Element {
   const t = useStrings(QUEUE_KEYS);
   const state = useQueueStore((s) => s.state);
-  const filter = useQueueStore((s) => s.filter);
   const refusal = useQueueStore((s) => s.refusal);
   const load = useQueueStore((s) => s.load);
   const select = useQueueStore((s) => s.selectByTouch);
   const clearRefusal = useQueueStore((s) => s.clearRefusal);
+
+  // WHY THE BATCH COULD NOT BE OPENED — the workflow's, after a selection
+  // the queue accepted (another batch in progress, no scale can weigh it).
+  const workflowRefusal = useWorkflowStore((s) => s.refusal);
+  const opening = useWorkflowStore((s) => s.busy);
+  const clearWorkflowRefusal = useWorkflowStore((s) => s.clearRefusal);
 
   // The scan box — the operator's other way to select.
   const [code, setCode] = useState('');
@@ -50,77 +58,85 @@ export function BatchQueueScreen(): React.JSX.Element {
       ? state.queue.receivedAt
       : null;
 
+  const submitScan = (): void => {
+    void scan(code);
+    setCode('');
+  };
+
   return (
     <main
+      className="queue"
       data-testid="batch-queue-screen"
-      style={{
-        padding: SPACING.lg,
-        color: COLOURS.text,
-        fontSize: `${MIN_LABEL_PX}px`,
-      }}
+      data-opening={opening ? 'true' : 'false'}
+      style={{ fontSize: `${MIN_LABEL_PX}px` }}
     >
-      <h1 style={{ fontSize: `${MIN_LABEL_PX * 1.4}px`, margin: 0 }}>
-        {t('queue.title')}
-      </h1>
-
-      {/* THE RECEIPT TIME — a SERVER value, displayed as received. And it is
-          shown even when the queue is EMPTY, because it tells the operator
-          how old the data is. */}
-      {receiptTime !== null && (
-        <p data-testid="queue-last-received" style={{ color: COLOURS.textMuted }}>
-          {t('queue.lastReceived')}: {receiptTime}
-        </p>
-      )}
-
-      {refusal !== null && (
-        <div
-          data-testid="queue-refusal"
-          role="alert"
-          style={{ color: COLOURS.danger }}
-        >
-          {t(`queue.refusal.${refusal.toLowerCase()}`)}
-          <button
-            type="button"
-            onClick={clearRefusal}
-            style={{ minHeight: `${TOUCH_TARGET_PX}px` }}
-          >
-            {t('queue.filter.all')}
-          </button>
+      {/* THE SCAN PROMPT — the prototype's: scan the batch card, or touch a
+          row. The scan and the touch are the SAME action: the server
+          derives the method from the body's shape. */}
+      <div className="scan-prompt">
+        <span className="beam" aria-hidden="true" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.xs }}>
+          <span className="big">{t('queue.scan.prompt')}</span>
+          <span className="sm">{t('queue.scan.orTouch')}</span>
         </div>
-      )}
-
-      {/* THE SCAN — the operator's other way in. And the SAME action as the
-          touch: the server derives the method from the body's shape. */}
-      <div style={{ display: 'flex', gap: SPACING.sm, margin: SPACING.md }}>
+        <span className="spacer" />
         <input
           data-testid="queue-scan-input"
-          aria-label={t('queue.row.select')}
+          aria-label={t('queue.scan.prompt')}
           value={code}
           onChange={(event) => setCode(event.target.value)}
+          onKeyDown={(event) => {
+            // A barcode wedge ends its code with Enter.
+            if (event.key === 'Enter') submitScan();
+          }}
           style={{ minHeight: `${TOUCH_TARGET_PX}px`, fontSize: `${MIN_LABEL_PX}px` }}
         />
         <button
           type="button"
+          className="key"
           data-testid="queue-scan-submit"
-          onClick={() => {
-            void scan(code);
-            setCode('');
-          }}
+          onClick={submitScan}
           style={{ minHeight: `${TOUCH_TARGET_PX}px`, fontSize: `${MIN_LABEL_PX}px` }}
         >
           {t('queue.row.select')}
         </button>
       </div>
 
+      {(refusal !== null || workflowRefusal !== null) && (
+        <div className="alert" data-testid="queue-refusal" role="alert">
+          <span>
+            {refusal !== null
+              ? t(`queue.refusal.${refusal.toLowerCase()}`)
+              : t(workflowRefusal ?? '')}
+          </span>
+          <span className="spacer" />
+          <button
+            type="button"
+            className="key ghost"
+            onClick={() => {
+              clearRefusal();
+              clearWorkflowRefusal();
+            }}
+            style={{ minHeight: `${TOUCH_TARGET_PX}px` }}
+          >
+            {t('queue.refusal.dismiss')}
+          </button>
+        </div>
+      )}
+
+      {/* THE RECEIPT TIME — a SERVER value, displayed as received. And it is
+          shown even when the queue is EMPTY, because it tells the operator
+          how old the data is. */}
+      {receiptTime !== null && (
+        <p data-testid="queue-last-received" className="k-label" style={{ margin: 0 }}>
+          {t('queue.lastReceived')} {receiptTime}
+        </p>
+      )}
+
       {state.kind === 'DEGRADED' && (
-        <section
-          data-testid="queue-degraded"
-          role="alert"
-          style={{ color: COLOURS.danger }}
-        >
-          <h2>{t('queue.degraded.title')}</h2>
-          {/* THE STATED REASON — the server's code, rendered through the
-              bundle. */}
+        <section className="alert" data-testid="queue-degraded" role="alert">
+          <h2 style={{ margin: 0 }}>{t('queue.degraded.title')}</h2>
+          {/* THE STATED REASON — the server's code. */}
           <p data-testid="queue-degraded-reason">{state.reason}</p>
         </section>
       )}
@@ -140,8 +156,6 @@ export function BatchQueueScreen(): React.JSX.Element {
               key={batch.batchId}
               batch={batch}
               t={t}
-              // A batch that is no longer released is NOT selectable, and
-              // the reason is the server's.
               selectable={batch.weighingStatus === 'RELEASED'}
               onSelect={(batchId) => {
                 void select(batchId);

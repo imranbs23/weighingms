@@ -101,3 +101,17 @@ export function positionInRange(
   if (ratio.greaterThan(100)) return 100;
   return ratio.toDecimalPlaces(4, Decimal.ROUND_HALF_UP).toNumber();
 }
+
+/**
+ * The bar's display range — the prototype's: a third above the target, so
+ * the target line sits at three quarters of the bar whatever the scale's
+ * capacity. PRESENTATION ONLY: where the fill is drawn, never a zone.
+ */
+export function displayMaximum(target: string): string {
+  return new Decimal(target).times(4).dividedBy(3).toFixed();
+}
+
+/** Half the tolerance band's width — the "±" the caption shows. */
+export function halfWidth(lower: string, upper: string): string {
+  return new Decimal(upper).minus(lower).dividedBy(2).toFixed();
+}

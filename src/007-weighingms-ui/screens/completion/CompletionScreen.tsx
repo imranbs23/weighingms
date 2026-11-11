@@ -24,8 +24,11 @@ import {
   type TicketReport,
 } from '../../api/endpoints.js';
 import { useStrings } from '../../i18n/useStrings.js';
+import { useWorkflowStore } from '../../state/workflow-store.js';
+import { useFunctionKeys } from '../weigh/ActionRow.js';
 import {
   BatchSummaryView,
+  ComponentDetail,
   PrintPanel,
   TicketPreview,
 } from './components.js';
@@ -33,6 +36,20 @@ import {
 /** Every locale key the completion view uses. */
 export const COMPLETION_KEYS = [
   'completion.title',
+  'completion.summary.batch',
+  'completion.summary.weighed',
+  'completion.summary.operator',
+  'completion.ticket.heading',
+  'completion.ticket.batch',
+  'completion.ticket.order',
+  'completion.ticket.machine',
+  'completion.ticket.shade',
+  'completion.ticket.date',
+  'completion.ticket.operator',
+  'completion.ticket.target',
+  'completion.ticket.actual',
+  'completion.ticket.trainingLabel',
+  'completion.nextBatch.caption',
   'completion.summary.components',
   'completion.summary.totalDispensed',
   'completion.summary.elapsed',
@@ -71,6 +88,7 @@ export function CompletionScreen({
   const [ticket, setTicket] = useState<TicketReport | null>(null);
   const [job, setJob] = useState<PrintJobReport | null>(null);
   const [degraded, setDegraded] = useState<string | null>(null);
+  const nextBatch = useWorkflowStore((s) => s.nextBatch);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,46 +144,46 @@ export function CompletionScreen({
     setJob(result.body.job);
   };
 
+  // F1 prints, F3 goes to the next batch — the same handlers as the keys.
+  useFunctionKeys({
+    F1: ticket === null ? null : () => void onPrint(),
+    F3: nextBatch,
+  });
+
   return (
-    <main data-testid="completion-screen">
-      <h1>{t('completion.title')}</h1>
+    <main className="done-stage" data-testid="completion-screen" aria-label={t('completion.title')}>
+      <div className="done-msg">
+        {degraded !== null && (
+          <section className="alert" data-testid="completion-degraded" role="alert">
+            <h2 style={{ margin: 0 }}>{t('completion.degraded.title')}</h2>
+            <p style={{ margin: 0 }}>{t('completion.degraded.body')}</p>
+          </section>
+        )}
 
-      {degraded !== null && (
-        <section
-          data-testid="completion-degraded"
-          role="alert"
-          style={{ color: 'var(--wm-danger)' }}
-        >
-          <h2>{t('completion.degraded.title')}</h2>
-          <p>{t('completion.degraded.body')}</p>
-        </section>
-      )}
+        {summary !== null && <BatchSummaryView summary={summary} t={t} />}
 
-      {summary !== null && <BatchSummaryView summary={summary} t={t} />}
+        <PrintPanel
+          job={job}
+          t={t}
+          onPrint={() => {
+            void onPrint();
+          }}
+          onReprint={(reason) => {
+            void onReprint(reason);
+          }}
+          onNextBatch={nextBatch}
+        />
+
+        {/* THE PER-COMPONENT DETAIL — lot, container, scale and the zone at
+            confirmation: the traceability the ticket summarises. */}
+        {ticket !== null && <ComponentDetail ticket={ticket} t={t} />}
+      </div>
 
       {ticket !== null && <TicketPreview ticket={ticket} t={t} />}
-
-      <PrintPanel
-        job={job}
-        t={t}
-        onPrint={() => {
-          void onPrint();
-        }}
-        onReprint={(reason) => {
-          void onReprint(reason);
-        }}
-      />
     </main>
   );
 }
 
-/**
- * The ticket for the summary.
- *
- * **And it is generated if it is not there yet** — the generation is
- * **idempotent**, so a retry returns the same ticket rather than a second
- * one (bolt `019`).
- */
 async function fetchTicketFor(
   summary: BatchSummary,
 ): Promise<TicketReport | null> {

@@ -1,5 +1,5 @@
 /**
- * WeighScreen — the live weight view.
+ * WeighScreen — the prototype's "2 · Weigh".
  *
  * ══════════════════════════════════════════════════════════════════════
  * THE CLIENT RENDERS. IT NEVER DECIDES.
@@ -7,24 +7,38 @@
  *
  * The zone comes from the API. The quantity is the API's. The unit is the
  * API's. And the client converts **nothing** — it formats.
+ *
+ * WHICH COMPONENT IS ACTIVE is the station's (FR-14): the session names it,
+ * and after a confirm the station advances and binds the next scale. The
+ * client re-reads and renders. WHEN THE BATCH IS COMPLETE is the station's
+ * too: the confirm's answer says so, and only then is the batch completed
+ * (the OrgaTEX write-back) and the completion view shown (bolt 029).
+ *
+ * The rail is the RECIPE's components — names, codes, targets — with each
+ * one's state from the session, so it is complete from the first render.
+ *
+ * THE TRAINING BAR — "Simulate dispense / overshoot", the prototype's own
+ * controls — is shown only while the bound scale is the training dummy.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   acceptSurplus,
   authoriseEscalation,
   confirmComponent,
   declineSurplus,
   fetchContainer,
-  fetchEscalation,
   fetchLot,
   fetchRecipe,
   fetchScales,
   fetchSession,
-  fetchSurplus,
   fetchZone,
   proposeSurplus,
+  raiseEscalation,
+  reTare,
   selectComponent,
+  trainingDispense,
   type EscalationReport,
+  type RecipeComponentReport,
   type ScaleReport,
   type SessionSnapshot,
   type SurplusProposal,
@@ -36,23 +50,20 @@ import {
   streamAge,
   useWeighStore,
 } from '../../state/weigh-store.js';
-import {
-  CONFIRM_REASON_NO_COMPONENT,
-  CONFIRM_REASON_OVERRIDE_REQUIRED,
-  CONFIRM_REASON_UNREACHABLE,
-  CONFIRM_REASON_WORKING,
-  useActionStore,
-} from '../../state/action-store.js';
+import { useActionStore } from '../../state/action-store.js';
+import { useWorkflowStore } from '../../state/workflow-store.js';
 import {
   LiveReadout,
   RecipeRail,
   StatusLine,
   ToleranceBand,
   WeighHead,
+  type RailComponent,
 } from './components.js';
 import { ActionRow } from './ActionRow.js';
 import { SurplusPanel } from './SurplusPanel.js';
 import { EscalationPanel } from './EscalationPanel.js';
+import { MIN_LABEL_PX, TOUCH_TARGET_PX } from '../batch-queue/tokens.js';
 
 /** Every locale key the weigh view uses. */
 export const WEIGH_KEYS = [
@@ -60,15 +71,20 @@ export const WEIGH_KEYS = [
   'weigh.rail.label',
   'weigh.rail.noShade',
   'weigh.rail.weighed',
+  'weigh.rail.state.active',
+  'weigh.rail.state.pending',
+  'weigh.rail.state.done',
   'weigh.head.noName',
   'weigh.head.scaleSelected',
   'weigh.readout.noValue',
+  'weigh.readout.weighedNow',
   'weigh.readout.stillToWeigh',
   'weigh.readout.target',
   'weigh.band.label',
   'weigh.band.scaleCapacity',
   'weigh.status.unknown',
   'weigh.status.settling',
+  'weigh.status.remaining',
   'weigh.zone.ok',
   'weigh.zone.near',
   'weigh.zone.over',
@@ -84,8 +100,14 @@ export const WEIGH_KEYS = [
   'weigh.confirm.overrideRequired',
   'weigh.confirm.unreachable',
   'weigh.confirm.noComponent',
-  'weigh.confirm.working',
+  'weigh.confirm.refused',
+  'weigh.retare.caption',
+  'weigh.retare.refused',
   'weigh.abandon.caption',
+  'weigh.training.label',
+  'weigh.training.dispense',
+  'weigh.training.overshoot',
+  'weigh.training.refused',
   'weigh.surplus.heading',
   'weigh.surplus.amount',
   'weigh.surplus.percent',
@@ -107,49 +129,49 @@ export const WEIGH_KEYS = [
   'weigh.escalation.authorise',
   'weigh.escalation.discard',
   'weigh.escalation.refused',
+  'weigh.escalation.notEscalatable',
+  'workflow.refusal.notComplete',
 ] as const;
 
-export function WeighScreen(): React.JSX.Element {
+/**
+ * How often the zone is re-read — it changes at the speed the operator
+ * dispenses, not at the speed the scale samples.
+ */
+export const ZONE_REFRESH_MS = 250;
+
+interface ZoneView {
+  readonly zone: string;
+  readonly value: string;
+  readonly unit: string;
+  readonly target: string;
+  readonly bounds: {
+    readonly nearThreshold: string;
+    readonly okLower: string;
+    readonly okUpper: string;
+  } | null;
+  readonly stillToWeigh: string;
+}
+
+interface RecipeView {
+  readonly batchId: string;
+  readonly shadeCode: string;
+  readonly components: readonly RecipeComponentReport[];
+}
+
+export function WeighScreen({
+  batchId = null,
+}: {
+  /** The batch being weighed — the workflow's; the session's otherwise. */
+  readonly batchId?: string | null;
+} = {}): React.JSX.Element {
   const t = useStrings(WEIGH_KEYS);
 
   const [session, setSession] = useState<SessionSnapshot | null>(null);
-  /**
-   * THE ZONE — and it is the API's **flat** body.
-   *
-   * The controller answers `{ zone, value, unit, target, tolerance, bounds,
-   * stillToWeigh }` — the zone's own name is the `zone` field. And when
-   * there is no zone the answer is `{ zone: null }` and **nothing else**,
-   * so the whole record is `null` then.
-   */
-  const [zone, setZone] = useState<{
-    zone: string;
-    value: string;
-    unit: string;
-    target: string;
-    bounds: {
-      nearThreshold: string;
-      okLower: string;
-      okUpper: string;
-    } | null;
-    stillToWeigh: string;
-  } | null>(null);
+  const [zone, setZone] = useState<ZoneView | null>(null);
   const [proposal, setProposal] = useState<SurplusProposal | null>(null);
   const [escalation, setEscalation] = useState<EscalationReport | null>(null);
   const [awaitingSupervisor, setAwaitingSupervisor] = useState(false);
-
-  // THE WEIGH-HEAD's facts — and every one of them is the API's.
-  const [recipe, setRecipe] = useState<{
-    batchId: string;
-    shadeCode: string;
-    components: readonly {
-      sequence: number;
-      componentId: string;
-      dyestuffCode: string;
-      name: string | null;
-      target: string;
-      unit: string;
-    }[];
-  } | null>(null);
+  const [recipe, setRecipe] = useState<RecipeView | null>(null);
   const [lot, setLot] = useState<{ lotNumber: string } | null>(null);
   const [container, setContainer] = useState<{ containerId: string } | null>(
     null,
@@ -166,23 +188,23 @@ export function WeighScreen(): React.JSX.Element {
   const end = useActionStore((s) => s.end);
   const fail = useActionStore((s) => s.fail);
 
+  const completeBatch = useWorkflowStore((s) => s.complete);
+  const quit = useWorkflowStore((s) => s.quit);
+  const workflowRefusal = useWorkflowStore((s) => s.refusal);
+
   const reading = useWeighStore((s) => s.reading);
   const receivedAt = useWeighStore((s) => s.receivedAt);
   const linkState = useWeighStore((s) => s.linkState);
 
-  // THE STREAM. The device's readings are PUSHED — the client never
-  // polls, because polling would spend NFR-01's transport budget on
-  // request overhead and could not tell a disconnected indicator from a
-  // stationary weight.
+  // THE STREAM — opened against the scale the SESSION is bound to.
   const scaleId = session?.selectedScaleId ?? null;
   useWeightStream(scaleId);
 
-  /**
-   * Re-read the session and the zone.
-   *
-   * **And the client renders what the API reports** — it never computes
-   * the next component, and never computes a zone.
-   */
+  // The awaiting flag is read inside the polling closure, so it is kept in
+  // a ref as well — the interval was created with the first render's value.
+  const awaitingRef = useRef(awaitingSupervisor);
+  awaitingRef.current = awaitingSupervisor;
+
   const reload = async (): Promise<void> => {
     const [sessionResult, zoneResult] = await Promise.all([
       fetchSession(),
@@ -190,18 +212,12 @@ export function WeighScreen(): React.JSX.Element {
     ]);
 
     if (sessionResult.kind !== 'OK') {
-      // THE API IS UNREACHABLE — and the client does NOT confirm
-      // optimistically and does not show a success it cannot verify
-      // (BRD FR-20).
       setZoneAction(null, { unreachable: true });
       return;
     }
 
     setSession(sessionResult.body.session);
 
-    // THE ZONE — the API's **flat** body. When the answer is
-    // `{ zone: null }` there is no zone and no quantities, so the whole
-    // record is `null` — and the action says why.
     if (zoneResult.kind === 'OK') {
       setZone(
         zoneResult.body.zone === null
@@ -217,61 +233,60 @@ export function WeighScreen(): React.JSX.Element {
       );
     }
 
+    // THE CONFIRM'S REASON — derived from the API's zone, never the
+    // client's.
     const active = sessionResult.body.session?.activeComponentId ?? null;
-    setZoneAction(
-      zoneResult.kind === 'OK' ? zoneResult.body.zone : null,
-      {
-        noComponent: active === null,
-        unreachable: zoneResult.kind === 'UNREACHABLE',
-        working: sessionResult.body.session?.state === 'WEIGHING' && active !== null,
-        awaitingSupervisor,
-      },
-    );
+    setZoneAction(zoneResult.kind === 'OK' ? zoneResult.body.zone : null, {
+      noComponent: active === null,
+      unreachable: zoneResult.kind === 'UNREACHABLE',
+      awaitingSupervisor: awaitingRef.current,
+    });
   };
 
   useEffect(() => {
     void reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const timer = setInterval(() => {
+      void reload();
+    }, ZONE_REFRESH_MS);
+    return () => {
+      clearInterval(timer);
+    };
   }, []);
 
-  // THE WEIGH-HEAD's facts — loaded with the session, and reloaded when
-  // the active component changes.
+  // THE RECIPE, THE SCALES, THE LOT AND THE CONTAINER — re-read when the
+  // batch or the active component changes.
+  const recipeBatchId = batchId ?? session?.batchId ?? null;
+  const activeComponentId = session?.activeComponentId ?? null;
+
   useEffect(() => {
     let cancelled = false;
 
     const load = async (): Promise<void> => {
-      const batchId = session?.batchId ?? null;
-      const componentId = session?.activeComponentId ?? null;
-
       const [recipeResult, scalesResult] = await Promise.all([
-        batchId === null
-          ? Promise.resolve(null)
-          : fetchRecipe(batchId),
+        recipeBatchId === null ? Promise.resolve(null) : fetchRecipe(recipeBatchId),
         fetchScales(),
       ]);
       if (cancelled) return;
 
       if (recipeResult !== null && recipeResult.kind === 'OK') {
-        // THE RECIPE — and it is **nested under `recipe`** on the wire.
         setRecipe(recipeResult.body.recipe);
       }
       if (scalesResult.kind === 'OK') {
         setScales(scalesResult.body.scales);
       }
 
-      if (componentId === null) {
+      if (activeComponentId === null) {
         setLot(null);
         setContainer(null);
         return;
       }
 
       const [lotResult, containerResult] = await Promise.all([
-        fetchLot(componentId),
-        fetchContainer(componentId),
+        fetchLot(activeComponentId),
+        fetchContainer(activeComponentId),
       ]);
       if (cancelled) return;
 
-      // THE CAPTURE — and it is `capture` on the wire, not `lot`.
       setLot(
         lotResult.kind === 'OK' && lotResult.body.capture !== null
           ? lotResult.body.capture
@@ -288,38 +303,85 @@ export function WeighScreen(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [session?.batchId, session?.activeComponentId]);
+  }, [recipeBatchId, activeComponentId]);
 
-  // The displayed reading — **or `null` when it is stale**. Never `0.0`.
+  // A NEW COMPONENT — the previous one's surplus and escalation are over.
+  useEffect(() => {
+    setProposal(null);
+    setProposalState(null);
+    setEscalation(null);
+    setEscalationState(null);
+    setAwaitingSupervisor(false);
+  }, [activeComponentId, setProposalState, setEscalationState]);
+
+  // OVER TOLERANCE — the station is asked for its surplus proposal, once
+  // per component, when the reading has come to rest: a pour still moving
+  // through OVER would be proposed against a weight it is about to leave.
+  const proposedFor = useRef<string | null>(null);
+  const lastOverValue = useRef<string | null>(null);
+  useEffect(() => {
+    if (zone?.zone !== 'OVER' || activeComponentId === null) {
+      lastOverValue.current = null;
+      return;
+    }
+    if (proposedFor.current === activeComponentId) return;
+    if (lastOverValue.current !== zone.value) {
+      lastOverValue.current = zone.value;
+      return;
+    }
+    proposedFor.current = activeComponentId;
+
+    void (async () => {
+      const result = await proposeSurplus();
+      if (result.kind === 'OK') {
+        setProposal(result.body.proposal);
+        setProposalState(result.body.proposal);
+      }
+    })();
+  }, [zone?.zone, zone?.value, activeComponentId, setProposalState]);
+
   const displayable = displayableReading(reading, receivedAt);
   const age = streamAge(receivedAt);
 
-  // THE ACTIVE COMPONENT — from the recipe.
   const activeComponent =
-    recipe?.components.find(
-      (entry) => entry.componentId === session?.activeComponentId,
-    ) ?? null;
+    recipe?.components.find((entry) => entry.componentId === activeComponentId) ??
+    null;
+  const boundScale = scales.find((scale) => scale.scaleId === scaleId) ?? null;
+  const isTrainingScale = boundScale?.source === 'DUMMY';
 
-  // THE BOUND SCALE — and it was selected by the RULE (BRD BR-05).
-  const boundScale =
-    scales.find((scale) => scale.scaleId === session?.selectedScaleId) ?? null;
+  // THE RAIL — the recipe's components, each with the session's state.
+  const rail: readonly RailComponent[] =
+    recipe !== null && recipe.components.length > 0
+      ? recipe.components.map((component) => ({
+          componentId: component.componentId,
+          state:
+            session?.components.find(
+              (entry) => entry.componentId === component.componentId,
+            )?.state ?? component.state,
+          name: component.name,
+          dyestuffCode: component.dyestuffCode,
+          swatchColour: component.swatchColour,
+          target: component.target,
+          unit: component.unit,
+        }))
+      : (session?.components ?? []);
 
-  /**
-   * Confirm — and then the API decides what happens next.
-   *
-   * **The client does NOT compute the progression.** It re-reads the
-   * session and renders the `activeComponentId` the API reports.
-   */
   const onConfirm = async (): Promise<void> => {
-    const active = session?.activeComponentId ?? null;
-    if (active === null) return;
+    if (activeComponentId === null) return;
 
     begin();
-    const result = await confirmComponent(active);
+    const result = await confirmComponent(activeComponentId);
     end();
 
     if (result.kind !== 'OK') {
-      fail('weigh.escalation.refused');
+      fail('weigh.confirm.refused');
+      return;
+    }
+
+    // THE STATION SAYS THE BATCH IS COMPLETE — so it is completed: the
+    // consumption is posted to OrgaTEX, and the completion view follows.
+    if (result.body.batchComplete === true) {
+      await completeBatch();
       return;
     }
 
@@ -332,37 +394,60 @@ export function WeighScreen(): React.JSX.Element {
     end();
 
     if (result.kind !== 'OK') {
-      fail('weigh.escalation.refused');
+      fail('weigh.confirm.refused');
       return;
     }
 
     await reload();
   };
 
-  const onAbandon = async (): Promise<void> => {
-    const active = session?.activeComponentId ?? null;
-    if (active === null) return;
+  const onReTare = async (): Promise<void> => {
+    if (scaleId === null) return;
 
     begin();
-    // The abandon is the session's own transition — the client asks, and
-    // the API decides.
-    const result = await selectComponent(active);
+    const result = await reTare(scaleId);
     end();
+
+    if (result.kind !== 'OK') {
+      fail('weigh.retare.refused');
+      return;
+    }
+
+    // A re-tared platform starts the component again: the old surplus
+    // proposal no longer describes it.
+    proposedFor.current = null;
+    setProposal(null);
+    setProposalState(null);
     await reload();
   };
 
-  const onDetectSurplus = async (): Promise<void> => {
-    begin();
-    const result = await proposeSurplus();
-    if (result.kind === 'OK') {
-      setProposal(result.body.proposal);
-      setProposalState(result.body.proposal);
+  const onDispense = async (
+    landing: 'IN_TOLERANCE' | 'OVER_TOLERANCE',
+  ): Promise<void> => {
+    const result = await trainingDispense(landing);
+    if (result.kind !== 'OK') {
+      fail('weigh.training.refused');
     }
+  };
+
+  const onOverride = async (): Promise<void> => {
+    if (activeComponentId === null) return;
+
+    begin();
+    const result = await raiseEscalation(activeComponentId);
     end();
+
+    if (result.kind !== 'OK') {
+      fail('weigh.escalation.notEscalatable');
+      return;
+    }
+
+    setEscalation(result.body.escalation);
+    setEscalationState(result.body.escalation);
   };
 
   const onAcceptSurplus = async (): Promise<void> => {
-    const componentId = proposal?.componentId ?? session?.activeComponentId ?? '';
+    const componentId = proposal?.componentId ?? activeComponentId ?? '';
     if (componentId === '') return;
 
     begin();
@@ -376,7 +461,7 @@ export function WeighScreen(): React.JSX.Element {
   };
 
   const onDeclineSurplus = async (): Promise<void> => {
-    const componentId = proposal?.componentId ?? session?.activeComponentId ?? '';
+    const componentId = proposal?.componentId ?? activeComponentId ?? '';
     if (componentId === '') return;
 
     begin();
@@ -386,8 +471,6 @@ export function WeighScreen(): React.JSX.Element {
       setProposalState(result.body.proposal);
     }
     end();
-    // A declined proposal HOLDS the batch — and the client does not
-    // confirm it.
   };
 
   const onAuthorise = async (input: {
@@ -396,8 +479,6 @@ export function WeighScreen(): React.JSX.Element {
     readonly secret: string;
     readonly reason: string;
   }): Promise<void> => {
-    // THE REASON IS REQUIRED — and the panel's button is disabled without
-    // one. The check here is the second line.
     if (input.reason.trim().length === 0) {
       fail('weigh.escalation.refused');
       return;
@@ -413,7 +494,6 @@ export function WeighScreen(): React.JSX.Element {
 
     if (result.kind !== 'OK') {
       fail('weigh.escalation.refused');
-      // The weighing is NOT confirmed, and the prompt stays open.
       setAwaitingSupervisor(true);
       end();
       return;
@@ -426,102 +506,164 @@ export function WeighScreen(): React.JSX.Element {
     await reload();
   };
 
-  return (
-    <main data-testid="weigh-screen" data-link={linkState ?? 'UNKNOWN'}>
-      <h1>{t('weigh.title')}</h1>
+  // THE READOUT'S UNIT IS THE COMPONENT'S. The stream speaks the device's
+  // unit (grams, on the 32 kg floor scale); the station converts into the
+  // recipe's (kilograms) and reports it with the zone. So when the two
+  // differ, the readout shows the station's converted value — the client
+  // converts nothing — and target, still-to-weigh and weight share a unit.
+  const converted =
+    displayable !== null && zone !== null && displayable.unit !== zone.unit;
+  const liveValue = converted ? zone.value : (displayable?.value ?? null);
+  const unit = converted ? zone.unit : (displayable?.unit ?? zone?.unit ?? null);
+  const notice = failure ?? workflowRefusal;
 
+  return (
+    <main
+      className="stage"
+      data-testid="weigh-screen"
+      data-link={linkState ?? 'UNKNOWN'}
+      aria-label={t('weigh.title')}
+    >
       <RecipeRail
-        components={session?.components ?? []}
+        components={rail}
         shadeCode={recipe?.shadeCode ?? null}
-        batchId={session?.batchId ?? null}
+        batchId={session?.batchId ?? recipeBatchId}
         weighed={session?.counter.weighed ?? 0}
-        total={session?.counter.total ?? 0}
+        total={session?.counter.total ?? rail.length}
         t={t}
         onSelect={(componentId) => {
           void onSelect(componentId);
         }}
       />
 
-      {/* THE WEIGH-HEAD — who is being weighed, and in what. Every value
-          is the API's. */}
-      <WeighHead
-        name={activeComponent?.name ?? null}
-        dyestuffCode={activeComponent?.dyestuffCode ?? null}
-        componentId={session?.activeComponentId ?? ''}
-        lotNumber={lot?.lotNumber ?? null}
-        containerId={container?.containerId ?? null}
-        scaleLabel={boundScale?.label ?? null}
-        t={t}
-      />
+      <section className="weigh">
+        {/* THE WEIGH-HEAD — who is being weighed, and in what. Every value
+            is the API's. */}
+        <WeighHead
+          name={activeComponent?.name ?? null}
+          dyestuffCode={activeComponent?.dyestuffCode ?? null}
+          componentId={activeComponentId ?? ''}
+          lotNumber={lot?.lotNumber ?? null}
+          containerId={container?.containerId ?? null}
+          scaleLabel={boundScale?.label ?? null}
+          t={t}
+        />
 
-      <LiveReadout
-        value={displayable?.value ?? null}
-        unit={displayable?.unit ?? zone?.unit ?? null}
-        stillToWeigh={zone?.stillToWeigh ?? null}
-        target={zone?.target ?? null}
-        zone={zone?.zone ?? null}
-        ageMs={age}
-        t={t}
-      />
+        <LiveReadout
+          value={liveValue}
+          unit={unit}
+          stillToWeigh={zone?.stillToWeigh ?? null}
+          target={zone?.target ?? null}
+          zone={zone?.zone ?? null}
+          ageMs={age}
+          t={t}
+        />
 
-      <ToleranceBand
-        zone={zone?.zone ?? null}
-        okLower={zone?.bounds?.okLower ?? null}
-        okUpper={zone?.bounds?.okUpper ?? null}
-        capacityMax={null}
-        // THE API'S VALUE — the zone response carries the current weight,
-        // because the zone is computed from it. So the band is right from
-        // the first render, before the stream's first frame arrives.
-        current={zone?.value ?? null}
-        t={t}
-      />
+        <ToleranceBand
+          zone={zone?.zone ?? null}
+          okLower={zone?.bounds?.okLower ?? null}
+          okUpper={zone?.bounds?.okUpper ?? null}
+          target={zone?.target ?? null}
+          unit={zone?.unit ?? null}
+          capacityMax={
+            boundScale === null ? null : `${boundScale.capacity} ${boundScale.unit}`
+          }
+          current={zone?.value ?? null}
+          t={t}
+        />
 
-      <StatusLine
-        zone={zone?.zone ?? null}
-        stable={displayable?.stable ?? null}
-        t={t}
-      />
+        <StatusLine
+          zone={zone?.zone ?? null}
+          stable={displayable?.stable ?? null}
+          stillToWeigh={zone?.stillToWeigh ?? null}
+          unit={zone?.unit ?? null}
+          t={t}
+        />
 
-      {/* THE ACTION ROW — and the reason is ALWAYS beside the button. */}
-      <ActionRow
-        confirm={confirm}
-        busy={busy}
-        t={t}
-        onConfirm={() => {
-          void onConfirm();
-        }}
-        onAbandon={() => {
-          void onAbandon();
-        }}
-      />
+        {/* THE TRAINING BAR — the prototype's simulation, driving the DUMMY
+            scale through its own API. Never shown for a real device. */}
+        {isTrainingScale && activeComponentId !== null && (
+          <div className="training" data-testid="training-bar">
+            <span className="k-label">{t('weigh.training.label')}</span>
+            <button
+              type="button"
+              className="key"
+              data-testid="training-dispense"
+              disabled={busy}
+              onClick={() => {
+                void onDispense('IN_TOLERANCE');
+              }}
+              style={{ minHeight: `${TOUCH_TARGET_PX}px`, fontSize: `${MIN_LABEL_PX * 0.8}px` }}
+            >
+              {t('weigh.training.dispense')}
+            </button>
+            <button
+              type="button"
+              className="key ghost"
+              data-testid="training-overshoot"
+              disabled={busy}
+              onClick={() => {
+                void onDispense('OVER_TOLERANCE');
+              }}
+              style={{ minHeight: `${TOUCH_TARGET_PX}px`, fontSize: `${MIN_LABEL_PX * 0.8}px` }}
+            >
+              {t('weigh.training.overshoot')}
+            </button>
+          </div>
+        )}
 
-      {/* THE SURPLUS PANEL — shown only when the API reports a surplus. */}
-      <SurplusPanel
-        proposal={proposal}
-        t={t}
-        onAccept={() => {
-          void onAcceptSurplus();
-        }}
-        onDecline={() => {
-          void onDeclineSurplus();
-        }}
-      />
+        {notice !== null && (
+          <div className="alert" data-testid="weigh-failure" role="alert">
+            {t(notice)}
+          </div>
+        )}
 
-      {/* THE ESCALATION PANEL. */}
-      <EscalationPanel
-        escalation={escalation}
-        awaitingSupervisor={awaitingSupervisor}
-        failure={failure}
-        t={t}
-        onAuthorise={(input) => {
-          void onAuthorise(input);
-        }}
-        onDiscard={() => {
-          setEscalation(null);
-          setEscalationState(null);
-          setAwaitingSupervisor(false);
-        }}
-      />
+        {/* THE SURPLUS PANEL — shown only when the station proposed one. */}
+        <SurplusPanel
+          proposal={proposal}
+          t={t}
+          onAccept={() => {
+            void onAcceptSurplus();
+          }}
+          onDecline={() => {
+            void onDeclineSurplus();
+          }}
+        />
+
+        {/* THE ESCALATION PANEL — the supervisor override. */}
+        <EscalationPanel
+          escalation={escalation}
+          awaitingSupervisor={awaitingSupervisor}
+          failure={failure}
+          t={t}
+          onAuthorise={(input) => {
+            void onAuthorise(input);
+          }}
+          onDiscard={() => {
+            setEscalation(null);
+            setEscalationState(null);
+            setAwaitingSupervisor(false);
+          }}
+        />
+
+        {/* THE ACTION ROW — and the reason is ALWAYS beside the button. */}
+        <ActionRow
+          confirm={confirm}
+          busy={busy}
+          canReTare={scaleId !== null}
+          t={t}
+          onConfirm={() => {
+            void onConfirm();
+          }}
+          onReTare={() => {
+            void onReTare();
+          }}
+          onAbandon={quit}
+          onOverride={() => {
+            void onOverride();
+          }}
+        />
+      </section>
     </main>
   );
 }

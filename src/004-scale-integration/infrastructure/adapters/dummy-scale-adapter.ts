@@ -56,6 +56,15 @@ export class DummyScaleAdapter implements ScaleAdapter {
   private current: WeightValue;
   private running = false;
   private pumping = false;
+  /**
+   * THE PUMP's GENERATION — and it is what makes a RESTART safe.
+   *
+   * A pump that is winding down must not keep producing readings after a
+   * new pump has claimed the device: the device would emit two
+   * interleaved conversations, and the second reader would see sequences
+   * it never expected.
+   */
+  private pumpGeneration = 0;
   private silenced = false;
   private timer: NodeJS.Timeout | null = null;
   private readonly ramp = new DispenseRamp();
@@ -84,6 +93,34 @@ export class DummyScaleAdapter implements ScaleAdapter {
   }
 
   /**
+   * Resume the device's counter from a durable floor.
+   *
+   * ══════════════════════════════════════════════════════════════════════
+   * A DEVICE THAT RESTARTS AT ZERO CAN NEVER SPEAK AGAIN.
+   * ══════════════════════════════════════════════════════════════════════
+   *
+   * The session persists the last sequence it ACCEPTED, so that a
+   * replayed reading is still rejected after a restart (ADR-036). **But the
+   * device's own counter lives in memory** — so a restarted device begins
+   * again at sequence 1, and every reading it produces is BELOW the
+   * session's durable floor.
+   *
+   * The result is a device that speaks and is never heard: the session
+   * discards every reading as `OUT_OF_ORDER`, and the operator watches a
+   * frozen weight with a scale that plainly is reporting.
+   *
+   * So the counter is resumed from the floor. **A real indicator's counter
+   * does not reset because the station restarted** — the device kept
+   * counting while the station was away — and the training device now
+   * behaves the same way.
+   */
+  resumeFrom(floor: number): void {
+    if (Number.isInteger(floor) && floor > this.sequence) {
+      this.sequence = floor;
+    }
+  }
+
+  /**
    * The live weight stream.
    *
    * Yields a reading every `sampleIntervalMs`. The receipt time is
@@ -105,9 +142,16 @@ export class DummyScaleAdapter implements ScaleAdapter {
    */
   async *openStream(scaleId: ScaleId): AsyncIterable<ScaleReading> {
     this.running = true;
-    while (this.running) {
+
+    // THE GENERATION — and only the NEWEST pump may run. Every pump
+    // claims a generation, and a pump whose generation has been superseded
+    // stops producing. So a pump that is winding down cannot interleave
+    // its readings with the pump that replaced it.
+    const generation = (this.pumpGeneration += 1);
+
+    while (this.running && this.pumpGeneration === generation) {
       await this.delay(this.config.sampleIntervalMs);
-      if (!this.running) break;
+      if (!this.running || this.pumpGeneration !== generation) break;
       if (this.silenced) continue;
       this.advanceRamp();
       yield this.read();
@@ -259,19 +303,57 @@ export class DummyScaleAdapter implements ScaleAdapter {
    * TRAINING ONLY. This is the behaviour the prototype ran in the page's
    * JavaScript, moved here so the UI reads a stream rather than being
    * the source of truth for weight.
+   *
+   * The target is NET — what the operator pours. The ramp runs on the
+   * gross weight, so a tare in force is added to it: a re-tared scale
+   * still lands the NET reading on the target (ADR-014).
    */
   startDispense(
     target: WeightValue,
     tolerance: WeightValue,
     mode: RampLanding,
   ): void {
-    this.rampState = { target, tolerance, mode };
+    const tare = this.tare;
+    const gross =
+      tare === null
+        ? target
+        : WeightValue.of(
+            stripTrailingZeros(
+              new Decimal(target.text)
+                .plus(new Decimal(tare.tareValue.text))
+                .toFixed(6),
+            ),
+            target.unit,
+          );
+    this.rampState = { target: gross, tolerance, mode };
   }
 
   /** Stop the ramp and return to the idle weight. */
   stopDispense(): void {
     this.rampState = null;
     this.current = WeightValue.of(this.config.idleWeight, this.config.unit);
+  }
+
+  /**
+   * The gross weight on the platform — what a re-tare zeroes against.
+   *
+   * TRAINING ONLY. A real indicator tares itself; the dummy needs the
+   * station to tell it what is on the platform.
+   */
+  grossWeight(): WeightValue {
+    return this.current;
+  }
+
+  /**
+   * The previous component's container is lifted off and the platform is
+   * empty: the idle weight and no ramp. The tare in force is kept — it is
+   * the device's state, and the registry holds the same object.
+   *
+   * TRAINING ONLY — called when the station binds the scale to a new
+   * component, so one component's weight never shows against the next.
+   */
+  clearForNextComponent(): void {
+    this.stopDispense();
   }
 
   /** Advance the ramp by one sample — called by the timer. */
@@ -293,9 +375,29 @@ export class DummyScaleAdapter implements ScaleAdapter {
     return this.config.calibration;
   }
 
-  /** Stop the stream. */
+  /**
+   * Stop the stream — AND RELEASE THE PUMP.
+   *
+   * ══════════════════════════════════════════════════════════════════════
+   * A STOP THAT KEPT THE CLAIM SILENCED THE DEVICE FOREVER.
+   * ══════════════════════════════════════════════════════════════════════
+   *
+   * `startPumping()` claims the device by setting `pumping`. **A stop that
+   * left the claim in place would make every later `startPumping()` refuse**
+   * — so the device could never speak again, for a reason that has nothing
+   * to do with the device.
+   *
+   * And that is exactly what happens in the running product: the pump
+   * stops when the last subscriber leaves, so a browser that reloads the
+   * page leaves the scale silent from then on. The release is what makes
+   * the device speak again when the next subscriber attaches.
+   */
   stop(): void {
     this.running = false;
+    // THE CLAIM IS RELEASED — and the generation is advanced, so the pump
+    // that is winding down stops producing at once.
+    this.pumping = false;
+    this.pumpGeneration += 1;
     if (this.timer !== null) {
       clearTimeout(this.timer);
       this.timer = null;

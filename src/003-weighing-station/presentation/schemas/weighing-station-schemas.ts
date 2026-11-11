@@ -39,3 +39,16 @@ export const componentSelectionSchema = z.object({
 });
 
 export type ComponentSelectionBody = z.infer<typeof componentSelectionSchema>;
+
+/** Start — or continue — a batch's weighing. */
+export const sessionStartSchema = z.object({
+  batchId: identifier,
+});
+
+/**
+ * The training dispense — only WHICH landing; the target and the band are
+ * the recipe's, read on the server.
+ */
+export const trainingDispenseSchema = z.object({
+  landing: z.enum(['IN_TOLERANCE', 'OVER_TOLERANCE']),
+});

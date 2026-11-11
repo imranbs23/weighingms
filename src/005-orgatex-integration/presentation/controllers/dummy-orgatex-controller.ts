@@ -31,7 +31,10 @@
 import { Router, type Request, type Response } from 'express';
 import type { DummyOrgatexWorld } from '../../infrastructure/adapters/dummy-orgatex-data.js';
 import type { RawConsumption } from '../../domain/ports/orgatex-adapter.js';
-import { rejectionControlSchema } from '../schemas/orgatex-write-schemas.js';
+import {
+  rejectionControlSchema,
+  releaseControlSchema,
+} from '../schemas/orgatex-write-schemas.js';
 
 export function createDummyOrgatexRouter(world: DummyOrgatexWorld): Router {
   const router = Router();
@@ -267,6 +270,64 @@ export function createDummyOrgatexRouter(world: DummyOrgatexWorld): Router {
       target,
       rejectsConsumption: world.rejectsConsumption,
       rejectsStatusWrite: world.rejectsStatusWrite,
+    });
+  });
+
+  /**
+   * POST /api/orgatex/control/release — the TRAINING CONTROL for
+   * **releases**.
+   *
+   * ══════════════════════════════════════════════════════════════════
+   * THE MES RELEASES THE BATCH. THAT IS WHY THIS IS HERE.
+   * ══════════════════════════════════════════════════════════════════
+   *
+   * BRD BR-03: *"The business must not permit weighing against a batch
+   * OrgaTEX has not released."* So the release is the **MES's act**, and
+   * the station's seam writes only `WEIGHED` (BRD IR-06, C-01).
+   *
+   * The seed world holds **no** `RELEASED` batch — `B-24187` is `WEIGHING`
+   * and the other three are `QUEUED` — so the queue has no selectable row at
+   * all, and the whole downstream flow cannot be demonstrated in the running
+   * product.
+   *
+   * So this control releases a batch **in the MES's own world**, and the
+   * station's own eligibility rule then permits the selection. The rule is
+   * not bypassed and not relaxed: a released batch becomes selectable
+   * because the MES says so, exactly as a real release would.
+   *
+   * It requires an operator session, because it changes what the station
+   * will show — it is a write to the training world.
+   */
+  router.post('/orgatex/control/release', (req: Request, res: Response) => {
+    if (req.currentOperator === undefined) {
+      res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return;
+    }
+
+    const parsed = releaseControlSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        fields: parsed.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
+      });
+      return;
+    }
+
+    const released = world.setWeighingStatus(
+      parsed.data.batchId,
+      parsed.data.status,
+    );
+    if (!released) {
+      res.status(404).json({ error: 'BATCH_NOT_FOUND' });
+      return;
+    }
+
+    res.status(200).json({
+      batchId: parsed.data.batchId,
+      status: parsed.data.status,
     });
   });
 

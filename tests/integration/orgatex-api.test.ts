@@ -358,3 +358,104 @@ describe('the Dummy OrgaTEX — the training artefact', () => {
     expect(new DummyOrgatexWorld().isReachable).toBe(true);
   });
 });
+
+describe('the Dummy MES release control', () => {
+  let harness: Harness;
+  let token: string;
+
+  beforeEach(async () => {
+    harness = createHarness();
+    await seedOperator(harness, OPERATOR_ID, 'R. Karim', 'OPERATOR', OPERATOR_SECRET);
+    const signIn = await request(harness.app)
+      .post('/api/identity/sign-in')
+      .send({ operatorId: OPERATOR_ID, secret: OPERATOR_SECRET });
+    token = signIn.body.token as string;
+  });
+
+  afterEach(() => {
+    harness.close();
+  });
+
+  it('requires a session — it writes to the training world', async () => {
+    const response = await request(harness.app)
+      .post('/api/orgatex/control/release')
+      .send({ batchId: 'B-24188', status: 'RELEASED' });
+
+    expect(response.status).toBe(401);
+  });
+
+  it('releases the batch — and the MES shows it as RELEASED', async () => {
+    // The seed holds no released batch, so this is the only way the queue
+    // can have a selectable row at all (BRD BR-03).
+    expect(
+      harness.orgatex.world.readBatch('B-24188')?.weighingStatus,
+    ).toBe('QUEUED');
+
+    const response = await request(harness.app)
+      .post('/api/orgatex/control/release')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ batchId: 'B-24188', status: 'RELEASED' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('RELEASED');
+    expect(
+      harness.orgatex.world.readBatch('B-24188')?.weighingStatus,
+    ).toBe('RELEASED');
+  });
+
+  it('makes the batch SELECTABLE — the eligibility rule still decides', async () => {
+    // Before the release the selection is REFUSED, with the reason.
+    const refused = await request(harness.app)
+      .post('/api/selection')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ batchId: 'B-24188' });
+
+    expect(refused.status).toBe(409);
+    expect(refused.body.reason).toBe('NOT_RELEASED');
+
+    await request(harness.app)
+      .post('/api/orgatex/control/release')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ batchId: 'B-24188', status: 'RELEASED' });
+
+    const selected = await request(harness.app)
+      .post('/api/selection')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ batchId: 'B-24188' });
+
+    expect(selected.status).toBe(201);
+    expect(selected.body.selection.batchId).toBe('B-24188');
+  });
+
+  it('refuses a batch the MES does not hold', async () => {
+    const response = await request(harness.app)
+      .post('/api/orgatex/control/release')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ batchId: 'B-NOT-A-BATCH', status: 'RELEASED' });
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toBe('BATCH_NOT_FOUND');
+  });
+
+  it('refuses any status other than RELEASED', async () => {
+    // The MES's own seam writes only WEIGHED (BRD IR-06) — and the
+    // training control must not be a way to write any other status.
+    const response = await request(harness.app)
+      .post('/api/orgatex/control/release')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ batchId: 'B-24188', status: 'WEIGHED' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('VALIDATION_ERROR');
+  });
+
+  it('refuses a body with no batch', async () => {
+    const response = await request(harness.app)
+      .post('/api/orgatex/control/release')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ status: 'RELEASED' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('VALIDATION_ERROR');
+  });
+});

@@ -60,6 +60,7 @@ export function EscalationPanel({
 
   return (
     <section
+      className="panel"
       data-testid="escalation-panel"
       data-awaiting={awaitingSupervisor ? 'true' : 'false'}
       style={{

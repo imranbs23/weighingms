@@ -31,6 +31,7 @@ import {
   createBatchSelectionRouter,
 } from '../001-batch-management/presentation/controllers/batch-selection-controller.js';
 import type { BatchManagementModule } from '../001-batch-management/infrastructure/composition-root.js';
+import { createScannerRouter } from '../001-batch-management/presentation/controllers/scanner-controller.js';
 import {
   createRecipeRouter,
 } from '../002-recipe-material-management/presentation/controllers/recipe-controller.js';
@@ -69,6 +70,7 @@ import {
   createReportRouter,
 } from '../006-ticket-printing/presentation/controllers/report-controller.js';
 import type { TicketModule } from '../006-ticket-printing/infrastructure/composition-root.js';
+import { createPrinterRouter } from '../006-ticket-printing/presentation/controllers/printer-controller.js';
 
 export interface AppOptions {
   readonly identity: IdentityModule;
@@ -182,6 +184,7 @@ export function createApp(options: AppOptions): Express {
     // not live under the queue's path where a client would expect it to
     // disappear when the queue did.
     app.use('/api/selection', createBatchSelectionRouter(options.batches));
+    app.use('/api/scanner', createScannerRouter(options.batches));
   }
 
   // ── Recipe ──
@@ -239,6 +242,7 @@ export function createApp(options: AppOptions): Express {
     // THE REPORT. A READ MODEL — it reads the recorded zone and mutates
     // nothing (ADR-046).
     app.use('/api/report', createReportRouter(options.tickets));
+    app.use('/api/printer', createPrinterRouter(options.tickets));
   }
 
   // The ticket and its print job (unit 006).

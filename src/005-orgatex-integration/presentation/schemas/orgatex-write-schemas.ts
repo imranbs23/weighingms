@@ -101,3 +101,35 @@ export const rejectionControlSchema = z.object({
   /** Which write to refuse — both, or just one. */
   target: z.enum(['CONSUMPTION', 'STATUS', 'BOTH']).default('CONSUMPTION'),
 });
+
+/**
+ * The Dummy MES's RELEASE control.
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * THE MES RELEASES THE BATCH. THE STATION NEVER DOES.
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * BRD BR-03: *"The business must not permit weighing against a batch
+ * OrgaTEX has not released."* So a station may only weigh a batch the MES
+ * has released — and the **release is the MES's act**, not the station's.
+ *
+ * The seed world holds no `RELEASED` batch: `B-24187` is `WEIGHING` (the
+ * prototype's selected row) and the other three are `QUEUED`. So without a
+ * release the queue has **no selectable row at all**, and the whole
+ * downstream flow — the session, the weighing, the ticket — cannot be
+ * demonstrated in the running product.
+ *
+ * So this control lets a training run release a batch. **It is the MES's own
+ * surface** — the same place as the outage and refusal controls — and the
+ * station's own seam still writes only `WEIGHED` (BRD IR-06, C-01).
+ *
+ * The status is a **literal**, `RELEASED`, because that is the only release
+ * there is. A schema that admitted `WEIGHED` would let a training run
+ * pretend the MES had weighed a batch.
+ */
+export const releaseControlSchema = z.object({
+  batchId: identifier,
+  status: z.literal('RELEASED'),
+});
+
+export type ReleaseControlBody = z.infer<typeof releaseControlSchema>;

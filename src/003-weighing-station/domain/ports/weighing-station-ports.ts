@@ -130,6 +130,53 @@ export interface ScaleStreamPort {
     }) => void,
     onStatus: (status: 'CONNECTED' | 'DISCONNECTED') => void,
   ): () => void;
+
+  /**
+   * Resume a device's sequence counter from a durable floor.
+   *
+   * ══════════════════════════════════════════════════════════════════════
+   * THE SESSION'S FLOOR IS DURABLE. THE DEVICE'S COUNTER MUST BE TOO.
+   * ══════════════════════════════════════════════════════════════════════
+   *
+   * The session persists the last sequence it accepted, so a replayed
+   * reading is still rejected after a restart (ADR-036). **But a device's
+   * counter does not reset because the station restarted** — the device
+   * kept counting while the station was away.
+   *
+   * So a device that comes back must resume ABOVE the floor. Otherwise it
+   * speaks from sequence 1, every reading is below the floor, and the
+   * session discards them all as `OUT_OF_ORDER` — a device that plainly
+   * reports and a weight that never moves.
+   *
+   * **Optional**, because a real indicator owns its own counter and needs
+   * no help; it is here for the training device.
+   */
+  resumeCounter?(scaleId: ScaleId, floor: number): void;
+
+  /**
+   * The scale was bound to a new component: the previous container is
+   * lifted off, so its weight never shows against the next target.
+   *
+   * **Optional** and training-only — a real platform is emptied by the
+   * operator's hands.
+   */
+  clearForNextComponent?(scaleId: ScaleId): void;
+
+  /**
+   * Pour onto the training scale until the NET reading lands in, or over,
+   * the tolerance — the prototype's "Simulate dispense / overshoot".
+   *
+   * The target and the half-width arrive in the component's unit; the
+   * adapter converts them into the device's unit, exactly.
+   *
+   * @returns `false` when the device is not a training dummy.
+   */
+  trainingDispense?(
+    scaleId: ScaleId,
+    target: WeightValue,
+    halfWidth: WeightValue,
+    landing: 'IN_TOLERANCE' | 'OVER_TOLERANCE',
+  ): boolean;
 }
 
 /**

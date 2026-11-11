@@ -32,7 +32,10 @@ describe('the reprint', () => {
   let token: string;
 
   beforeEach(async () => {
-    harness = createHarness();
+    // A fast sample clock: each component is poured from an EMPTY platform
+    // (bolt 029), so a whole batch at the default 100 ms would outrun the
+    // test timeout. The scale-stream tests run at the same 20 ms.
+    harness = createHarness({ sampleIntervalMs: 20 });
     await seedOperator(harness, OPERATOR_ID, 'R. Karim', 'OPERATOR', OPERATOR_SECRET);
     const signIn = await request(harness.app)
       .post('/api/identity/sign-in')

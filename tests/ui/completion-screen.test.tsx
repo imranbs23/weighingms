@@ -28,7 +28,7 @@ function summary(overrides: Partial<BatchSummary> = {}): BatchSummary {
     operatorId: 'OP-001',
     totalDispensed: '35.3200',
     unit: 'kg',
-    allWithinTolerance: 'WITHIN_TOLERANCE',
+    allWithinTolerance: 'YES',
     writeBack: 'CONFIRMED',
     writeBackConfirmedAt: '2026-11-06T10:00:00.000Z',
     releasedForTransport: true,
@@ -182,8 +182,9 @@ describe('the completion view', () => {
     expect(screen.getByTestId('summary-total').textContent).toContain(
       '35.320',
     );
+    // The elapsed time in the prototype's form — 1840 s is "30 min 40 s".
     expect(screen.getByTestId('summary-elapsed').textContent).toContain(
-      '1840',
+      '30 min 40 s',
     );
     expect(screen.getByTestId('summary-operator').textContent).toContain(
       'OP-001',
@@ -191,6 +192,24 @@ describe('the completion view', () => {
     expect(
       screen.getByTestId('summary-verdict').textContent,
     ).toContain('completion.summary.withinTolerance');
+  });
+
+  it('shows the OUT-OF-TOLERANCE verdict when the API says NO', async () => {
+    // The API's verdict is `YES` / `NO` — unit 003's own two-valued
+    // vocabulary (ADR-041), not the ticket's `WITHIN_TOLERANCE` /
+    // `OUT_OF_TOLERANCE`. The client must read the summary's vocabulary.
+    stubApi('DONE', {
+      summary: summary({ allWithinTolerance: 'NO' }),
+    });
+    render(<CompletionScreen batchId="B-24187" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('batch-summary')).toBeTruthy();
+    });
+
+    expect(
+      screen.getByTestId('summary-verdict').textContent,
+    ).toContain('completion.summary.outOfTolerance');
   });
 
   it('shows the per-component detail — with the ZONE AT CONFIRMATION', async () => {

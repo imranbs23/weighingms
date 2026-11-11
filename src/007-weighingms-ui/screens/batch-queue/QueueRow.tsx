@@ -20,7 +20,6 @@ import {
   COLOURS,
   MIN_LABEL_PX,
   QUEUE_COLUMNS,
-  SPACING,
   TOUCH_TARGET_PX,
 } from './tokens.js';
 
@@ -56,22 +55,17 @@ export function QueueRow({
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') handle();
       }}
+      className="q-row"
       style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: SPACING.md,
-        alignItems: 'center',
         minHeight: `${TOUCH_TARGET_PX}px`,
-        padding: `${SPACING.sm}px ${SPACING.md}px`,
-        borderBottom: `1px solid ${COLOURS.border}`,
         color: selectable ? COLOURS.text : COLOURS.textMuted,
         fontSize: `${MIN_LABEL_PX}px`,
         cursor: selectable ? 'pointer' : 'not-allowed',
       }}
     >
-      <span>{batch.batchId}</span>
-      <span>{batch.orderRef}</span>
-      <span>{batch.machineRef}</span>
+      <span className="mono">{batch.batchId}</span>
+      <span className="mono">{batch.orderRef}</span>
+      <span className="mono">{batch.machineRef}</span>
       {/* The MES gave none — and the client renders its OWN placeholder,
           which is a locale key and not a literal. */}
       <span>
@@ -79,7 +73,9 @@ export function QueueRow({
       </span>
       <span>{batch.shadeCode}</span>
       <span>{batch.componentCount}</span>
-      <span>{batch.weighingStatus}</span>
+      <span className={selectable ? 'tag now' : 'tag'}>
+        {batch.weighingStatus}
+      </span>
     </div>
   );
 }
@@ -91,17 +87,7 @@ export function QueueHeader({
   readonly t: Translate;
 }): React.JSX.Element {
   return (
-    <div
-      role="row"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: SPACING.md,
-        padding: `${SPACING.sm}px ${SPACING.md}px`,
-        color: COLOURS.textMuted,
-        fontSize: `${MIN_LABEL_PX}px`,
-      }}
-    >
+    <div role="row" className="q-head">
       {QUEUE_COLUMNS.map((column) => (
         <span key={column.key}>{t(column.labelKey)}</span>
       ))}

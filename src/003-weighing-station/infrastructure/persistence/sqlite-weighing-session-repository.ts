@@ -113,10 +113,13 @@ export class SqliteWeighingSessionRepository
    * The current session, or `null` when none has been started.
    *
    * `null` is a **state**, not an error — it is the UI's first render.
+   *
+   * The current session is the MOST RECENTLY STARTED one: a completed
+   * batch's session stays in the table, and the next batch's must win.
    */
   current(): WeighingSession | null {
     const row = this.db
-      .prepare(`SELECT * FROM weighing_sessions LIMIT 1`)
+      .prepare(`SELECT * FROM weighing_sessions ORDER BY rowid DESC LIMIT 1`)
       .get() as unknown as SessionRow | undefined;
 
     if (row === undefined) return null;

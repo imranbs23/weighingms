@@ -61,6 +61,11 @@ export class DummyBatchScanner implements BatchScanner {
     this.connected = true;
   }
 
+  /** Whether the scanner is connected — the status strip's entry. */
+  isConnected(): boolean {
+    return this.connected;
+  }
+
   async read(): Promise<ScanOutcome> {
     if (!this.connected) {
       return {

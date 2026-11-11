@@ -1,31 +1,24 @@
 /**
- * StatusStrip — the peripherals' states.
+ * The status strip — the prototype's `.strip`, at the foot of the screen.
  *
  * ══════════════════════════════════════════════════════════════════════
- * EVERY ENTRY IS A REAL VALUE FROM THE API. AND TWO FAILURES GET TWO
- * ENTRIES.
+ * EVERY ENTRY IS A REAL VALUE FROM THE API. TWO FAILURES, TWO ENTRIES.
  * ══════════════════════════════════════════════════════════════════════
  *
- * *"Each failure gets its own entry and its own reason; no failure is
- * collapsed into a single generic 'error' state"* (FR-19).
- *
- * **And a stale snapshot is shown WITH ITS AGE** — so a wrong number
- * wearing a correct-looking costume is never presented as current
- * (BRD FR-32, FR-33).
- *
- * **And a queued write is shown as PENDING, never as posted** — a posting
- * that has not landed has not happened as far as the MES is concerned.
+ * The scales, the scanner, the printer and the OrgaTEX link each get their
+ * own entry, with their own state and — when unhealthy — their own reason.
+ * The prototype's hard-coded OrgaTEX link literal is the API's link
+ * state here (BRD IR-18). The locale and the clock are the client's own (story
+ * 005: the clock is "a client concern").
  */
+import { useEffect, useState } from 'react';
 import type { Translate } from '../../i18n/useStrings.js';
 import type { PeripheralStatus } from '../../state/status-store.js';
-import {
-  COLOURS,
-  MIN_LABEL_PX,
-  SPACING,
-  TOUCH_TARGET_PX,
-} from '../batch-queue/tokens.js';
+import { TOUCH_TARGET_PX } from '../batch-queue/tokens.js';
 
-/** One peripheral's entry. */
+/** How often the clock ticks. */
+export const CLOCK_TICK_MS = 1000;
+
 export function PeripheralEntry({
   status,
   t,
@@ -35,48 +28,45 @@ export function PeripheralEntry({
 }): React.JSX.Element {
   return (
     <div
+      className="stat"
       data-testid={`peripheral-${status.id}`}
       data-state={status.state}
       data-healthy={status.healthy ? 'true' : 'false'}
-      style={{
-        display: 'flex',
-        gap: SPACING.sm,
-        alignItems: 'center',
-        minHeight: `${TOUCH_TARGET_PX}px`,
-        fontSize: `${MIN_LABEL_PX}px`,
-        color: status.healthy ? COLOURS.text : COLOURS.danger,
-      }}
+      style={{ minHeight: `${TOUCH_TARGET_PX}px` }}
     >
-      <span>{status.id}</span>
+      <span className="dot" />
+      {/* THE DEVICE — its own label when it has one ("3 kg precision"). */}
+      <span>{status.label ?? status.id}</span>
+      {' · '}
       {/* THE STATE — the API's own vocabulary, never a literal. */}
       <span data-testid={`peripheral-state-${status.id}`}>
         {t(`status.state.${status.state.toLowerCase()}`)}
       </span>
       {/* THE REASON — and it is NEVER empty for an unhealthy peripheral. */}
       {!status.healthy && (
-        <span data-testid={`peripheral-reason-${status.id}`}>
-          {t(status.reason)}
-        </span>
+        <>
+          {' — '}
+          <span data-testid={`peripheral-reason-${status.id}`}>
+            {t(status.reason)}
+          </span>
+        </>
       )}
-      {/* THE AGE — and it is shown whenever the data is not current. */}
+      {/* THE AGE — shown whenever the data is not current. */}
       {status.ageMs !== null && (
         <span data-testid={`peripheral-age-${status.id}`}>
-          {t('status.age')}: {status.ageMs} ms
+          {' · '}
+          {t('status.age')} {status.ageMs} ms
         </span>
       )}
     </div>
   );
 }
 
-/**
- * The status strip.
- *
- * **And it shows the un-synchronised count** — because a healthy link with
- * a non-empty queue is a fact the operator needs.
- */
 export function StatusStrip({
   scales,
   link,
+  scanner = null,
+  printer = null,
   unsynchronisedCount,
   queue,
   apiReachable,
@@ -84,38 +74,36 @@ export function StatusStrip({
 }: {
   readonly scales: readonly PeripheralStatus[];
   readonly link: PeripheralStatus | null;
+  readonly scanner?: PeripheralStatus | null;
+  readonly printer?: PeripheralStatus | null;
   readonly unsynchronisedCount: number;
   readonly queue: readonly {
     readonly componentId?: string;
     readonly state: string;
     readonly attempts: number;
-    /**
-     * THE LAST ERROR — and it is a **code and a summary**, never a
-     * sentence (BRD NFR-11). The detail goes to the log.
-     */
     readonly lastError?: { readonly code: string; readonly summary: string } | null;
   }[];
   readonly apiReachable: boolean;
   readonly t: Translate;
 }): React.JSX.Element {
+  const clock = useClock();
+
   return (
-    <section
+    <footer
+      className="strip"
       data-testid="status-strip"
       data-api-reachable={apiReachable ? 'true' : 'false'}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: SPACING.xs,
-      }}
     >
       {/* THE API IS UNREACHABLE — and the strip says so, rather than
           showing stale states as current (BRD FR-20). */}
       {!apiReachable && (
         <div
+          className="stat"
           data-testid="status-api-unreachable"
+          data-healthy="false"
           role="alert"
-          style={{ color: COLOURS.danger, fontSize: `${MIN_LABEL_PX}px` }}
         >
+          <span className="dot" />
           {t('status.apiUnreachable')}
         </div>
       )}
@@ -125,29 +113,58 @@ export function StatusStrip({
         <PeripheralEntry key={scale.id} status={scale} t={t} />
       ))}
 
-      {/* THE ORGATEX LINK — and it is the API's state, never a literal. */}
+      {scanner !== null && <PeripheralEntry status={scanner} t={t} />}
+      {printer !== null && <PeripheralEntry status={printer} t={t} />}
+
+      {/* THE ORGATEX LINK — the API's state, never a literal. */}
       {link !== null && <PeripheralEntry status={link} t={t} />}
 
       {/* THE UN-SYNCHRONISED COUNT — and the queue's depth. */}
       <div
+        className="stat"
         data-testid="status-unsynchronised"
-        style={{ fontSize: `${MIN_LABEL_PX}px` }}
+        data-healthy={unsynchronisedCount === 0 ? 'true' : 'false'}
       >
-        {t('status.unsynchronised')}: {unsynchronisedCount}
+        {t('status.unsynchronised')} {unsynchronisedCount}
       </div>
 
       {/* A QUEUED WRITE IS PENDING — NEVER POSTED. And a failed one stays
           visible with its last error. */}
       {queue.length > 0 && (
-        <div data-testid="status-queue" style={{ fontSize: `${MIN_LABEL_PX}px` }}>
+        <div className="stat" data-testid="status-queue">
           {queue.map((entry, index) => (
-            <div key={`${entry.state}-${index}`} data-testid={`status-queue-${index}`}>
+            <span key={`${entry.state}-${index}`} data-testid={`status-queue-${index}`}>
               {t(`status.queue.${entry.state.toLowerCase()}`)}
               {` — ${entry.attempts}`}
-            </div>
+            </span>
           ))}
         </div>
       )}
-    </section>
+
+      <span className="spacer" />
+
+      <div className="stat" data-testid="status-locale">
+        {t('status.locale')}
+      </div>
+      <div className="stat" data-testid="status-clock">
+        {clock}
+      </div>
+    </footer>
   );
+}
+
+/** The terminal's clock — HH:MM:SS, ticking. */
+function useClock(): string {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, CLOCK_TICK_MS);
+    return () => {
+      clearInterval(timer);
+    };
+  }, []);
+
+  return now.toTimeString().slice(0, 8);
 }

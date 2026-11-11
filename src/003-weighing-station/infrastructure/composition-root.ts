@@ -51,7 +51,9 @@ import { ZoneBoundsCache } from '../domain/services/zone-bounds-cache.js';
 import { OverdoseDetector } from '../domain/services/overdose-detector.js';
 import type { OverdoseOutcome } from '../domain/services/overdose-detector.js';
 import { CompensationCalculator } from '../domain/services/compensation-calculator.js';
-import type { WeightValue } from '../../004-scale-integration/domain/value-objects/weight-value.js';
+import { WeightValue } from '../../004-scale-integration/domain/value-objects/weight-value.js';
+import { Decimal } from 'decimal.js';
+import type { WeighingSession } from '../domain/entities/weighing-session.js';
 import type { Tolerance } from '../../005-orgatex-integration/domain/value-objects/tolerance.js';
 import type { ToleranceZone } from '../domain/value-objects/tolerance-zone.js';
 import type { ScaleClass } from '../../004-scale-integration/domain/value-objects/scale-capability.js';
@@ -98,6 +100,28 @@ export interface WeighingStationModule {
   readonly selection: ScaleSelectionPort;
   /** Where the session is recorded. */
   readonly sessions: WeighingSessionRepository;
+  /**
+   * THE RESUME — bind the persisted session to its device again.
+   *
+   * The session survives a restart; the **subscription** does not. So
+   * without this the station would have a session naming a scale and no
+   * listener on it, and the operator's weight would never move again.
+   */
+  readonly resume: () => void;
+  /**
+   * TRAINING ONLY — pour the active component onto its bound dummy scale
+   * (the prototype's "Simulate dispense / overshoot").
+   *
+   * The target and the tolerance are the RECIPE's, read here, so the
+   * client sends only which landing it wants and does no arithmetic.
+   */
+  readonly startSession: (
+    batchId: string,
+    operatorId: string,
+  ) => Promise<StartSessionOutcome>;
+  readonly trainingDispense: (
+    landing: 'IN_TOLERANCE' | 'OVER_TOLERANCE',
+  ) => 'STARTED' | 'NO_ACTIVE_COMPONENT' | 'NOT_A_TRAINING_SCALE';
   /** Where the weighing record is written. */
   readonly records: WeighingRecordRepository;
   /** Where the surplus proposal is recorded. */
@@ -123,6 +147,13 @@ export interface WeighingStationModule {
   /** The bounds — computed once per component (ADR-037). */
   readonly bounds: ZoneBoundsCache;
 }
+
+/** What starting — or continuing — a batch's weighing came to. */
+export type StartSessionOutcome =
+  | { readonly kind: 'READY'; readonly session: WeighingSession }
+  | { readonly kind: 'RECIPE_NOT_LOADED' }
+  | { readonly kind: 'OTHER_BATCH_IN_PROGRESS'; readonly batchId: string }
+  | { readonly kind: 'REFUSED'; readonly reason: string };
 
 export interface BuildWeighingStationOptions {
   /**
@@ -221,7 +252,11 @@ export function buildWeighingStationModule(
     clock,
     // The subscription is established when the binding happens, so the
     // session receives the device's readings from the first one.
-    onScaleBound: (scaleId) => bindToScale(scaleId),
+    onScaleBound: (scaleId) => {
+      // A new component: the previous container leaves the platform.
+      options.stream.clearForNextComponent?.(scaleId);
+      bindToScale(scaleId);
+    },
     ...(options.onError === undefined ? {} : { onError: options.onError }),
   });
 
@@ -274,6 +309,54 @@ export function buildWeighingStationModule(
         void options.sessions.save(session);
       },
     );
+  };
+
+  // ══════════════════════════════════════════════════════════════════════
+  // THE RESUME — AND A SESSION THAT NEVER RE-BOUNDS NEVER WEIGHS AGAIN.
+  // ══════════════════════════════════════════════════════════════════════
+  //
+  // The session is persisted so the work can be **resumed** (NFR-06,
+  // ADR-036). But the **subscription** lives in memory: it is established
+  // when a component is selected, and it dies with the process.
+  //
+  // So after a restart the session row still names a bound scale, and the
+  // station has **no subscription to it** — the device speaks, and nobody
+  // hears. The session's weight freezes at whatever it was, and the
+  // operator watches a readout that never moves again.
+  //
+  // **And the restart is not an edge case here.** `tsx watch` restarts the
+  // API on every edit, and the persisted session survives it — so this is
+  // the state every edit leaves behind.
+  //
+  // So the resume re-establishes the binding **once**, at startup, for the
+  // session that is already on disk. It is the SAME binding — the same
+  // `bindToScale`, the same one `onScaleBound` calls — so there is one
+  // subscription and one reader of the device's stream.
+  const resumePersistedSession = (): void => {
+    const session = sessionOf(options);
+    if (session === null) return;
+
+    const scaleId = session.selectedScaleId;
+    if (scaleId === null) return;
+
+    // Only a session that is actually WEIGHING has a device to listen to.
+    // A session in any other state has no live weight to receive.
+    if (session.state !== 'WEIGHING') return;
+
+    // THE COUNTER IS RESUMED FIRST — before the subscription exists.
+    //
+    // The session's floor is durable and the device's counter is not, so
+    // without this the device would speak from sequence 1 and every
+    // reading would be discarded as out of order (ADR-036).
+    const floor = session.lastAcceptedSequence;
+    if (floor !== null) {
+      options.stream.resumeCounter?.(scaleId, floor);
+    }
+
+    options.onError?.(
+      `[weighing-station] resuming the session ${session.sessionId} on ${scaleId.value}`,
+    );
+    bindToScale(scaleId);
   };
 
   const evaluator = new ToleranceZoneEvaluator();
@@ -428,7 +511,91 @@ export function buildWeighingStationModule(
     ...(options.onError === undefined ? {} : { onError: options.onError }),
   });
 
+  /**
+   * Start — or continue — the weighing of a batch, and bind the active
+   * component's scale.
+   *
+   * THE PROGRESSION STAYS HERE (FR-14). A new session begins at the first
+   * component in the MES's recipe order; a continued one at the component
+   * the session already holds active. The client says only which batch.
+   *
+   * It is also how the next component is bound after a confirm: the
+   * domain advances the active component but releases the scale, and this
+   * binds the next one — the 32 kg floor scale for Sodium Sulphate, say.
+   */
+  const startSession = async (
+    batchId: string,
+    operatorId: string,
+  ): Promise<StartSessionOutcome> => {
+    const recipe = options.workingCopy.current();
+    if (recipe === null || recipe.batchId.value !== batchId) {
+      return { kind: 'RECIPE_NOT_LOADED' };
+    }
+
+    const existing = sessionOf(options);
+    const continuing =
+      existing !== null && existing.state !== 'COMPLETE' ? existing : null;
+
+    if (continuing !== null && continuing.batchId.value !== batchId) {
+      return {
+        kind: 'OTHER_BATCH_IN_PROGRESS',
+        batchId: continuing.batchId.value,
+      };
+    }
+
+    let componentId: string;
+    if (continuing !== null) {
+      const active = continuing.activeComponentId;
+      if (active === null || continuing.selectedScaleId !== null) {
+        return { kind: 'READY', session: continuing };
+      }
+      componentId = active.value;
+    } else {
+      const first = recipe.components[0];
+      if (first === undefined) return { kind: 'RECIPE_NOT_LOADED' };
+      componentId = first.componentId.value;
+    }
+
+    const outcome = await selectComponent.execute(componentId, operatorId);
+    if (outcome.kind !== 'SELECTED') {
+      return { kind: 'REFUSED', reason: outcome.kind };
+    }
+    return { kind: 'READY', session: outcome.session };
+  };
+
+  const trainingDispense = (
+    landing: 'IN_TOLERANCE' | 'OVER_TOLERANCE',
+  ): 'STARTED' | 'NO_ACTIVE_COMPONENT' | 'NOT_A_TRAINING_SCALE' => {
+    const session = sessionOf(options);
+    const active = session?.activeComponentId ?? null;
+    const scaleId = session?.selectedScaleId ?? null;
+    const component =
+      active === null
+        ? null
+        : (options.workingCopy.current()?.componentById(active.value) ?? null);
+    if (scaleId === null || component === null || component.tolerance === null) {
+      return 'NO_ACTIVE_COMPONENT';
+    }
+
+    // The ramp lands at a multiple of the HALF-width either side of the
+    // target, so the band's half-width is what it is given — exactly.
+    const band = component.tolerance;
+    const halfWidth = new Decimal(band.max.text)
+      .minus(new Decimal(band.min.text))
+      .dividedBy(2);
+
+    const started = options.stream.trainingDispense?.(
+      scaleId,
+      component.target,
+      WeightValue.of(halfWidth.toFixed(), band.unit),
+      landing,
+    );
+    return started === true ? 'STARTED' : 'NOT_A_TRAINING_SCALE';
+  };
+
   return {
+    startSession,
+    trainingDispense,
     selectComponent,
     consumeWeightStream,
     evaluateZone,
@@ -459,5 +626,9 @@ export function buildWeighingStationModule(
     writeBack: options.writeBack,
     batchFacts: options.batchFacts,
     bounds,
+    // THE RESUME — so a persisted session is bound to its device again
+    // after a restart. Without it the weight freezes at whatever the
+    // session last held.
+    resume: resumePersistedSession,
   };
 }

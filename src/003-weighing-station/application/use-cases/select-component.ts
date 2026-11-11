@@ -32,6 +32,7 @@
  * scale whose calibration has expired is refused **at selection**, and the
  * reason is unit `004`'s own vocabulary, passed through unchanged.
  */
+import { randomUUID } from 'node:crypto';
 import { Instant } from '../../../004-scale-integration/domain/value-objects/instant.js';
 import type { ScaleId } from '../../../004-scale-integration/domain/value-objects/scale-id.js';
 import {
@@ -195,10 +196,15 @@ export class SelectComponent {
       };
     }
 
+    // The existing session is continued only while it is THIS batch's and
+    // unfinished — a completed batch, or another batch, starts a new one.
     const existing = this.options.sessions.current();
     const session =
-      existing ??
-      this.newSession(recipe.batchId, operatorId, recipe.components);
+      existing !== null &&
+      existing.batchId.value === recipe.batchId.value &&
+      existing.state !== 'COMPLETE'
+        ? existing
+        : this.newSession(recipe.batchId, operatorId, recipe.components);
 
     // `DONE` IS TERMINAL. The aggregate refuses it.
     try {
@@ -235,7 +241,10 @@ export class SelectComponent {
     components: readonly { readonly componentId: ComponentId }[],
   ): WeighingSession {
     return new WeighingSession({
-      sessionId: `WS-${this.options.clock().getTime().toString(36)}`,
+      // The time keeps ids readable; the random suffix keeps them UNIQUE —
+      // two sessions started in the same millisecond (or under a test
+      // clock) must never share a row, or the upsert would overwrite one.
+      sessionId: `WS-${this.options.clock().getTime().toString(36)}-${randomUUID().slice(0, 8)}`,
       batchId,
       operatorId: OperatorId.create(operatorId),
       startedAt: Instant.of(this.options.clock()),

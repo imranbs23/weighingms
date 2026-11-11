@@ -103,5 +103,12 @@ export const QUEUE_KEYS = [
   'queue.refusal.notReleased',
   'queue.refusal.ambiguousPrefix',
   'queue.refusal.generic',
+  'queue.refusal.dismiss',
+  'queue.scan.prompt',
+  'queue.scan.orTouch',
+  'workflow.refusal.otherBatch',
+  'workflow.refusal.noScale',
+  'workflow.refusal.unreachable',
+  'workflow.refusal.notComplete',
   ...QUEUE_COLUMNS.map((column) => column.labelKey),
 ] as const;

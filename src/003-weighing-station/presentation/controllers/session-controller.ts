@@ -34,6 +34,8 @@ import type { WeighingStationModule } from '../../infrastructure/composition-roo
 import type { WeighingSession } from '../../domain/entities/weighing-session.js';
 import {
   componentSelectionSchema,
+  sessionStartSchema,
+  trainingDispenseSchema,
 } from '../schemas/weighing-station-schemas.js';
 
 export const NO_DEVICE_CAN_WEIGH = 'NO_DEVICE_CAN_WEIGH';
@@ -292,6 +294,16 @@ export function createSessionRouter(
 
     switch (outcome.kind) {
       case 'CONFIRMED':
+        // THE NEXT COMPONENT'S SCALE. The domain advanced the active
+        // component and released the scale; the station binds the next
+        // one, so the operator lands on a component ready to weigh.
+        const advanced = await station.sessions.current();
+        if (outcome.progression.kind === 'ADVANCED' && advanced !== null) {
+          await station.startSession(
+            advanced.batchId.value,
+            req.currentOperator.id.value,
+          );
+        }
         res.status(201).json({
           record: serialiseRecord(outcome.record),
           // What the session moved to — and `null` when the batch is
@@ -321,6 +333,82 @@ export function createSessionRouter(
         });
         return;
     }
+  });
+
+  /**
+   * POST /api/session/start — start, or continue, a batch's weighing.
+   *
+   * The client calls this after the operator selects a batch and its
+   * recipe is loaded. The station decides the component (FR-14).
+   *
+   * 200 — the session, with a component active and its scale bound.
+   * 401 — no operator session. 409 — the recipe is not loaded, another
+   *       batch is still being weighed, or no scale can weigh it.
+   */
+  router.post('/start', async (req: Request, res: Response) => {
+    if (req.currentOperator === undefined) {
+      res.status(401).json({ error: UNAUTHENTICATED });
+      return;
+    }
+
+    const parsed = sessionStartSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: VALIDATION_ERROR });
+      return;
+    }
+
+    const outcome = await station.startSession(
+      parsed.data.batchId,
+      req.currentOperator.id.value,
+    );
+
+    switch (outcome.kind) {
+      case 'READY':
+        res.status(200).json({ session: serialiseSession(outcome.session) });
+        return;
+      case 'OTHER_BATCH_IN_PROGRESS':
+        res.status(409).json({
+          error: outcome.kind,
+          reason: outcome.kind,
+          batchId: outcome.batchId,
+        });
+        return;
+      case 'RECIPE_NOT_LOADED':
+        res.status(409).json({ error: outcome.kind, reason: outcome.kind });
+        return;
+      case 'REFUSED':
+        res.status(409).json({ error: outcome.kind, reason: outcome.reason });
+        return;
+    }
+  });
+
+  /**
+   * POST /api/session/training/dispense — pour the active component onto
+   * its bound training scale (the prototype's "Simulate dispense").
+   *
+   * TRAINING ONLY. 202 — the ramp started. 400 — not a landing.
+   * 401 — no operator session. 409 — no active component, or the bound
+   * scale is a real device (a real scale is filled by hand, never by API).
+   */
+  router.post('/training/dispense', (req: Request, res: Response) => {
+    if (req.currentOperator === undefined) {
+      res.status(401).json({ error: UNAUTHENTICATED });
+      return;
+    }
+
+    const parsed = trainingDispenseSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: VALIDATION_ERROR });
+      return;
+    }
+
+    const outcome = station.trainingDispense(parsed.data.landing);
+    if (outcome !== 'STARTED') {
+      res.status(409).json({ error: outcome });
+      return;
+    }
+
+    res.status(202).json({ landing: parsed.data.landing });
   });
 
   return router;

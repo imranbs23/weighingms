@@ -27,7 +27,9 @@
 import { create } from 'zustand';
 import {
   fetchLinkState,
+  fetchPrinterStatus,
   fetchScales,
+  fetchScannerStatus,
   fetchSyncQueue,
   type LinkStateReport,
   type ScaleReport,
@@ -46,6 +48,8 @@ export interface PeripheralStatus {
   readonly reason: string;
   /** The age of the data behind it — **in milliseconds**. */
   readonly ageMs: number | null;
+  /** The device's own label — "3 kg precision" — when it has one. */
+  readonly label?: string;
 }
 
 export interface StatusStore {
@@ -77,11 +81,14 @@ export const useStatusStore = create<StatusStore>((set) => ({
   apiReachable: true,
 
   load: async () => {
-    const [scalesResult, linkResult, queueResult] = await Promise.all([
-      fetchScalesSafe(),
-      fetchLinkStateSafe(),
-      fetchSyncQueueSafe(),
-    ]);
+    const [scalesResult, linkResult, queueResult, scanner, printer] =
+      await Promise.all([
+        fetchScalesSafe(),
+        fetchLinkStateSafe(),
+        fetchSyncQueueSafe(),
+        fetchPeripheralSafe('SCANNER', fetchScannerStatus),
+        fetchPeripheralSafe('PRINTER', fetchPrinterStatus),
+      ]);
 
     // THE API IS UNREACHABLE — and the strip says so, rather than
     // showing stale states as if they were current (BRD FR-20).
@@ -96,6 +103,8 @@ export const useStatusStore = create<StatusStore>((set) => ({
       link: toLinkStatus(linkResult.link),
       unsynchronisedCount: linkResult.link.unsynchronisedCount,
       queue: queueResult.ok ? queueResult.queue : [],
+      scanner,
+      printer,
     });
   },
 }));
@@ -107,17 +116,48 @@ export const useStatusStore = create<StatusStore>((set) => ({
  * names it — because the gate's reason is unit `004`'s and it already
  * knows the difference (BRD FR-12, AC-14).
  */
+/**
+ * The device statuses in which a scale can weigh — the domain's
+ * vocabulary (`ScaleStatus`). `DISCONNECTED` and `OVER_CAPACITY` cannot.
+ */
+const SCALE_STATUSES_READY = ['READY', 'CONNECTED', 'ZEROED', 'BUSY'];
+
 function toScaleStatus(scale: ScaleReport): PeripheralStatus {
-  const healthy = scale.status === 'READY';
+  const healthy = SCALE_STATUSES_READY.includes(scale.status);
   return {
     id: scale.scaleId,
-    state: scale.status,
+    // A scale that can weigh is shown as the prototype shows it: READY.
+    state: healthy ? 'READY' : scale.status,
     healthy,
     reason: healthy
       ? 'status.scale.ready'
       : `status.scale.${scale.status.toLowerCase()}`,
     ageMs: null,
+    label: scale.label,
   };
+}
+
+/** The scanner's or the printer's own report — `null` when unreadable. */
+async function fetchPeripheralSafe(
+  id: string,
+  fetcher: typeof fetchScannerStatus,
+): Promise<PeripheralStatus | null> {
+  try {
+    const result = await fetcher();
+    if (result.kind !== 'OK') return null;
+    const healthy = result.body.state === 'READY';
+    return {
+      id,
+      state: result.body.state,
+      healthy,
+      reason: healthy
+        ? 'status.state.ready'
+        : `status.peripheral.${result.body.state.toLowerCase()}`,
+      ageMs: null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**

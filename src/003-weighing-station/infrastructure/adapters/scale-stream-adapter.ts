@@ -25,6 +25,8 @@ import type { ScaleStreamService } from '../../../004-scale-integration/domain/s
 import type { ScaleRegistry } from '../../../004-scale-integration/domain/services/scale-registry.js';
 import type { ScaleAdapter } from '../../../004-scale-integration/domain/ports/scale-adapter.js';
 import { DummyScaleAdapter } from '../../../004-scale-integration/infrastructure/adapters/dummy-scale-adapter.js';
+import { WeightUnitConverter } from '../../../004-scale-integration/domain/services/weight-unit-converter.js';
+import type { WeightValue } from '../../../004-scale-integration/domain/value-objects/weight-value.js';
 import type { ScaleStreamPort } from '../../domain/ports/weighing-station-ports.js';
 
 export class ScaleStreamAdapter implements ScaleStreamPort {
@@ -78,6 +80,57 @@ export class ScaleStreamAdapter implements ScaleStreamPort {
     void this.pump(scaleId);
 
     return unsubscribe;
+  }
+
+  /**
+   * Resume a device's sequence counter from a durable floor.
+   *
+   * **The training device's counter is in memory**, so it restarts at 1
+   * while the session's floor is durable — and every reading would then be
+   * rejected as out of order. So the counter is resumed here.
+   *
+   * A real indicator needs none of this: it owns its counter and kept
+   * counting while the station was away.
+   */
+  resumeCounter(scaleId: ScaleId, floor: number): void {
+    const adapter = this.adapters.get(scaleId.value);
+    if (!(adapter instanceof DummyScaleAdapter)) return;
+    adapter.resumeFrom(floor);
+  }
+
+  /** The training device's platform is emptied for the next component. */
+  clearForNextComponent(scaleId: ScaleId): void {
+    const adapter = this.adapters.get(scaleId.value);
+    if (!(adapter instanceof DummyScaleAdapter)) return;
+    adapter.clearForNextComponent();
+  }
+
+  /**
+   * Start the training device's dispense ramp.
+   *
+   * The target and the half-width are converted into the DEVICE's unit —
+   * a kilogram target on a gram scale — exactly, by unit 004's converter.
+   */
+  trainingDispense(
+    scaleId: ScaleId,
+    target: WeightValue,
+    halfWidth: WeightValue,
+    landing: 'IN_TOLERANCE' | 'OVER_TOLERANCE',
+  ): boolean {
+    const adapter = this.adapters.get(scaleId.value);
+    const device = this.registry.get(scaleId);
+    if (!(adapter instanceof DummyScaleAdapter) || device === null) {
+      return false;
+    }
+
+    const unit = device.capability.capacity.unit;
+    const converter = new WeightUnitConverter();
+    adapter.startDispense(
+      converter.convert(target, unit),
+      converter.convert(halfWidth, unit),
+      landing,
+    );
+    return true;
   }
 
   /**

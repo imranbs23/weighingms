@@ -210,7 +210,15 @@ export async function fetchZone(): Promise<
  */
 export async function confirmComponent(
   componentId: string,
-): Promise<ApiResult<{ record: { readonly componentId: string } }>> {
+): Promise<
+  ApiResult<{
+    record: { readonly componentId: string };
+    /** The component the station advanced to — `null` at the last. */
+    advancedTo?: string | null;
+    /** The station's verdict that every component is confirmed. */
+    batchComplete?: boolean;
+  }>
+> {
   return call('/api/session/confirm', {
     method: 'POST',
     body: JSON.stringify({ componentId }),
@@ -367,7 +375,14 @@ export interface BatchSummary {
   /** The total — a fixed-point decimal **string**. */
   readonly totalDispensed: string;
   readonly unit: string;
-  /** `WITHIN_TOLERANCE` or `OUT_OF_TOLERANCE`. */
+  /**
+   * The tolerance verdict — the API's own two-valued one.
+   *
+   * **`YES` or `NO`** — and that is the API's vocabulary, not the ticket's.
+   * The ticket's `toleranceOutcome` is `WITHIN_TOLERANCE` /
+   * `OUT_OF_TOLERANCE`; the summary's verdict is `YES` / `NO`, because unit
+   * `003` states it as a two-valued answer (ADR-041).
+   */
   readonly allWithinTolerance: string;
   readonly writeBack: string;
   readonly writeBackConfirmedAt: string | null;
@@ -501,6 +516,8 @@ export interface ScaleReport {
   readonly status: string;
   /** The link state — and it is a REAL value, never a literal. */
   readonly link: string;
+  /** `DUMMY` for the training device — the only one with training controls. */
+  readonly source?: string;
 }
 
 export async function fetchScales(): Promise<
@@ -731,4 +748,88 @@ export async function fetchCurrentOperator(): Promise<
   ApiResult<SessionReport>
 > {
   return call<SessionReport>('/api/identity/current');
+}
+
+/**
+ * Start — or continue — a batch's weighing.
+ *
+ * The station decides the component and binds its scale (FR-14); the
+ * client says only which batch.
+ */
+export async function startSession(
+  batchId: string,
+): Promise<ApiResult<{ session: SessionSnapshot }>> {
+  return call('/api/session/start', {
+    method: 'POST',
+    body: JSON.stringify({ batchId }),
+  });
+}
+
+/**
+ * TRAINING ONLY — pour the active component onto its dummy scale.
+ *
+ * Only the landing is sent; the target and the band are the recipe's.
+ */
+export async function trainingDispense(
+  landing: 'IN_TOLERANCE' | 'OVER_TOLERANCE',
+): Promise<ApiResult<{ landing: string }>> {
+  return call('/api/session/training/dispense', {
+    method: 'POST',
+    body: JSON.stringify({ landing }),
+  });
+}
+
+/** Re-tare — zero the scale against what is on the platform (F2). */
+export async function reTare(
+  scaleId: string,
+): Promise<ApiResult<{ tare: unknown }>> {
+  return call(`/api/scales/${encodeURIComponent(scaleId)}/re-tare`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Complete the batch — the station posts the consumption to OrgaTEX and
+ * returns the summary with the write-back's state.
+ */
+export async function completeBatch(
+  batchId: string,
+): Promise<ApiResult<{ summary: BatchSummary }>> {
+  return call(`/api/batch/${encodeURIComponent(batchId)}/complete`, {
+    method: 'POST',
+  });
+}
+
+/** A peripheral's own status report — the scanner's or the printer's. */
+export interface PeripheralReport {
+  readonly state: string;
+  readonly reason?: string | null;
+  readonly source: string;
+}
+
+export async function fetchScannerStatus(): Promise<
+  ApiResult<PeripheralReport>
+> {
+  return call('/api/scanner/status');
+}
+
+export async function fetchPrinterStatus(): Promise<
+  ApiResult<PeripheralReport>
+> {
+  return call('/api/printer/status');
+}
+
+/**
+ * Raise the supervisor override for the active component's over-dose.
+ *
+ * 409 when there is nothing to escalate — the zone is not OVER, or the
+ * surplus is compensable (the surplus proposal is the path then).
+ */
+export async function raiseEscalation(
+  componentId: string,
+): Promise<ApiResult<{ escalation: EscalationReport }>> {
+  return call('/api/escalation', {
+    method: 'POST',
+    body: JSON.stringify({ componentId }),
+  });
 }

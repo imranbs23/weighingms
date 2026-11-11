@@ -63,6 +63,14 @@ export class DummyPrinterAdapter implements PrinterPort {
    * of paper is a normal outcome of a legitimate request, and the operator
    * needs the reason to act on it (BRD FR-19).
    */
+  /** The printer's state — the status strip's entry. */
+  status(): { readonly available: boolean; readonly reason: string | null } {
+    return {
+      available: this.available,
+      reason: this.available ? null : this.unavailableReason,
+    };
+  }
+
   async print(ticket: Ticket): Promise<
     | { readonly kind: 'PRINTED' }
     | { readonly kind: 'FAILED'; readonly reason: string }

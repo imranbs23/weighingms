@@ -49,6 +49,12 @@ export function createScaleRouter(scales: ScaleModule): Router {
         unit: device.capability.capacity.unit,
         status: device.status,
         link: device.linkState,
+        // Whether the device is the training dummy — the terminal shows its
+        // training controls only for one, never for a real indicator.
+        source:
+          scales.adapters.get(device.id.value) instanceof DummyScaleAdapter
+            ? 'DUMMY'
+            : 'DEVICE',
       })),
     });
   });
@@ -293,6 +299,59 @@ export function createScaleRouter(scales: ScaleModule): Router {
       scaleId,
       WeightValue.of(parsedBody.data.tareValue, parsedBody.data.unit),
       parsedBody.data.source,
+    );
+
+    if (outcome.kind === 'REFUSED') {
+      res.status(409).json({
+        error: 'TARE_REFUSED',
+        reason: outcome.reason,
+        previousTareRetained: true,
+      });
+      return;
+    }
+
+    res.status(202).json({ tare: serialiseTare(outcome.state) });
+  });
+
+  /**
+   * POST /api/scales/:scaleId/re-tare — zero the scale against what is on
+   * the platform now (the prototype's F2).
+   *
+   * REQUIRES AN OPERATOR SESSION. The tare value is the device's own gross
+   * reading, so the client sends no weight and does no arithmetic. It goes
+   * through the registry's normal tare path, so the gate and the refusals
+   * are the same as an explicit tare.
+   *
+   * 202 — the tare applied. 404 — no such scale, or the device cannot
+   *       report a gross weight (only the training dummy can, today).
+   * 409 — the tare was refused.
+   */
+  router.post('/:scaleId/re-tare', (req: Request, res: Response) => {
+    if (req.currentOperator === undefined) {
+      res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return;
+    }
+
+    const parsedId = scaleIdSchema.safeParse(req.params['scaleId']);
+    if (!parsedId.success) {
+      res.status(400).json({ error: VALIDATION_ERROR });
+      return;
+    }
+
+    const scaleId = ScaleId.create(parsedId.data);
+    const adapter = scales.adapters.get(scaleId.value);
+    if (
+      scales.registry.get(scaleId) === null ||
+      !(adapter instanceof DummyScaleAdapter)
+    ) {
+      res.status(404).json({ error: SCALE_NOT_FOUND });
+      return;
+    }
+
+    const outcome = scales.registry.applyTare(
+      scaleId,
+      adapter.grossWeight(),
+      'WEIGHED_EMPTY_CONTAINER',
     );
 
     if (outcome.kind === 'REFUSED') {

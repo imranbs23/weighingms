@@ -50,7 +50,6 @@ export const CONFIRM_REASON_CALIBRATION = 'weigh.confirm.calibration';
 export const CONFIRM_REASON_OVERRIDE_REQUIRED = 'weigh.confirm.overrideRequired';
 export const CONFIRM_REASON_UNREACHABLE = 'weigh.confirm.unreachable';
 export const CONFIRM_REASON_NO_COMPONENT = 'weigh.confirm.noComponent';
-export const CONFIRM_REASON_WORKING = 'weigh.confirm.working';
 
 /**
  * The confirm action for a reported zone.
@@ -63,7 +62,6 @@ export function confirmActionFor(
   extras: {
     readonly unreachable?: boolean;
     readonly noComponent?: boolean;
-    readonly working?: boolean;
     readonly awaitingSupervisor?: boolean;
   } = {},
 ): ConfirmAction {
@@ -72,9 +70,6 @@ export function confirmActionFor(
   }
   if (extras.noComponent === true) {
     return { enabled: false, reason: CONFIRM_REASON_NO_COMPONENT };
-  }
-  if (extras.working === true) {
-    return { enabled: false, reason: CONFIRM_REASON_WORKING };
   }
   if (extras.awaitingSupervisor === true) {
     // The override is required — and the weighing is NOT confirmed.
@@ -114,7 +109,6 @@ export interface ActionStore {
     extras?: {
       readonly unreachable?: boolean;
       readonly noComponent?: boolean;
-      readonly working?: boolean;
       readonly awaitingSupervisor?: boolean;
     },
   ) => void;

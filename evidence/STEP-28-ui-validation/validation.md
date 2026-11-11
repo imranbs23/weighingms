@@ -6,6 +6,115 @@ created: 2026-11-07T05:00:00Z
 
 # Step 28 — UI/UX Validation: the prototype against the implementation
 
+## Re-validation 2026-11-11, after bolt 029: PASSED
+
+The running application (API and SPA, seeded `OP-001`) was driven **through
+its UI alone** by `playwright/step28-capture.spec.ts`:
+
+1. Sign in.
+2. Touch B-24187.
+3. Pour each of the five components with the training scale's *Simulate dispense*.
+4. Confirm each with **OK · Confirm**.
+5. The station completes the batch: OrgaTEX write-back `CONFIRMED`.
+6. Print the ticket.
+
+| Screen | Prototype | Implementation |
+|---|---|---|
+| Sign-in | — | `app-0-sign-in.png` |
+| 1 · Select batch | `screen-1-prototype.png` | `screen-1-app.png` |
+| 2 · Weigh | `screen-2-prototype.png` | `screen-2-app.png` (Yellow RGB, 3 kg precision), `screen-2-app-32kg.png` (Sodium Sulphate, 32 kg floor) |
+| 3 · Confirm & print | `screen-3-prototype.png` | `screen-3-app.png` |
+
+### The blockers of 2026-11-10
+
+| # | Blocker | Status |
+|---|---|---|
+| B1 | Selection did not open the weigh view | ✅ closed: the recipe is loaded and the station starts the session |
+| B2 | Weigh view could not start without a session | ✅ closed: the rail is the recipe's; the station binds the first component |
+| B3 | No way to put weight on the dummy scale | ✅ closed: training bar (*Simulate dispense / overshoot*), dummy scale only |
+| B4 | Re-tare, Quit, Supervisor override | ✅ closed, with F1 / F2 / F4 on the same handlers |
+| B5 | No completion, no write-back | ✅ closed: the last confirm completes the batch; `Written to OrgaTEX · CONFIRMED` |
+| B6 | No Next batch | ✅ closed: Next batch (F3) |
+| B7 | Idle scales `DISCONNECTED` | ✅ closed: devices stream from boot; the strip reads the device status correctly |
+
+### Element-by-element, now
+
+| Element | Verdict |
+|---|---|
+| Top bar: brand, station, batch · order · machine, operator chip | ✅ Match |
+| Scan prompt with the beam, "or touch a row" | ✅ Match |
+| Queue table: seven columns, status tag | ✅ Match (fabric and lot shown as the MES sends them) |
+| Recipe rail: swatch, name, code, target, state; shade, batch, "N/5 weighed" | ✅ Match |
+| Weigh-head: name, code, scale badge "3 kg precision" / "32 kg floor" | ✅ Match: scale switches automatically at Sodium Sulphate, units change to kg |
+| Readout: Weighed now / Still to weigh / Target | ✅ Match: all three in the component's unit |
+| Bar: fill, OK band, target line, "TOLERANCE ±0.5 g (93.5 – 94.5)", axis max | ✅ Match: axis at 4/3 × target, as the prototype's 125 g for 94 g |
+| Status line: "DISPENSE — N REMAINING", "WITHIN TOLERANCE" | ✅ Match |
+| Keys: OK · Confirm F1, Re-tare F2, Quit F4, Supervisor override | ✅ Match |
+| Surplus panel on overshoot | ✅ Shown when the station proposes one |
+| Completion: "Batch B-24187 weighed", six summary rows, release line | ✅ Match |
+| Print ticket F1, Next batch F3 | ✅ Match |
+| Ticket on paper, with barcode and the batch id beneath | ✅ Match: Code 128, marked as a training label (Q-18) |
+| Status strip: scales, scanner, printer, OrgaTEX, locale, clock | ✅ Match: OrgaTEX is the API's real link state, never a literal |
+
+### Remaining differences (data, not layout)
+
+- **Lot, container and tare are not on the weigh-head for B-24187.** Nothing
+  in this flow captures a lot or assigns a container yet. The fields render
+  when the API has them.
+- **The ticket and the summary name the operator by id** (`OP-001`), and the
+  ticket names components by code: both are the API's ticket, which the
+  client renders as-is (ADR-042).
+- **The prototype's question pins** are a mock-up device, not product UI,
+  and are not reproduced.
+
+---
+
+## Re-validation 2026-11-10 — against the running application
+
+**Verdict: FAILED. The working application cannot complete the workflow
+through its UI.** The earlier structural comparison below holds for each
+component in isolation, but driving the real app (Playwright, both
+processes, seeded `OP-001`) shows the screens are not wired together.
+
+### Screenshots
+
+| Screen | Prototype | Implementation |
+|---|---|---|
+| Sign-in | — | `app-0-sign-in.png` |
+| 1 · Select batch | `screen-1-prototype.png` | `screen-1-app.png`, `screen-1-app-after-select.png` |
+| 2 · Weigh | `screen-2-prototype.png` | **not reachable from the UI** |
+| 3 · Confirm & print | `screen-3-prototype.png` | **not reachable from the UI** |
+
+Captured by `playwright/step28-capture.spec.ts`.
+
+### Functional blockers (workflow cannot be completed)
+
+| # | Blocker | Evidence |
+|---|---|---|
+| B1 | Selecting a batch records the selection (`POST /api/selection` → 200) but the app **stays on the queue**. `App` decides the screen only when the identity changes. | `screen-1-app-after-select.png` |
+| B2 | The weigh screen builds its recipe rail from the **session**, but the session is only created by selecting a component from that rail. With no session the rail is empty, so no component can be selected. The recipe (`GET /api/recipe/:batchId`) is never loaded for a freshly selected batch. | `WeighScreen.tsx` |
+| B3 | No way to put weight on the dummy scale from the UI. The prototype has **Simulate dispense / Simulate overshoot**; the API has `POST /api/scales/:id/dispense`, but no UI calls it. | `screen-2-prototype.png` |
+| B4 | **Re-tare** is absent (the API has `POST /api/scales/:id/tare`); **Quit** re-selects the component instead of leaving; **Supervisor override** has no button. | `ActionRow.tsx` |
+| B5 | Confirming the last component never moves to the completion screen, and **nothing calls `POST /api/batch/:batchId/complete`**, so the OrgaTEX write-back never happens from the UI. | `App.tsx`, `endpoints.ts` |
+| B6 | Completion has no **Next batch**. | `CompletionScreen.tsx` |
+| B7 | The status strip shows both scales **Disconnected · not responding** at idle, where the prototype shows `READY`. | `screen-1-app.png` |
+
+### Visual gaps (still open from the comparison below)
+
+V1 the terminal styling — header, two-column layout, large readout — is
+absent (the app renders unstyled stacked text); V2 the tolerance band and
+the capacity are not drawn; V3 function keys F1/F2/F3/F4; V4 the ticket
+barcode; V5 the scanner, printer, clock and locale strip entries.
+
+### Next action
+
+Close B1–B7 (and the visual gaps) in a new construction bolt for unit
+`007-weighingms-ui`, then re-run this validation before Step 29.
+
+---
+
+## Original structural comparison (2026-11-07)
+
 **The workbook's requirement:** *"Now compare the working application against
 the supplied prototype. Open both: the original at
 `docs/customize-weighing-station.html`, and your implementation."*

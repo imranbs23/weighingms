@@ -49,6 +49,7 @@ export function SurplusPanel({
 
   return (
     <section
+      className="panel"
       data-testid="surplus-panel"
       style={{
         border: `1px solid ${COLOURS.warning}`,

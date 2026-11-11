@@ -1,25 +1,24 @@
 import type React from 'react';
 /**
- * App — the screen.
+ * App — the terminal: the top bar, the view, the status strip.
  *
  * ══════════════════════════════════════════════════════════════════════
- * THE APP IS A RENDERER. IT HAS NO STATE AND NO RULES.
+ * THE APP IS A RENDERER. THE WORKFLOW FOLLOWS THE API.
  * ══════════════════════════════════════════════════════════════════════
  *
- * Bolt `024` delivered the **first** screen — the batch queue. Bolt
- * `025` adds the weigh view, and the queue screen becomes the screen the
- * operator returns to.
- *
- * **And the screen is decided by the SESSION'S state** — not by the
- * client's own idea of where the operator should be. An active session
- * means the weigh view; a complete one means the queue.
+ * The three views are the prototype's — Select batch, Weigh, Confirm &
+ * print. **Which view is shown follows the API**: on sign-in the session's
+ * state decides (an unfinished batch is resumed, a completed one reviewed),
+ * and after that every move is triggered by an API success — a selection
+ * accepted, a session started, a batch completed (bolt 029).
  */
-import { useEffect, useState } from 'react';
-import { fetchSession } from '../api/endpoints.js';
+import { useEffect } from 'react';
 import { BatchQueueScreen } from '../screens/batch-queue/BatchQueueScreen.js';
 import { WeighScreen } from '../screens/weigh/WeighScreen.js';
+import { CompletionScreen } from '../screens/completion/CompletionScreen.js';
 import { StatusStrip } from '../screens/status/StatusStrip.js';
 import { SignInScreen } from '../screens/identity/SignInScreen.js';
+import { TOP_BAR_KEYS, TopBar } from '../screens/chrome/TopBar.js';
 import {
   OPERATOR_BAR_KEYS,
   OperatorBar,
@@ -27,12 +26,15 @@ import {
 import { useStrings } from '../i18n/useStrings.js';
 import { useStatusStore } from '../state/status-store.js';
 import { useIdentityStore } from '../state/identity-store.js';
+import { useWorkflowStore } from '../state/workflow-store.js';
+import { useQueueStore, visibleBatches } from '../state/queue-store.js';
 
 /** The status strip's locale keys. */
 export const STATUS_KEYS = [
   'status.age',
   'status.unsynchronised',
   'status.apiUnreachable',
+  'status.locale',
   'status.state.ready',
   'status.state.connected',
   'status.state.disconnected',
@@ -40,6 +42,8 @@ export const STATUS_KEYS = [
   'status.state.linked',
   'status.state.degraded',
   'status.state.offline',
+  'status.state.unavailable',
+  'status.state.unknown',
   'status.scale.ready',
   'status.scale.connected',
   'status.scale.disconnected',
@@ -47,100 +51,121 @@ export const STATUS_KEYS = [
   'status.link.linked',
   'status.link.degraded',
   'status.link.offline',
+  'status.peripheral.disconnected',
+  'status.peripheral.unavailable',
+  'status.peripheral.unknown',
   'status.queue.queued',
   'status.queue.pending',
   'status.queue.failed',
 ] as const;
 
+/** How often the strip re-reads the peripherals — it is LIVE. */
+export const STATUS_REFRESH_MS = 3000;
+
 export function App(): React.JSX.Element {
-  const [screen, setScreen] = useState<'QUEUE' | 'WEIGH'>('QUEUE');
   const t = useStrings(STATUS_KEYS);
+  const barT = useStrings([...OPERATOR_BAR_KEYS, ...TOP_BAR_KEYS]);
 
   // THE IDENTITY — and the app is GATED on it. Every endpoint the client
   // calls requires an operator session, so a terminal with nobody signed
-  // in has nothing to show but the sign-in screen: the alternative is a
-  // screen whose every request is refused with a `401` the operator
-  // cannot act on.
+  // in has nothing to show but the sign-in screen.
   const identity = useIdentityStore((s) => s.state);
   const refreshIdentity = useIdentityStore((s) => s.refresh);
   const signOut = useIdentityStore((s) => s.signOut);
-  const barT = useStrings(OPERATOR_BAR_KEYS);
 
   const scales = useStatusStore((s) => s.scales);
   const link = useStatusStore((s) => s.link);
+  const scanner = useStatusStore((s) => s.scanner);
+  const printer = useStatusStore((s) => s.printer);
   const unsynchronisedCount = useStatusStore((s) => s.unsynchronisedCount);
   const queue = useStatusStore((s) => s.queue);
   const apiReachable = useStatusStore((s) => s.apiReachable);
   const loadStatus = useStatusStore((s) => s.load);
 
+  const view = useWorkflowStore((s) => s.view);
+  const batchId = useWorkflowStore((s) => s.batchId);
+  const decide = useWorkflowStore((s) => s.decide);
+  const queueState = useQueueStore((s) => s.state);
+
   useEffect(() => {
-    // WHO IS SIGNED IN — and the API's answer decides whether the station
-    // is usable. The client does not remember a session across a reload
-    // (the token is in memory), so it asks.
+    // WHO IS SIGNED IN — the token is in memory, so the client asks.
     void refreshIdentity();
   }, [refreshIdentity]);
 
   useEffect(() => {
-    // The status strip is only read **once there is a session** — the
-    // guarded reads it makes would be refused otherwise, and a strip that
-    // says "the API is unreachable" when the real answer is "nobody is
-    // signed in" is a wrong diagnosis shown to the operator.
+    // The strip is read only once there is a session — its reads are
+    // guarded, and "unreachable" is the wrong diagnosis for "nobody is
+    // signed in". And it is re-read, so a scale that drops shows.
     if (identity.kind !== 'SIGNED_IN') return;
     void loadStatus();
+    const timer = setInterval(() => {
+      void loadStatus();
+    }, STATUS_REFRESH_MS);
+    return () => {
+      clearInterval(timer);
+    };
   }, [identity.kind, loadStatus]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const decide = async (): Promise<void> => {
-      if (identity.kind !== 'SIGNED_IN') return;
-
-      const result = await fetchSession();
-      if (cancelled) return;
-
-      if (result.kind === 'OK' && result.body.session !== null) {
-        const active = result.body.session.state !== 'COMPLETE';
-        setScreen(active ? 'WEIGH' : 'QUEUE');
-      }
-    };
-
+    // THE VIEW ON SIGN-IN — the session's state decides it.
+    if (identity.kind !== 'SIGNED_IN') return;
     void decide();
-    return () => {
-      cancelled = true;
-    };
-  }, [identity.kind]);
+  }, [identity.kind, decide]);
 
-  // NOBODY IS SIGNED IN — and the terminal shows the sign-in screen.
-  // **And nothing else**, because every other screen depends on a session
-  // that does not exist.
   if (identity.kind !== 'SIGNED_IN') {
     return <SignInScreen />;
   }
 
-  return (
-    <>
-      {/* THE OPERATOR'S CHIP — and it is PERSISTENT, so the person at the
-          terminal is always visible (FR-18). */}
-      <OperatorBar
-        operator={identity.operator}
-        t={barT}
-        onSignOut={() => {
-          void signOut();
-        }}
-      />
+  // THE CRUMB — the open batch's order and machine, from the queue's row.
+  const row =
+    batchId === null
+      ? undefined
+      : visibleBatches(queueState).find((batch) => batch.batchId === batchId);
+  const crumb =
+    batchId === null || view === 'QUEUE'
+      ? null
+      : {
+          batchId,
+          orderRef: row?.orderRef ?? null,
+          machineRef: row?.machineRef ?? null,
+        };
 
-      {/* THE STATUS STRIP — and it is PERSISTENT, so a printer that is out
-          of paper is visible BEFORE a batch is completed (BRD IR-16). */}
+  return (
+    <div className="screen">
+      <TopBar crumb={crumb} t={barT}>
+        {/* THE OPERATOR'S CHIP — persistent, so the person at the
+            terminal is always visible (FR-18). */}
+        <OperatorBar
+          operator={identity.operator}
+          t={barT}
+          onSignOut={() => {
+            void signOut();
+          }}
+        />
+      </TopBar>
+
+      <div className="view">
+        {view === 'COMPLETE' && batchId !== null ? (
+          <CompletionScreen batchId={batchId} />
+        ) : view === 'WEIGH' && batchId !== null ? (
+          <WeighScreen batchId={batchId} />
+        ) : (
+          <BatchQueueScreen />
+        )}
+      </div>
+
+      {/* THE STATUS STRIP — persistent, so a printer that is out of paper
+          is visible BEFORE a batch is completed (BRD IR-16). */}
       <StatusStrip
         scales={scales}
         link={link}
+        scanner={scanner}
+        printer={printer}
         unsynchronisedCount={unsynchronisedCount}
         queue={queue}
         apiReachable={apiReachable}
         t={t}
       />
-
-      {screen === 'WEIGH' ? <WeighScreen /> : <BatchQueueScreen />}
-    </>
+    </div>
   );
 }

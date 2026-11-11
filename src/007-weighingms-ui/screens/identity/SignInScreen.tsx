@@ -64,77 +64,76 @@ export function SignInScreen(): React.JSX.Element {
   };
 
   return (
-    <main
-      data-testid="sign-in-screen"
-      style={{
-        padding: SPACING.lg,
-        color: COLOURS.text,
-        fontSize: `${MIN_LABEL_PX}px`,
-        maxWidth: '640px',
-      }}
-    >
-      <h1 style={{ fontSize: `${MIN_LABEL_PX * 1.4}px`, margin: 0 }}>
-        {t('identity.signIn.title')}
-      </h1>
-
-      {/* THE REFUSAL — and it names NO cause. One message for every
-          credential failure, so the screen is not an identity oracle. */}
-      {failure !== null && (
-        <p
-          data-testid="sign-in-failure"
-          role="alert"
-          style={{ color: COLOURS.danger }}
-        >
-          {t(failure)}
-        </p>
-      )}
-
-      <label style={{ display: 'block', marginTop: SPACING.md }}>
-        {t('identity.signIn.operatorId')}
-        <input
-          data-testid="sign-in-operator-id"
-          value={operatorId}
-          onChange={(event) => setOperatorId(event.target.value)}
-          style={{
-            display: 'block',
-            width: '100%',
-            minHeight: `${TOUCH_TARGET_PX}px`,
-            fontSize: `${MIN_LABEL_PX}px`,
-          }}
-        />
-      </label>
-
-      <label style={{ display: 'block', marginTop: SPACING.md }}>
-        {t('identity.signIn.secret')}
-        <input
-          type="password"
-          data-testid="sign-in-secret"
-          value={secret}
-          onChange={(event) => setSecret(event.target.value)}
-          style={{
-            display: 'block',
-            width: '100%',
-            minHeight: `${TOUCH_TARGET_PX}px`,
-            fontSize: `${MIN_LABEL_PX}px`,
-          }}
-        />
-      </label>
-
-      <button
-        type="button"
-        data-testid="sign-in-submit"
-        onClick={() => {
-          void onSubmit();
-        }}
-        disabled={busy || operatorId.trim() === '' || secret === ''}
-        style={{
-          marginTop: SPACING.md,
-          minHeight: `${TOUCH_TARGET_PX}px`,
-          fontSize: `${MIN_LABEL_PX}px`,
-        }}
+    <div className="sign-in-wrap">
+      <main
+        className="sign-in"
+        data-testid="sign-in-screen"
+        style={{ fontSize: `${MIN_LABEL_PX}px` }}
       >
-        {t('identity.signIn.submit')}
-      </button>
-    </main>
+        <h1 style={{ fontSize: `${MIN_LABEL_PX * 1.4}px`, margin: 0 }}>
+          {t('identity.signIn.title')}
+        </h1>
+
+        {/* THE REFUSAL — and it names NO cause. One message for every
+            credential failure, so the screen is not an identity oracle. */}
+        {failure !== null && (
+          <p
+            data-testid="sign-in-failure"
+            role="alert"
+            style={{ color: COLOURS.danger }}
+          >
+            {t(failure)}
+          </p>
+        )}
+
+        <label style={{ display: 'block', marginTop: SPACING.md }}>
+          {t('identity.signIn.operatorId')}
+          <input
+            data-testid="sign-in-operator-id"
+            value={operatorId}
+            onChange={(event) => setOperatorId(event.target.value)}
+            style={{
+              display: 'block',
+              width: '100%',
+              minHeight: `${TOUCH_TARGET_PX}px`,
+              fontSize: `${MIN_LABEL_PX}px`,
+            }}
+          />
+        </label>
+
+        <label style={{ display: 'block', marginTop: SPACING.md }}>
+          {t('identity.signIn.secret')}
+          <input
+            type="password"
+            data-testid="sign-in-secret"
+            value={secret}
+            onChange={(event) => setSecret(event.target.value)}
+            style={{
+              display: 'block',
+              width: '100%',
+              minHeight: `${TOUCH_TARGET_PX}px`,
+              fontSize: `${MIN_LABEL_PX}px`,
+            }}
+          />
+        </label>
+
+        <button
+          type="button"
+          className="key ok"
+          data-testid="sign-in-submit"
+          onClick={() => {
+            void onSubmit();
+          }}
+          disabled={busy || operatorId.trim() === '' || secret === ''}
+          style={{
+            marginTop: SPACING.md,
+            minHeight: `${TOUCH_TARGET_PX}px`,
+            fontSize: `${MIN_LABEL_PX}px`,
+          }}
+        >
+          {t('identity.signIn.submit')}
+        </button>
+      </main>
+    </div>
   );
 }

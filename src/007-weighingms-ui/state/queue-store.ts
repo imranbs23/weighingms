@@ -29,6 +29,7 @@ import {
   type BatchQueue,
   type QueueBatch,
 } from '../api/endpoints.js';
+import { useWorkflowStore } from './workflow-store.js';
 
 /** The queue's state — and the three are DISTINCT. */
 export type QueueState =
@@ -143,6 +144,13 @@ function handleSelection(
 ): void {
   if (result.kind === 'OK') {
     set({ refusal: null });
+    // THE SELECTION WAS ACCEPTED — and the batch it named (a scan may
+    // have been a prefix) is opened for weighing.
+    const selection = (result.body as { selection?: { batchId?: string } })
+      .selection;
+    if (selection?.batchId !== undefined) {
+      void useWorkflowStore.getState().openBatch(selection.batchId);
+    }
     return;
   }
 

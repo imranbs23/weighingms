@@ -20,12 +20,7 @@
  */
 import type { Translate } from '../../i18n/useStrings.js';
 import type { OperatorReport } from '../../api/endpoints.js';
-import {
-  COLOURS,
-  MIN_LABEL_PX,
-  SPACING,
-  TOUCH_TARGET_PX,
-} from '../batch-queue/tokens.js';
+import { MIN_LABEL_PX, TOUCH_TARGET_PX } from '../batch-queue/tokens.js';
 
 /** Every locale key the operator bar uses. */
 export const OPERATOR_BAR_KEYS = [
@@ -44,20 +39,15 @@ export function OperatorBar({
 }): React.JSX.Element {
   return (
     <div
+      className="op-chip"
       data-testid="operator-bar"
       data-operator-id={operator.operatorId}
       data-role={operator.role}
-      style={{
-        display: 'flex',
-        gap: SPACING.sm,
-        alignItems: 'center',
-        minHeight: `${TOUCH_TARGET_PX}px`,
-        fontSize: `${MIN_LABEL_PX}px`,
-        color: COLOURS.textMuted,
-      }}
     >
+      <span className="dot" />
+      {t('identity.bar.operator')}
       {/* THE IDENTITY — the API's, both fields. */}
-      <span data-testid="operator-bar-name">{operator.displayName}</span>
+      <b data-testid="operator-bar-name">{operator.displayName}</b>
       <span data-testid="operator-bar-role">{operator.role}</span>
 
       <button
@@ -66,7 +56,7 @@ export function OperatorBar({
         onClick={onSignOut}
         style={{
           minHeight: `${TOUCH_TARGET_PX}px`,
-          fontSize: `${MIN_LABEL_PX}px`,
+          fontSize: `${MIN_LABEL_PX * 0.75}px`,
         }}
       >
         {t('identity.bar.signOut')}

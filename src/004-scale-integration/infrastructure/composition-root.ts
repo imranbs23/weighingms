@@ -48,6 +48,16 @@ export interface ScaleModule {
   readonly adapters: Map<string, ScaleAdapter>;
   readonly deviceRepository: SqliteScaleDeviceRepository;
   readonly historyRepository: SqliteDeviceLinkHistoryRepository;
+  /**
+   * Keep every dummy device producing readings for as long as the
+   * station runs, subscribed or not.
+   *
+   * A real indicator streams whether anyone is listening; the dummy only
+   * pumped while a subscriber held it open, so an idle, connected scale
+   * timed out to DISCONNECTED. Called once at boot by the server — tests
+   * that drive the pump themselves do not call it.
+   */
+  keepDevicesAlive(): void;
   close(): void;
 }
 
@@ -169,6 +179,28 @@ export function buildScaleModule(options: BuildScaleOptions): ScaleModule {
     adapters,
     deviceRepository,
     historyRepository,
+    keepDevicesAlive() {
+      for (const [id, adapter] of adapters) {
+        if (!(adapter instanceof DummyScaleAdapter)) continue;
+        if (!adapter.startPumping()) continue;
+
+        const scaleId = ScaleId.create(id);
+        void (async () => {
+          try {
+            // The same path every pump uses: ingest, and publish what the
+            // registry accepted. Another pump finding this one running
+            // leaves it be (`startPumping` is the guard).
+            for await (const reading of adapter.openStream(scaleId)) {
+              if (registry.ingestReading(scaleId, reading)) {
+                streams.publishReading(scaleId, reading);
+              }
+            }
+          } catch {
+            // The stream ended with the module — `close` stops it.
+          }
+        })();
+      }
+    },
     close() {
       scheduler.dispose();
       for (const adapter of adapters.values()) {
