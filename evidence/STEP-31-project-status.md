@@ -1,34 +1,37 @@
 ---
 step: 31
 created: 2026-11-11T08:10:00Z
+refreshed: 2026-11-11T14:50:00Z
 agent: specsmd-master-agent (analyze-context)
 ---
 
 # Step 31 — AI-DLC project state (master agent)
 
 **Prompt:** *"Analyze the current WeighingMS AI-DLC project state. Report
-1–8. Do not modify anything."* Read-only: no memory-bank artifact was
-changed. This report is the step's evidence.
+1–8. Do not modify anything."* Read-only. This report was first produced
+at 08:10 and **refreshed at 14:50 on 2026-11-11**, after bolts 030–033 and
+the Step 13–27 evidence backfill; the earlier version is in git history
+(`98c880b`).
 
-**Phase:** **Construction complete.** Every planned bolt is done, and the
-next AI-DLC phase is Operations, which this workbook does not require. The
-workbook is at its final validation steps (32–35).
+**Phase:** **Construction complete.** Every bolt is done; the next AI-DLC
+phase is Operations, which this workbook does not require. The workbook is
+at its final steps (32–35).
 
 ## 1. Intent status
 
 | Intent | Status | Evidence |
 |---|---|---|
-| `001-assisted-dyestuff-weighing-station` | ✅ **complete** | `requirements.md` `status: complete`; Checkpoint 1 approved (`evidence/STEP-06-GATE-APPROVED.txt`) |
+| `001-assisted-dyestuff-weighing-station` | ✅ **complete** | `requirements.md` `status: complete`; Checkpoints 1 and 2 approved (`STEP-06-GATE-APPROVED.txt`, `STEP-07-GATE-APPROVED.txt`) |
 
 ## 2. Requirements status
 
 | Artifact | Status |
 |---|---|
-| `requirements.md` | ✅ complete: approved at Checkpoint 2 (`STEP-07-GATE-APPROVED.txt`) |
+| `requirements.md` | ✅ complete (approved at Checkpoint 2) |
 | `system-context.md` | ✅ `context-defined` |
 | `ui-analysis.md` | ✅ complete |
 | `units.md` | ✅ `units-decomposed` |
-| `inception-log.md` | ✅ complete: Checkpoint 4 passed |
+| `inception-log.md` | ✅ complete (Checkpoint 4 passed) |
 
 ## 3. Unit status: 8 of 8 complete
 
@@ -45,95 +48,93 @@ workbook is at its final validation steps (32–35).
 
 ## 4. Story status: 38 of 38 complete
 
-`memory-bank/story-index.md`: total 38, completed 38.
+Bolts 029–033 re-delivered existing stories; no story was added.
 
-## 5. Bolt status: 29 of 29 complete
+## 5. Bolt status: 33 of 33 complete
+
+25 DDD construction bolts, 8 simple construction bolts. None planned, in
+progress or blocked.
 
 | Bolts | Unit | Type |
 |---|---|---|
 | 001–002 | 008-operator-identity | DDD |
 | 003–004 | 004-scale-integration | DDD |
-| 005–007 | 005-orgatex-integration | DDD |
+| 005–007, **033** | 005-orgatex-integration | DDD; 033 simple |
 | 008–009 | 001-batch-management | DDD |
 | 010–012 | 002-recipe-material-management | DDD |
-| 013–018 | 003-weighing-station | DDD |
+| 013–018, **030, 032** | 003-weighing-station | DDD |
 | 019–023 | 006-ticket-printing | DDD |
-| 024–029 | 007-weighingms-ui | Simple |
+| 024–029, **031** | 007-weighingms-ui | Simple |
 
-Bolt 029 was appended during construction (`bolt-replan`, recorded in the
-unit's `construction-log.md`) after the Step 28 validation. None is
-planned, in progress or blocked.
+**Appended during construction** (`bolt-replan` → append, each in its
+unit's `construction-log.md`):
 
-Tests: `npm test` passes 1917/1917; `npm run test:e2e` passes 1/1 (Step 29);
-`npm run test:e2e:failures` passes 8/8 (Step 30).
+| Bolt | Why | Found by |
+|---|---|---|
+| 029 | the five views could not be driven end to end | Step 28 validation |
+| 030 | the overshoot rule (option C, supervisor-gated; ADR-047) | Step 24 human decision |
+| 031 | lot, container and tare missing from the weigh view; no record carried a lot or container | Step 20 evidence |
+| 032 | the record lacked the tare (ADR-048) | Step 25 evidence |
+| 033 | the Dummy OrgaTEX's stored consumption could not be read back | Step 26 evidence |
+
+**Decisions:** 48 ADRs in `standards/decision-index.md`.
+
+**Tests:** `npm test` **1969 / 1969**; `npm run test:e2e` 1/1 (Step 29);
+`npm run test:e2e:failures` 8/8 (Step 30); `npm run test:e2e:step24` 1/1.
 
 ## 6. Outstanding work
 
-**Workbook steps not yet done:**
+**Workbook steps not yet done:** 32 (refresh the dashboard: it shows 29
+bolts), 33 (human validation), 34 (`FINAL-EVIDENCE.md`), 35 (the live
+demonstration).
 
-| Step | What is outstanding |
-|---|---|
-| 32 | The final specs.md dashboard |
-| 33 | Final human validation against the five sources |
-| 34 | `FINAL-EVIDENCE.md` is **stale** (see 7) and its Evidence column needs the Step 28–30 artefacts |
-| 35 | The final live demonstration |
+**Evidence still missing — the work is done, the files the workbook names
+were never saved:**
 
-**Evidence never produced (the work itself is built and tested):**
+| Steps | Missing | What exists instead |
+|---|---|---|
+| 0, 1, 5 | `STEP-00-git.png`, `STEP-01-files.png`, `STEP-05-context-analysis.png` | nothing |
+| 2, 3, 4 | `STEP-02-installation.png`, `STEP-03-master-agent.png`, `STEP-04-dashboard.png` | `.txt` equivalents |
+| 6, 7 | `STEP-06-intent.png`, `STEP-06-intent-file.png`, `STEP-06-GATE-APPROVED.png`, `STEP-07-requirements.png`, `STEP-07-GATE-APPROVED.png` | `.txt` equivalents |
+| 11, 12 | `STEP-11-stories.png`, `STEP-12-bolt-plan.png`, `STEP-12-INCEPTION-COMPLETE.png` | `STEP-11-…md`, `STEP-12-bolt-map.png`, `STEP-12-…review.md` |
 
-| Step | Missing artefact |
-|---|---|
-| 13–18 | bolt list, bolt start and plan, dummy-data JSON, API test transcript (`STEP-13` … `STEP-18`) |
-| 19–23, 25–27 | per-feature screenshots and transcripts (batch screen and network, weigh screen, scale switch, tolerance tests and UI, confirmation and transaction JSON, write-back request, response and **stored data**, ticket and printer API) |
-| **24** | **`STEP-24-overshoot-decision.md` — a HUMAN decision that has not been recorded.** The workbook says not to copy the prototype's calculation silently, and to record the training rule the team approves. The product currently proposes proportional compensation (ADR-038), refuses to confirm OVER, and offers Re-tare. Someone has to approve that rule, or a different one. |
-| 0, 1, 5, 11, 12 | terminal screenshots (`STEP-00-git.png` …); text equivalents exist for 2–4 |
+Steps 13–27 are now complete (backfilled, each file marked as such;
+`scripts/evidence-backfill.cjs` regenerates them).
 
 **Known gaps in the product (none blocks the scenario):**
 
-- **Step 26** asks to *"show the resulting consumption record"*. The Dummy
-  OrgaTEX has `POST /api/batches/:id/consumption` but **no GET** to read
-  stored data back; the station's own summary reports `CONFIRMED`.
-- **Lot and container** are never captured in the operator flow, so the
-  weigh-head and the ticket show no lot (the workbook's Step 34 matrix
-  lists "Lot tracking").
-- The **video** is `.webm`; the workbook names `.mp4` (no ffmpeg on this
-  machine).
-- Cosmetic: the status strip repeats a state as its reason; a missing lot
-  reads "No reading".
+1. The supervisor's tolerance report counts 0 overrides: it reads the audit
+   trail, and the override path writes none (the override record itself is
+   stored).
+2. The completion view briefly shows raw locale keys before its strings
+   load.
+3. The status line reads "Settling" after a supervisor authorises an
+   override.
+4. The videos are `.webm`; the workbook names `.mp4` (no ffmpeg here).
+5. A missing lot or container reads "No reading"; a component posted with
+   no lot is sent to OrgaTEX as `UNKNOWN`.
+6. A bucket weighed empty on the training scale records a 0 kg tare
+   (nothing physical is on the platform).
 
 ## 7. Status inconsistencies
 
-**The framework's integrity check** (`status-integrity.cjs`): 29 bolts,
-1 intent, **0 inconsistencies.** Bolt → story → unit → intent cascades
-correctly.
+**The framework's integrity check** (`status-integrity.cjs`): **33 bolts, 1
+intent, 0 inconsistencies.**
 
 **Outside what the script checks:**
 
 | Artifact | Says | Should say |
 |---|---|---|
-| `FINAL-EVIDENCE.md` | "**19 of 19** bolts complete" | 29 of 29. Its matrix also predates the Step 28–30 work and the three defects Step 30 fixed |
-| `memory-bank/story-index.md` | last updated 2026-11-08 | correct counts (38/38). Bolt 029 re-delivered existing stories, so the index is not wrong, only old |
-| `evidence/STEP-28-ui-validation/validation.md` | its 2026-11-07 section describes gaps that are now closed | **consistent**: the 2026-11-11 PASSED section supersedes it, and both are kept as history |
+| `FINAL-EVIDENCE.md` | "**19 of 19**" bolts | 33 of 33; its matrix predates Steps 13–30 |
+| `memory-bank/story-index.md` | last updated 2026-11-08 | counts are correct (38/38); only the date is old |
+| `evidence/STEP-32-final-dashboard.md` | 29/29 bolts | 33/33 (Step 32 is re-captured next) |
 
 ## 8. Ready for final validation?
 
-**Construction: yes.** All intents, units, stories and bolts are complete
-and consistent; the scenario and the failure scenarios pass against the
-running product.
+**Construction: yes.** Intents, units, stories and bolts are complete and
+consistent; the scenario, the failure scenarios and the overshoot rule pass
+against the running product.
 
-**Final validation (Step 33): not yet, on two counts that are the
-human's, not the code's:**
-
-1. **The overshoot rule (Step 24) has no recorded human decision.** It is
-   a business rule the workbook explicitly reserves for a person.
-2. **The evidence trail for Steps 13–27 is missing.** Step 33 validates
-   against "Acceptance Criteria — can every important behaviour be
-   demonstrated?", and Step 34 needs evidence for each matrix row.
-
-**Recommended next actions, in order:**
-
-1. Step 32: open the dashboard.
-2. Record the Step 24 overshoot decision.
-3. Backfill the Step 13–27 evidence. Most of it can be generated from the
-   running product: API transcripts, the dummy data JSON, the tolerance
-   test output, screenshots.
-4. Then Steps 33–35.
+**For Step 33 the human should know:** the six product gaps above, and the
+missing early-step screenshots (Steps 0–7, 11, 12). Neither affects what
+the product does; both affect what the evidence package shows.

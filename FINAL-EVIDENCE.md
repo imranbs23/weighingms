@@ -1,102 +1,124 @@
 ---
 step: 34
 created: 2026-11-07T06:00:00Z
+rewritten: 2026-11-11T15:15:00Z
 ---
 
 # FINAL-EVIDENCE.md — the evidence matrix
 
-**The workbook's Step 34:** *"Create FINAL-EVIDENCE.md"* with the matrix
-of requirement → UI → API → code → test → evidence → result.
+**The workbook's Step 34:** *"Create FINAL-EVIDENCE.md"* with the matrix of
+requirement → UI → API → code → test → evidence → result. The rows are the
+workbook's own. Every file named under **Evidence** is in `evidence/`.
 
-**The matrix's rows are the workbook's own**, and the **Evidence** column
-names the artefact that proves each one.
-
----
+Rewritten on 2026-11-11 after bolts 029–033 and the Step 13–27 backfill;
+the 2026-11-07 version (19 bolts) is in git history.
 
 ## The matrix
 
 | **Requirement** | **UI** | **API** | **Code** | **Test** | **Evidence** | **Result** |
 |---|---|---|---|---|---|---|
-| **Batch queue** | ✓ | ✓ | ✓ | ✓ | `src/007-weighingms-ui/screens/batch-queue/` · `GET /api/batch-queue` | ✅ 10 client tests · the queue renders the seven columns and the receipt time |
-| **Batch selection** | ✓ | ✓ | ✓ | ✓ | `src/001-batch-management/` · `POST /api/selection` | ✅ by scan **and** by touch, and the method is **derived** from the request's shape (ADR-030) |
-| **Recipe** | ✓ | ✓ | ✓ | ✓ | `src/002-recipe-material-management/` · `GET /api/recipe/:batchId` | ✅ the rail shows each component's state, the shade, the batch and the count |
-| **Scale selection** | ✓ | ✓ | ✓ | ✓ | `src/004-scale-integration/` · `POST /api/scales/select` | ✅ the **rule** selects it — the operator never chooses (BRD BR-05) |
-| **Live weight** | ✓ | ✓ | ✓ | ✓ | `src/004-scale-integration/presentation/controllers/weight-stream-controller.ts` (SSE) | ✅ 10 Hz push · the newest reading wins **by sequence** · a stale reading shows **no value** |
-| **Tolerance** | — | ✓ | ✓ | ✓ | `src/003-weighing-station/domain/services/tolerance-zone-evaluator.ts` | ✅ **the client computes no zone** — the source test proves it |
-| **Lot tracking** | ✓ | ✓ | ✓ | ✓ | `src/002-recipe-material-management/` · `GET /api/material-lot/:componentId` | ✅ the weigh-head shows the lot; the method is recorded on the capture |
-| **Container/tare** | ✓ | ✓ | ✓ | ✓ | `src/002-recipe-material-management/` · `GET /api/container/:componentId` | ✅ the container is shown and the tare is applied at the **device** (ADR-014) |
-| **Component progression** | ✓ | ✓ | ✓ | ✓ | `src/003-weighing-station/domain/entities/weighing-session.ts` | ✅ the record is written **first**, then the session advances (ADR-040) |
-| **Overshoot** | ✓ | ✓ | ✓ | ✓ | `src/003-weighing-station/domain/services/compensation-calculator.ts` | ✅ the factor is **computed**, never a constant, and the client renders it |
-| **OrgaTEX write-back** | ✓ | ✓ | ✓ | ✓ | `src/005-orgatex-integration/` · `POST /api/orgatex/consumption` | ✅ **idempotent** — the ledger's `UNIQUE` is the atomic guard (ADR-023) |
-| **Ticket** | ✓ | ✓ | ✓ | ✓ | `src/006-ticket-printing/` · `POST /api/tickets` · `POST /api/tickets/:id/print` | ✅ **one per session**; the client composes **no part** of it (ADR-042) |
+| **Batch queue** | ✓ | ✓ | ✓ | ✓ | `STEP-19-batch-screen.png`, `STEP-19-network.png`, `STEP-19-test.png`; `STEP-16/17/18` | ✅ The queue comes from the API (`GET /api/batch-queue`, reading the Dummy OrgaTEX through the adapter, ADR-028); no batch is hard-coded in the client |
+| **Batch selection** | ✓ | ✓ | ✓ | ✓ | `STEP-19-*` | ✅ By scan or touch (`POST /api/selection`); the method is derived from the request (ADR-030) |
+| **Recipe** | ✓ | ✓ | ✓ | ✓ | `STEP-17-dummy-data.json`, `STEP-17-api-response.png`, `STEP-19-network.png` | ✅ Five components, matching the prototype exactly (target, tolerance, unit, scale) |
+| **Scale selection** | ✓ | ✓ | ✓ | ✓ | `STEP-21-scale-switch.png`, `STEP-21-scale-api.png` | ✅ The station picks the scale: Yellow RGB → 3 kg precision (g), Sodium Sulphate → 32 kg floor (kg) |
+| **Live weight** | ✓ | ✓ | ✓ | ✓ | `STEP-21-scale-api.png`; `STEP-20-weigh-screen.png` | ✅ `GET /api/scales/:id/weight` is a live stream (SSE, 100 ms default); a stale reading shows no value |
+| **Tolerance** | ✓ | — | ✓ | ✓ | `STEP-22-tolerance-tests.txt`, `STEP-22-tolerance-ui.png` | ✅ 93.4 no · 93.5 yes · 94.0 yes · 94.5 yes · 94.6 no, on the terminal and at the gate; the client computes no zone |
+| **Lot tracking** | ✓ | ✓ | ✓ | ✓ | `STEP-20-weigh-screen.png`, `STEP-25-transaction.json` | ✅ The MES's lot is retrieved (SOURCE) or scanned / keyed; this session's lot is on the record (bolt 031) |
+| **Container/tare** | ✓ | ✓ | ✓ | ✓ | `STEP-20-weigh-screen.png`, `STEP-25-confirmation.png` | ✅ Assigned in the Prepare panel; the tare (weight and source) is on the record (bolts 031–032, ADR-048) |
+| **Component progression** | ✓ | ✓ | ✓ | ✓ | `STEP-23-five-component-demo.webm`, `STEP-23-video-frames.png`, `STEP-23-progression-log.txt` | ✅ Five components in order, each only when valid; the batch cannot complete until all are done (409) |
+| **Overshoot** | ✓ | ✓ | ✓ | ✓ | `STEP-24-overshoot-decision.md`, `STEP-24-overshoot-ui.png`, `STEP-24-overshoot-test.png` | ✅ The human's rule (option C): never auto-confirmed, no recalculation; re-tare, or a supervisor override with reason, marked "OVER · overridden" (ADR-047) |
+| **OrgaTEX write-back** | ✓ | ✓ | ✓ | ✓ | `STEP-26-ui.png`, `STEP-26-request.png`, `STEP-26-response.png`, `STEP-26-data.png`; `STEP-30-failure-tests.md` | ✅ CONFIRMED at completion; five postings stored, each with lot, operator and idempotency key; offline postings are queued and confirmed on recovery |
+| **Ticket** | ✓ | ✓ | ✓ | ✓ | `STEP-27-ticket.png`, `STEP-27-printer-api.png`, `STEP-27-ticket-test.png` | ✅ All ten prototype fields, printed on the Dummy printer; the client composes no part of it (ADR-042) |
 
----
+**Also asked for by the workbook:** confirmation (Step 25:
+`STEP-25-confirmation.png`, `STEP-25-transaction.json`, all eight fields on
+the record), the complete scenario (Step 29: `STEP-29-playwright-report/`,
+`STEP-29-e2e-video.webm`), the failure scenarios (Step 30:
+`STEP-30-failure-tests.md`), the UI validation (Step 28:
+`STEP-28-ui-validation/`).
 
-## Beyond the matrix — the requirements the workbook's table does not list
-
-**The workbook's table covers the ten headline requirements. The intent has
-more, and these are the ones a reviewer would look for:**
+## Beyond the matrix
 
 | **Requirement** | **Where** | **Result** |
 |---|---|---|
-| **Supervisor override** (FR-13) | `src/003-weighing-station/domain/services/authorise-escalation.ts` | ✅ the operator's own credentials **cannot** authorise it — the check is on **identity** |
-| **The audit trail** (FR-21, FR-36) | `src/006-ticket-printing/domain/entities/audit-entry.ts` | ✅ append-only, with **no update and no delete path** |
-| **The export** (FR-21) | `GET /api/audit/trail/export` | ✅ **streamed** as NDJSON — the peak memory is one entry (ADR-044) |
-| **Operational reporting** (FR-23) | `GET /api/report/tolerance` | ✅ the zone is **read** from the record, never recomputed (ADR-046) |
-| **Configuration** (FR-22) | `PUT /api/configuration/:key` | ✅ **versioned** — the effective value is a function of **time** (ADR-045) |
-| **The peripheral states** (FR-19) | `src/007-weighingms-ui/screens/status/StatusStrip.tsx` | ✅ every entry is a **real value from the API**; two failures get two entries |
-| **The identity and roles** (FR-18, FR-35) | `src/008-operator-identity/` | ✅ Argon2id, and **two** roles; the session token is a **digest** (ADR-002) |
-| **Retention and immutability** (DR-01, DR-02) | every table's triggers | ✅ every record is append-only, with the triggers as the enforcement |
-
----
+| Supervisor override (FR-13, FR-21) | unit 008 authorisation, consumed by the escalation | ✅ Fresh supervisor credentials; the operator's own are refused; single use, scoped to the component |
+| Audit trail (FR-21) | `src/006-ticket-printing/` | ✅ Append-only; export streamed (ADR-044) |
+| Operational report (FR-23) | `GET /api/report/tolerance` | ⚠️ Lists failures; **counts 0 overrides** (it reads the audit trail; the override path writes none) |
+| Configuration and language (FR-22) | `GET /api/locale`, configuration store | ✅ Versioned; every operator string from the bundle (English only: the language is not yet agreed) |
+| Peripheral states (FR-19) | the status strip | ✅ Scales, scanner, printer, OrgaTEX link, each a real value from the API |
+| Identity and roles (FR-18) | `src/008-operator-identity/` | ✅ Argon2id; session tokens stored as digests |
+| Records immutable (DR-02) | every table's triggers | ✅ Append-only; corrections are new rows |
 
 ## The evidence, by step
 
 | **Step** | **Artefact** |
 |---|---|
-| 0 — the repository | `evidence/STEP-03-project-state.txt` |
-| 2 — specs.md installed | `evidence/STEP-02-manifest.txt`, `evidence/STEP-02-node-version.txt` |
-| 2.5 — the Puku skills | `evidence/STEP-02.5-skill-validation.txt` |
-| 3 — the agents | `evidence/STEP-03-project-state.txt` |
-| 4 — the dashboard | `evidence/STEP-04-dashboard.txt` |
-| 6 — the intent approved | `evidence/STEP-06-intent.txt`, `evidence/STEP-06-GATE-APPROVED.txt` |
-| 7 — the requirements approved | `evidence/STEP-07-requirements-validation.txt`, `evidence/STEP-07-GATE-APPROVED.txt` |
-| 8 — the UI/UX converted | `evidence/STEP-08-ui-analysis/`, `evidence/STEP-08-manifest.txt` |
-| 9 — the system context | `evidence/STEP-09-system-context.md`, `evidence/STEP-09-system-context.png` |
-| 10 — the units | `evidence/STEP-10-manifest.txt`, `evidence/STEP-10-units.png`, `evidence/STEP-10-unit-map.png` |
-| 11 — the FR convention | `evidence/STEP-11-fr-reference-convention.md` |
-| 12 — the bolt map | `evidence/STEP-12-bolt-map.png`, `evidence/STEP-12-checkpoint-3-review.md` |
-| **28 — the UI validation** | **`evidence/STEP-28-ui-validation/validation.md`** |
-| **34 — this matrix** | `FINAL-EVIDENCE.md` |
+| 0, 1 | — *(image files not saved; see below)* |
+| 2 | `STEP-02-manifest.txt`, `STEP-02-node-version.txt` |
+| 2.5 | `STEP-02.5-skill-validation.txt` |
+| 3 | `STEP-03-project-state.txt` |
+| 4 | `STEP-04-dashboard.txt` |
+| 5 | — *(not saved)* |
+| 6 | `STEP-06-intent.txt`, `STEP-06-GATE-APPROVED.txt` |
+| 7 | `STEP-07-requirements-validation.txt`, `STEP-07-GATE-APPROVED.txt` |
+| 8 | `STEP-08-ui-analysis/`, `STEP-08-manifest.txt` |
+| 9 | `STEP-09-system-context.md`, `STEP-09-system-context.png` |
+| 10 | `STEP-10-manifest.txt`, `STEP-10-units.png`, `STEP-10-unit-map.png` |
+| 11 | `STEP-11-fr-reference-convention.md` |
+| 12 | `STEP-12-bolt-map.png`, `STEP-12-checkpoint-3-review.md` |
+| 13 | `STEP-13-bolt-list.png`, `.md` |
+| 14 | `STEP-14-bolt-start.png`, `.md` |
+| 15 | `STEP-15-plan.png`, `.md` |
+| 16 | `STEP-16-dummy-apis.png`, `.md` |
+| 17 | `STEP-17-dummy-data.json`, `STEP-17-api-response.png` |
+| 18 | `STEP-18-api-tests.txt`, `STEP-18-api-results.png` |
+| 19 | `STEP-19-batch-screen.png`, `STEP-19-network.png`, `STEP-19-test.png` |
+| 20 | `STEP-20-weigh-screen.png`, `.md` |
+| 21 | `STEP-21-scale-switch.png`, `STEP-21-scale-api.png` |
+| 22 | `STEP-22-tolerance-tests.txt`, `STEP-22-tolerance-ui.png` |
+| 23 | `STEP-23-five-component-demo.webm`, `STEP-23-video-frames.png`, `STEP-23-progression-log.txt` |
+| 24 | `STEP-24-overshoot-decision.md`, `STEP-24-overshoot-ui.png`, `STEP-24-overshoot-test.png`, `STEP-24-overshoot-completion.png` |
+| 25 | `STEP-25-confirmation.png`, `STEP-25-transaction.json` |
+| 26 | `STEP-26-ui.png`, `STEP-26-request.png`, `STEP-26-response.png`, `STEP-26-data.png` |
+| 27 | `STEP-27-ticket.png`, `STEP-27-printer-api.png`, `STEP-27-ticket-test.png` |
+| 28 | `STEP-28-ui-validation/` |
+| 29 | `STEP-29-playwright-report/`, `STEP-29-e2e-video.webm`, `STEP-29-e2e.md`, `STEP-29-unit-tests.txt` |
+| 30 | `STEP-30-failure-tests.md`, `STEP-30-failure-tests/` |
+| 31 | `STEP-31-project-status.md` |
+| 32 | `STEP-32-final-dashboard.png`, `-overview.png`, `-specs.png`, `.md` |
+| 33 | `STEP-33-human-validation.md` *(verdict pending)* |
+| 34 | `FINAL-EVIDENCE.md` (this file) |
 
----
+Steps 13–27 were **backfilled** on 2026-11-11: the work happened during
+construction, the files were captured afterwards from the project's records
+and fresh runs, and each says so. `node scripts/evidence-backfill.cjs <step>`
+regenerates them.
 
 ## The state of the build
 
 | | |
 |---|---|
-| **Bolts** | **19 of 19** complete |
-| **Units** | **8 of 8** complete |
-| **Intent** | **complete** |
-| **Tests** | **1843 passing**, 119 files |
-| **Coverage** | 87.80% statements · **80.29%** branches · 90.27% functions · 88.77% lines — **all four above the 80% threshold** |
-| **ADRs** | **46**, all well-formed and in the decision index |
-| **Typecheck** | clean, on both the server and the client configs |
-
----
+| **Intent** | complete |
+| **Units** | 8 of 8 complete |
+| **Stories** | 38 of 38 complete |
+| **Bolts** | **33 of 33** complete (25 DDD, 8 simple); 0 status inconsistencies |
+| **ADRs** | 48 |
+| **Tests** | `npm test` **1969 / 1969**; e2e: scenario 1/1, failures 8/8, overshoot 1/1 |
+| **Coverage** | 88.37% statements · 81.55% branches · 90.78% functions · 89.38% lines (`npm run test:coverage`, 2026-11-11) |
+| **Typecheck** | clean, server and client |
 
 ## What is NOT in this package
 
-**And it is named here rather than left for a reviewer to find.**
-
-| **Missing** | **Why** |
+| **Missing** | **Status** |
 |---|---|
-| **The Playwright report and the e2e video** (Step 29) | **Not yet built.** It is the next piece of work, and it needs a browser driving the real application. |
-| **The three prototype comparison screenshots** (Step 28) | **Not yet captured.** The *comparison* is done — `evidence/STEP-28-ui-validation/validation.md` — and it names the gaps element by element. The screenshots need the browser too. |
-| **The failure-scenario captures** (Step 30) | **Not yet captured.** The behaviours are implemented and tested — the printer's failure, the unreachable MES, the silent scale — but the *capture* is Step 30's. |
-| **The abandon and manual-reselection endpoints** | **Not built.** Two API gaps, both flagged in bolt `026`'s report. The reselection is a **privileged** action, so it needs unit `008`'s authorisation. |
-| **The scanner's and printer's status endpoints** | **Not built.** Two small API additions, so the status strip can show all four peripherals as the story requires. |
-| **The scan panel's own screen** | **Not built.** The one undelivered part of bolt `028` — the attestation offer needs it. |
+| Image files for Steps 0, 1, 5 | Never saved; no text equivalent |
+| Image files for Steps 2–4, 6, 7, 11, 12 | Never saved; text or other equivalents listed above |
+| `.mp4` videos | The videos are `.webm` (no ffmpeg on this machine) |
+| Dyestuff identity check in the terminal (story 002-002) | The API exists (scan or attestation); the terminal has no screen for it |
+| Abandoning a component on the server | Quit (F4) leaves the view; the session resumes. No abandon endpoint |
+| Manual scale reselection | Not built (the rule always selects) |
+| Override count in the tolerance report | Counts 0 (see above) |
+| Cosmetic | Raw string keys flash on the completion view; "Settling" after an authorisation; "No reading" for a missing lot or container; a lot-less posting is sent as `UNKNOWN`; a bucket weighed empty on the training scale records 0 kg |
 
-**None of these is a defect in what exists.** They are the remaining
-work, and they are listed so the gap is visible rather than implied.
+None of these blocks the workbook's scenario. They are listed so the gaps
+are visible rather than implied.
