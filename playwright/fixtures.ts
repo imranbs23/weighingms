@@ -254,3 +254,21 @@ function multiply(text: string, factor: number): string {
   const tail = remainder.toString().padStart(-digits, '0');
   return `${negative ? '-' : ''}${whole2}.${tail}`;
 }
+
+/**
+ * Go to the batch queue after signing in.
+ *
+ * On sign-in the terminal reopens the LAST session's view — a completed
+ * batch shows its completion view, so the operator sees the batch they just
+ * finished. A spec that wants the queue presses Next batch, as an operator
+ * would; this keeps the specs independent of the order they run in.
+ */
+export async function toTheQueue(page: Page): Promise<void> {
+  const queue = page.getByTestId('batch-queue-screen');
+  const completion = page.getByTestId('completion-screen');
+  await expect(queue.or(completion)).toBeVisible();
+  if (await completion.isVisible()) {
+    await page.getByTestId('next-batch-action').click();
+  }
+  await expect(queue).toBeVisible();
+}

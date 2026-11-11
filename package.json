@@ -23,7 +23,9 @@
     "verify:frontmatter": "node scripts/verify-frontmatter.cjs",
     "verify:implementation": "node scripts/verify-implementation.cjs",
     "normalise:line-endings": "node scripts/normalise-line-endings.cjs",
-    "normalise:timestamps": "node scripts/unquote-timestamps.cjs"
+    "normalise:timestamps": "node scripts/unquote-timestamps.cjs",
+    "test:e2e": "playwright test",
+    "evidence:step28": "playwright test -c playwright.capture.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",

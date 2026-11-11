@@ -8,7 +8,13 @@
  */
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { test, expect, signInAtStation, BATCH_ID } from './fixtures.js';
+import {
+  test,
+  expect,
+  signInAtStation,
+  toTheQueue,
+  BATCH_ID,
+} from './fixtures.js';
 
 const OUT = 'evidence/STEP-28-ui-validation';
 const PROTOTYPE = pathToFileURL(
@@ -37,6 +43,7 @@ test('app — the three screens, through the UI', async ({ page, releaseBatch })
   await page.screenshot({ path: `${OUT}/app-0-sign-in.png`, fullPage: true });
 
   await signInAtStation(page);
+  await toTheQueue(page);
   await expect(page.getByTestId(`queue-row-${BATCH_ID}`)).toBeVisible();
   await expect(page.getByTestId('peripheral-SCALE-A')).toHaveAttribute(
     'data-healthy',

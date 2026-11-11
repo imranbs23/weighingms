@@ -35,6 +35,10 @@ export const E2E_API_URL = `http://localhost:${API_PORT}`;
 
 export default defineConfig({
   testDir: './playwright',
+  // The Step 28 capture is evidence tooling with its own config
+  // (`playwright.capture.config.ts`): it needs a fresh world, and B-24187
+  // leaves the released queue once the suite has weighed it.
+  testIgnore: '**/step28-capture.spec.ts',
   // The specs share ONE running product and ONE database — so they run in
   // order, one at a time. A parallel suite would have two batches fighting
   // over one MES world.

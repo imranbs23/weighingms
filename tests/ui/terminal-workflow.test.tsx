@@ -502,7 +502,6 @@ describe('the weigh view', () => {
         receivedAt: Date.now() + 60_000,
       });
     });
-    });
 
     await waitFor(() => {
       expect(screen.getByTestId('live-weight-value').textContent).toContain('23.996');
